@@ -1288,11 +1288,42 @@ checkThrows(function () {
 // Content-Type: text/plain で JSON を POST する（CORS プリフライト回避）。
 console.log('\n[15] 外部 API（doPost ルーター）');
 
-/** doPost を JSON 本文で呼ぶ（ブラウザからの POST を再現） */
+/** Code.gs の共有トークン（認証テストで使う。const は context のプロパティにならない） */
+const API_TOKEN = vm.runInContext('API_TOKEN', context);
+
+/**
+ * doPost を JSON 本文で呼ぶ（ブラウザからの POST を再現）。
+ * token を省略した場合は正しいトークンを自動で付与する
+ * （認証そのものを試すときは token を明示的に指定する）。
+ */
 function postApi(payload) {
-  const output = context.doPost({ postData: { contents: JSON.stringify(payload) } });
+  const body = Object.prototype.hasOwnProperty.call(payload, 'token')
+    ? payload
+    : Object.assign({ token: API_TOKEN }, payload);
+  const output = context.doPost({ postData: { contents: JSON.stringify(body) } });
   return { text: output.getContent(), mime: output.mimeType, json: JSON.parse(output.getContent()) };
 }
+
+// --- トークン認証 ---
+checkEqual(API_TOKEN, 'DRONE_LOG_SECURE_TOKEN_2026', 'API_TOKEN は既定の共有トークン');
+
+const apiNoToken = postApi({ action: 'getCatalog', args: [], token: undefined });
+checkEqual(apiNoToken.json.success, false, 'token 未指定は success:false');
+checkEqual(apiNoToken.json.error, '認証エラー: token が指定されていません。', 'token 未指定のメッセージ');
+
+const apiBlankToken = postApi({ action: 'getCatalog', args: [], token: '' });
+checkEqual(apiBlankToken.json.success, false, 'token が空文字は success:false');
+checkEqual(apiBlankToken.json.error, '認証エラー: token が指定されていません。', 'token 空文字のメッセージ');
+
+const apiWrongToken = postApi({ action: 'getCatalog', args: [], token: 'WRONG_TOKEN' });
+checkEqual(apiWrongToken.json.success, false, 'token 不一致は success:false');
+checkEqual(apiWrongToken.json.error, '認証エラー: token が正しくありません。', 'token 不一致のメッセージ');
+checkEqual(Object.prototype.hasOwnProperty.call(apiWrongToken.json, 'data'), false,
+  '認証エラー時は data を返さない');
+
+const apiTokenGuess = postApi({ action: 'initSpreadsheet', token: 'WRONG_TOKEN' });
+check(apiTokenGuess.json.error.indexOf('認証エラー') === 0,
+  'token 不正なら未定義 action の判定より先に拒否される（action 名を探らせない）');
 
 const apiBoot = postApi({ action: 'getBootstrapData', args: [] });
 checkEqual(apiBoot.json.success, true, 'getBootstrapData は success:true');
@@ -1357,19 +1388,28 @@ check(apiEmpty.error.indexOf('本文が空') !== -1, '本文が空のメッセ�
 
 // 本文なし + クエリ文字列（curl での動作確認用）
 const apiQuery = JSON.parse(
-  context.doPost({ parameter: { action: 'getCatalog' } }).getContent()
+  context.doPost({ parameter: { action: 'getCatalog', token: API_TOKEN } }).getContent()
 );
 checkEqual(apiQuery.success, true, 'e.parameter.action でも呼べる');
 
 const apiQueryArgs = JSON.parse(
-  context.doPost({ parameter: { action: 'getFlights', args: '[{"limit":1}]' } }).getContent()
+  context.doPost({
+    parameter: { action: 'getFlights', args: '[{"limit":1}]', token: API_TOKEN }
+  }).getContent()
 );
 checkEqual(apiQueryArgs.data.items.length, 1, 'クエリ文字列の args を JSON として解釈');
 
 const apiQueryBadArgs = JSON.parse(
-  context.doPost({ parameter: { action: 'getFlights', args: '{oops' } }).getContent()
+  context.doPost({ parameter: { action: 'getFlights', args: '{oops', token: API_TOKEN } }).getContent()
 );
 check(apiQueryBadArgs.error.indexOf('args の JSON') !== -1, 'args の JSON 不正はエラー');
+
+const apiQueryNoToken = JSON.parse(
+  context.doPost({ parameter: { action: 'getCatalog' } }).getContent()
+);
+checkEqual(apiQueryNoToken.success, false, 'クエリ文字列でも token は必須');
+checkEqual(apiQueryNoToken.error, '認証エラー: token が指定されていません。',
+  'クエリ文字列の token 未指定メッセージ');
 
 // サーバー側の例外は success:false + メッセージで返す
 const apiEnvError = postApi({ action: 'fetchFlightEnvironment', args: ['abc', 139.7] });

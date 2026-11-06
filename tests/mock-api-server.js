@@ -3,7 +3,8 @@
  *
  * - GET  : drone-log/ 配下の静的ファイルを返す（GitHub Pages 相当）
  * - POST : /api に JSON を受け取り、GAS の doPost と同じ封筒
- *          （{success,data} / {success,error}）で返す
+ *          （{success,data} / {success,error}）で返す。
+ *          token が GAS 側の API_TOKEN と一致しない場合は「認証エラー」を返す
  *
  * 使い方:
  *   node drone-log/tests/mock-api-server.js 8811
@@ -17,6 +18,9 @@ var path = require('path');
 
 var port = Number(process.argv[2] || 8811);
 var root = path.join(__dirname, '..');
+
+/** GAS 側（Code.gs の API_TOKEN）と揃えた共有トークン */
+var API_TOKEN = 'DRONE_LOG_SECURE_TOKEN_2026';
 
 var bootstrap = {
   ok: true,
@@ -61,7 +65,18 @@ function handleApi(req, res) {
       return;
     }
     var action = payload && payload.action;
+    var token = payload && payload.token;
     console.log('[mock-api] action=' + action + ' args=' + JSON.stringify(payload.args || []));
+
+    // GAS 側（doPost の verifyApiToken_）と同じ検証
+    if (!token) {
+      sendJson(res, { success: false, error: '認証エラー: token が指定されていません。' });
+      return;
+    }
+    if (token !== API_TOKEN) {
+      sendJson(res, { success: false, error: '認証エラー: token が正しくありません。' });
+      return;
+    }
 
     switch (action) {
       case 'getBootstrapData':

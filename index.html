@@ -843,6 +843,9 @@ var SAVE_BUTTON_HTML = '';
 var API_CONFIG = {
   // GAS Web アプリ（doPost）の本番エンドポイント
   url: 'https://script.google.com/macros/s/AKfycbzzCRwgtNBXefv9IYcpU-h84j2VDWJ2VVJ-LwMTG0nxHdQSU5aapF0Ldj8C7pSzwnYt_Q/exec',
+  // doPost の認証トークン（Code.gs の API_TOKEN と必ず一致させる）
+  // ※公開リポジトリに含まれるため、これは「簡易ゲート」であり秘匿情報ではない
+  token: 'DRONE_LOG_SECURE_TOKEN_2026',
   // 通常の API のタイムアウト（ミリ秒）
   timeoutMs: 30000,
   // 画像解析・現場環境は外部 API を複数叩くため長めに取る
@@ -1163,6 +1166,9 @@ var API_SLOW_ACTIONS = {
  * （OPTIONS）を送るが、GAS はこれに応答できず失敗する。そのため
  * text/plain;charset=utf-8（simple request）で送信している。
  *
+ * 本文には API_CONFIG.token を必ず含める（doPost 側で照合し、
+ * 一致しない場合は「認証エラー」を返す）。
+ *
  * @param {string} funcName action 名
  * @param {Array} args 引数
  * @return {Promise<*>} レスポンスの data
@@ -1174,7 +1180,7 @@ function callApi(funcName, args) {
   var options = {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: funcName, args: args }),
+    body: JSON.stringify({ action: funcName, args: args, token: API_CONFIG.token }),
     redirect: 'follow'
   };
 

@@ -27,6 +27,20 @@ const APP_NAME = 'ドローン飛行日誌';
 const APP_VERSION = '1.0.0';
 
 /**
+ * 外部 API（doPost）の共有トークン。
+ *
+ * GitHub Pages のフロントエンド（index.html の API_CONFIG.token）が送る
+ * payload.token と照合し、一致しないリクエストは処理せずエラーを返す。
+ *
+ * 注意: この値は公開リポジトリの index.html に埋め込まれているため、
+ * ソースを見れば誰でも取得できる。したがって「第三者のアプリからの
+ * 誤爆や、action 名の総当たり探索を防ぐ簡易ゲート」であり、暗号学的な
+ * アクセス制御ではない。厳密な秘匿が必要になった場合は、利用者ごとの
+ * 認証（Google ログイン等）と、この値の Script Properties 管理へ移行する。
+ */
+const API_TOKEN = 'DRONE_LOG_SECURE_TOKEN_2026';
+
+/**
  * 業務上のタイムゾーン。
  * スクリプトのタイムゾーン設定に依存すると端末やプロジェクト設定で
  * 日付がずれるため、明示的に JST 固定で扱う。
@@ -308,11 +322,16 @@ function doGet(e) {
  * 外部フロントエンド（GitHub Pages）から呼ばれる Web API のエントリポイント。
  *
  * リクエスト: POST の本文に JSON を載せる。
- *   { "action": "getFlights", "args": [{ "droneId": "DRN-0001", "limit": 50 }] }
+ *   { "action": "getFlights", "args": [{ "droneId": "DRN-0001", "limit": 50 }],
+ *     "token": "DRONE_LOG_SECURE_TOKEN_2026" }
  *
  * レスポンス: 常に HTTP 200 + JSON。
  *   成功: { "success": true,  "data": <関数の戻り値> }
  *   失敗: { "success": false, "error": "日本語のメッセージ" }
+ *
+ * 認証:
+ * - 本文の token が API_TOKEN と一致しない場合は、action を実行せず
+ *   「認証エラー: …」を返す（token の照合は action の検証より先に行う）。
  *
  * 注意:
  * - GAS の Web アプリは CORS のプリフライト（OPTIONS）に応答できない。
@@ -331,6 +350,11 @@ function doPost(e) {
   try {
     const payload = parseApiRequest_(e);
     action = payload.action;
+
+    // トークン照合は action の検証より先に行う
+    // （トークンを持たない相手に「存在する action 名」を探らせない）
+    verifyApiToken_(payload.token);
+
     const args = payload.args || [];
 
     if (!action) throw new Error('action が指定されていません。');
@@ -345,13 +369,13 @@ function doPost(e) {
 }
 
 /**
- * リクエスト本文（またはクエリ文字列）から action と args を取り出す。
+ * リクエスト本文（またはクエリ文字列）から action / args / token を取り出す。
  *
- * 本文が空でも ?action=getCatalog の形で呼べるようにしてある
+ * 本文が空でも ?action=getCatalog&token=… の形で呼べるようにしてある
  * （デプロイ後の動作確認を curl で行いやすくするため）。
  *
  * @param {Object} e イベント
- * @return {{action: string, args: Array}} リクエスト内容
+ * @return {{action: string, args: Array, token: (string|undefined)}} リクエスト内容
  */
 function parseApiRequest_(e) {
   const contents = e && e.postData ? e.postData.contents : '';
@@ -366,7 +390,7 @@ function parseApiRequest_(e) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       throw new Error('リクエスト本文は JSON オブジェクトで送信してください。');
     }
-    return { action: String(payload.action || ''), args: payload.args };
+    return { action: String(payload.action || ''), args: payload.args, token: payload.token };
   }
 
   const params = (e && e.parameter) || {};
@@ -382,7 +406,39 @@ function parseApiRequest_(e) {
       throw new Error('args の JSON を解析できません: ' + err.message);
     }
   }
-  return { action: String(params.action), args: args };
+  return { action: String(params.action), args: args, token: params.token };
+}
+
+/**
+ * 送信された token を API_TOKEN と照合する。
+ *
+ * 一致しない場合は例外を投げ、doPost が {success:false, error} を返す。
+ * 比較は文字数分だけ必ず走査する（一致した位置で早期 return しない）が、
+ * トークン自体が公開フロントに埋め込まれた共有文字列なので、これは
+ * 「入力ミスの検出と雑な総当たりの抑止」が目的であり、暗号学的な保護ではない。
+ *
+ * @param {*} token リクエストの token
+ */
+function verifyApiToken_(token) {
+  const provided = token === undefined || token === null ? '' : String(token);
+  if (!provided) throw new Error('認証エラー: token が指定されていません。');
+  if (!timingSafeEqual_(provided, API_TOKEN)) {
+    throw new Error('認証エラー: token が正しくありません。');
+  }
+}
+
+/**
+ * 文字列を定時間で比較する（長さの違いのみ即座に判定）。
+ *
+ * @param {string} a 比較対象1
+ * @param {string} b 比較対象2
+ * @return {boolean} 一致すれば true
+ */
+function timingSafeEqual_(a, b) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
 }
 
 /**

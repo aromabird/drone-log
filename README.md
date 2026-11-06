@@ -147,12 +147,14 @@ API キー不要のオープンデータで、スクリプト プロパティの
    ```js
    var API_CONFIG = {
      url: 'https://script.google.com/macros/s/XXXXXXXXXXXX/exec',
+     token: 'DRONE_LOG_SECURE_TOKEN_2026', // Code.gs の API_TOKEN と一致させる
      timeoutMs: 30000,
      aiTimeoutMs: 90000
    };
    ```
 
    デプロイ前に試すときは URL を書き換えず、`index.html?api=https://…/exec` で上書きできます。
+   トークンは `Code.gs` の `API_TOKEN` と `index.html` の `API_CONFIG.token` の**両方**を同じ値にしてください。
 3. **GitHub 側**: リポジトリの **Settings → Pages** で Source を `Deploy from a branch` /
    `main` / `/ (root)` に設定します。このリポジトリ（`aromabird/drone-log`）の場合の公開 URL は
    `https://aromabird.github.io/drone-log/` です（反映まで最大10分ほどかかります）。
@@ -160,7 +162,7 @@ API キー不要のオープンデータで、スクリプト プロパティの
 4. **疎通確認（ターミナル）**: 反映後、`/exec` に `text/plain` で POST して JSON が返るか確認します。
 
    ```bash
-   curl -sS -L --data '{"action":"getCatalog","args":[]}' \
+   curl -sS -L --data '{"action":"getCatalog","args":[],"token":"DRONE_LOG_SECURE_TOKEN_2026"}' \
      -H 'Content-Type: text/plain;charset=utf-8' \
      'https://script.google.com/macros/s/XXXXXXXXXXXX/exec'
    # → {"success":true,"data":{...}}
@@ -182,10 +184,13 @@ API キー不要のオープンデータで、スクリプト プロパティの
   2026-11-06 に「`doPost` が見つからない」が続いた実際の原因も、デプロイが push 前のバージョンを指していたことでした。
 - GAS は HTTP ステータスを制御できないため、**失敗も HTTP 200** で返します。成否は本文の
   `success` で判定します（「5.3 外部 API（`doPost`）」参照）。
-- **アクセスを「全員（匿名）」にする＝ URL を知る第三者が書き込める**状態です。個人利用の前提で、
-  管理系（`initSpreadsheet` / `recalcDroneTotals` / `selfCheck`）は API に公開していません。
-  第三者への共有や本番運用を行う場合は、トークン検証や Google アカウント認証の追加を検討してください。
-- `index.html` はソースがそのまま公開されます（API URL も公開情報になります）。秘密情報は置かないでください。
+- **アクセスを「全員（匿名）」にする＝ URL を知る第三者が到達できる**状態です。対策として
+  `doPost` は **共有トークン（`API_TOKEN`）を必須**にしており、不一致なら action を実行しません
+  （`initSpreadsheet` / `recalcDroneTotals` / `selfCheck` は引き続き非公開）。
+  ただしトークンは公開リポジトリの `index.html` に埋め込まれた**共有文字列**であり、
+  ソースを読めば取得できるため、**「第三者のアプリからの誤爆・総当たりの抑止」までが範囲**です。
+  本物のアクセス制御が必要な場合は、利用者ごとの認証（Google アカウント等）へ移行してください。
+- `index.html` はソースがそのまま公開されます（API URL・トークンも公開情報になります）。秘密情報は置かないでください。
 
 ---
 
@@ -323,18 +328,31 @@ GitHub Pages などの外部フロントから呼ぶための JSON API です。
   （`Content-Type: text/plain;charset=utf-8`。`application/json` は CORS のプリフライトで失敗します）
 - レスポンス: 常に HTTP 200 + `application/json`
 - `args` は**配列**で、GAS 関数の引数にそのまま展開されます
+- **`token` は必須**です。`Code.gs` の `API_TOKEN` と一致しない場合は action を実行せず
+  `認証エラー: …` を返します（`token` の照合は action の検証より先に行います）
 
 ```bash
 curl -sL -X POST \
   -H 'Content-Type: text/plain;charset=utf-8' \
-  -d '{"action":"getFlights","args":[{"limit":5}]}' \
+  -d '{"action":"getFlights","args":[{"limit":5}],"token":"DRONE_LOG_SECURE_TOKEN_2026"}' \
   'https://script.google.com/macros/s/XXXXXXXXXXXX/exec'
 ```
 
 ```json
 { "success": true, "data": { "ok": true, "total": 3, "items": [ ... ] } }
 { "success": false, "error": "未定義のActionです: nope" }
+{ "success": false, "error": "認証エラー: token が指定されていません。" }
+{ "success": false, "error": "認証エラー: token が正しくありません。" }
 ```
+
+**トークンの運用**:
+
+- 値は `Code.gs` の `API_TOKEN` と `index.html` の `API_CONFIG.token` の2箇所にあります。**必ず同じ値**にします。
+- 変更する場合は ①両方を書き換え ②`clasp push` ③`create-version` → `update-deployment -V <n>`
+  ④Pages へ push（ブラウザはキャッシュ回避のため再読み込み）。
+- このトークンは**公開リポジトリの `index.html` に埋め込まれた共有文字列**です。ソースを見れば取得できるため、
+  「第三者のアプリからの誤爆・action 名の総当たりを抑止する簡易ゲート」であり、暗号学的なアクセス制御ではありません。
+  厳密な秘匿が必要な場合は、利用者ごとの認証（Google アカウント等）＋ Script Properties での鍵管理へ移行してください。
 
 | action | 呼ばれる関数 | 備考 |
 |---|---|---|
@@ -361,7 +379,8 @@ curl -sL -X POST \
 `initSpreadsheet` / `recalcDroneTotals` / `selfCheck` / `doGet` / `include` など。
 シートの初期化・再計算はスプレッドシートのカスタムメニューから実行してください。
 
-本文が空の場合は `?action=getFlights&args=[{"limit":5}]` のクエリ文字列でも呼べます（デプロイ確認用）。
+本文が空の場合は `?action=getFlights&args=[{"limit":5}]&token=DRONE_LOG_SECURE_TOKEN_2026` の
+クエリ文字列でも呼べます（デプロイ確認用）。この場合も `token` は必須です。
 
 ---
 
@@ -474,14 +493,16 @@ GAS の `SpreadsheetApp` / `Utilities` / `LockService` をスタブ化し、`vm`
 - **`doPost` ルーター（外部 API）**: `success` / `error` の封筒、`args` の展開、未定義 action・args 非配列・
   壊れた JSON・空本文のエラー、`e.parameter`（クエリ文字列）フォールバック、別名 action
   （`geocodeAddress` / `reverseGeocode`）、管理系 action が**公開されていない**こと、サーバー例外が
-  メッセージとして返ること、書き込み系（`savePilot`）と CSV 生成が通ること（46チェック）
+  メッセージとして返ること、書き込み系（`savePilot`）と CSV 生成が通ること、
+  **トークン認証**（未指定・空文字・不一致は `認証エラー`、`data` を返さない、`token` 不正なら
+  未定義 action の判定より先に拒否、クエリ文字列でも必須）（57チェック）
 
 ### 7.2 フロントエンド（ブラウザ確認）
 
 `http://localhost:8811/index.html` をモックモードで開き、次を確認済みです。
 
 API モードまで含めて確認する場合は、同梱のモック API サーバーを使います
-（静的配信 + `doPost` と同じ封筒を返す `/api`）。
+（静的配信 + `doPost` と同じ封筒・同じ `token` 検証を返す `/api`）。
 
 ```bash
 node drone-log/tests/mock-api-server.js 8811
