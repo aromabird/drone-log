@@ -10,6 +10,9 @@ Google Apps Script（GAS）をバックエンド、Google スプレッドシー�
   - **GAS の Web アプリ**: `doGet` が `index.html` を配信し、`google.script.run` で関数を呼ぶ（従来方式）
   - **GitHub Pages でフロントのみ公開**: `doPost` を JSON API として `fetch` で呼ぶ（[3.6](#36-github-pages-でフロントだけを公開するgas-を-json-api-として使う)）
 
+- リポジトリ: [`aromabird/drone-log`](https://github.com/aromabird/drone-log)（公開）
+- 公開 URL（Pages 有効化後）: `https://aromabird.github.io/drone-log/`
+
 - 記録様式: 国交省「無人航空機の飛行日誌の取扱要領」様式1〜3 に準拠した列構成
 - 拡張前提: DJI ログ解析 / DIPS 連携（地名・座標の変換は GAS 標準の Maps サービス、
   画像リスク判定は Gemini API で実装済み）
@@ -151,8 +154,8 @@ API キー不要のオープンデータで、スクリプト プロパティの
 
    デプロイ前に試すときは URL を書き換えず、`index.html?api=https://…/exec` で上書きできます。
 3. **GitHub 側**: リポジトリの **Settings → Pages** で Source を `Deploy from a branch` /
-   `main` / `/ (root)` に設定します。このリポジトリ（`aromabird/works`）の場合の公開 URL は
-   `https://aromabird.github.io/works/drone-log/` です（反映まで最大10分ほどかかります）。
+   `main` / `/ (root)` に設定します。このリポジトリ（`aromabird/drone-log`）の場合の公開 URL は
+   `https://aromabird.github.io/drone-log/` です（反映まで最大10分ほどかかります）。
 
 4. **疎通確認（ターミナル）**: 反映後、`/exec` に `text/plain` で POST して JSON が返るか確認します。
 
@@ -521,15 +524,17 @@ node drone-log/tests/mock-api-server.js 8811
 
 ## 8. 未検証・既知の制約
 
-- **GAS 実環境での動作は未検証**です。`google.script.run` 経由の呼び出し、実際のスプレッドシートへの書き込み、
-  デプロイ後の権限・モバイル表示は、プロジェクトへ反映したうえで確認が必要です。
-- `clasp` はこのリポジトリからは実行していません（`npx @google/clasp` を想定）。`appsscript.json` の
-  `webapp.access` は、GitHub Pages から匿名で `fetch` できるように `ANYONE_ANONYMOUS` に変更しました。
-  反映には再デプロイ（「デプロイを管理」→ 既存デプロイを編集、または新規デプロイ）が必要です。
-- **GitHub Pages は未有効化**です（`https://aromabird.github.io/works/` は 404）。GitHub の
+- **GAS 実環境での疎通は確認済み**です（2026-11-06）。匿名 `/exec` への `text/plain` POST、`getCatalog` /
+  `getFlights` の応答、未定義 action のエラー封筒、管理系 action の拒否までを curl と実ブラウザ（別オリジン）で検証しました。
+  一方 **書き込み系（`saveFlight` / `savePilot` など）は本番シートを汚さないため未検証**です。
+- `clasp` での運用は実施済みです（`npx @google/clasp push` → `create-version` → `update-deployment`）。
+  `appsscript.json` の `webapp.access` は `ANYONE_ANONYMOUS` で、デプロイ（`@8`）に反映済みです。
+  **`clasp push` だけでは `/exec` に反映されない**点に注意してください（[3.6](#36-github-pages-でフロントだけを公開するgas-を-json-api-として使う)）。
+- **GitHub Pages は未有効化**です（`https://aromabird.github.io/drone-log/` は 404）。GitHub の
   Settings → Pages で `main` / `/ (root)` を選ぶ操作はリポジトリ管理者が行ってください。
-- **実デプロイ環境での CORS は未検証**です。ローカルではモック API サーバー（同一オリジン）で経路を
-  確認しています。Pages 公開後、実際の `/exec` へ接続して `text/plain` POST が通ることを確認してください。
+- **CORS は検証済み**です。本番 `/exec` は `Access-Control-Allow-Origin: *` を返し、別オリジン
+  （`http://127.0.0.1:8813`）から配信した `index.html` で初期データ取得と `getFlights` 呼び出しが成功しました。
+  Pages 公開後も同じ経路で動作する見込みです。
 - API は**認証なし（匿名）**で公開されます。URL を知る第三者が記録を追加できます（管理系は非公開）。
 - Tailwind CSS は CDN 版です。社内ネットワーク等で CDN が使えない場合はスタイルが崩れます。
 - `parseDjiLog` はスタブ（例外を投げる）です。
