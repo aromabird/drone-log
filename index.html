@@ -1,0 +1,4246 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="theme-color" content="#0f172a">
+  <title>ドローン飛行日誌</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd',
+              400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8',
+              800: '#1e40af', 900: '#1e3a8a'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Hiragino Sans"',
+                   '"Noto Sans JP"', 'Meiryo', 'sans-serif']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-feature-settings: 'palt'; }
+    .num { font-variant-numeric: tabular-nums; }
+    input[type="date"], input[type="time"] { min-height: 44px; }
+    .tab-active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+    .field-error { border-color: #f43f5e !important; background: #fff1f2; }
+    .err { color: #e11d48; font-size: 11px; margin-top: 4px; display: none; }
+    .err.show { display: block; }
+    .item-ok { background: #0d9488 !important; color: #fff !important; border-color: #0d9488 !important; }
+    .item-ng { background: #e11d48 !important; color: #fff !important; border-color: #e11d48 !important; }
+    details > summary { list-style: none; cursor: pointer; }
+    details > summary::-webkit-details-marker { display: none; }
+    .skeleton { background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%);
+      background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
+    @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+    @media print { .no-print { display: none !important; } }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased">
+
+<div class="mx-auto max-w-5xl px-3 sm:px-6 pb-28">
+
+  <!-- ヘッダー -->
+  <header class="pt-4 pb-3">
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="h-11 w-11 shrink-0 rounded-2xl bg-slate-900 text-white grid place-items-center shadow-sm">
+          <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.8">
+            <circle cx="12" cy="12" r="2.4"></circle>
+            <path d="M6.5 6.5 10 10M17.5 6.5 14 10M6.5 17.5 10 14M17.5 17.5 14 14"></path>
+            <circle cx="4.5" cy="4.5" r="2" fill="currentColor" stroke="none"></circle>
+            <circle cx="19.5" cy="4.5" r="2" fill="currentColor" stroke="none"></circle>
+            <circle cx="4.5" cy="19.5" r="2" fill="currentColor" stroke="none"></circle>
+            <circle cx="19.5" cy="19.5" r="2" fill="currentColor" stroke="none"></circle>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">ドローン飛行日誌</h1>
+          <p class="text-xs text-slate-500 truncate">飛行記録・日常点検・機体管理</p>
+        </div>
+      </div>
+      <div class="flex flex-col items-end gap-1">
+        <div id="sync-status" class="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] text-slate-500 ring-1 ring-slate-200">
+          <span id="sync-dot" class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
+          <span id="sync-text">接続中…</span>
+        </div>
+        <a id="sheet-link" href="#" target="_blank" rel="noopener"
+           class="hidden text-[11px] text-brand-600 hover:underline">スプレッドシートを開く</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- タブ -->
+  <nav class="sticky top-0 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2 bg-slate-100/90 backdrop-blur no-print">
+    <div class="grid grid-cols-3 gap-1 rounded-2xl bg-slate-200/70 p-1">
+      <button type="button" class="tab-btn tab-active rounded-xl px-2 py-2.5 text-sm font-semibold transition"
+              data-tab="entry">飛行を記録</button>
+      <button type="button" class="tab-btn rounded-xl px-2 py-2.5 text-sm font-semibold text-slate-500 transition"
+              data-tab="log">日誌<span id="tab-log-count" class="ml-1 text-[11px] text-slate-400"></span></button>
+      <button type="button" class="tab-btn rounded-xl px-2 py-2.5 text-sm font-semibold text-slate-500 transition"
+              data-tab="fleet">機体管理</button>
+    </div>
+  </nav>
+
+  <main class="mt-3 space-y-3">
+
+    <!-- ===================== タブ1: 飛行を記録 ===================== -->
+    <section id="panel-entry" class="space-y-3">
+
+      <div id="entry-alerts" class="hidden rounded-2xl bg-rose-50 p-3 text-sm ring-1 ring-rose-200"></div>
+
+      <div class="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-4 text-white shadow-sm">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <p class="text-[11px] uppercase tracking-wider text-slate-400">Today</p>
+            <p id="entry-today" class="text-sm font-semibold">—</p>
+          </div>
+          <div class="text-right">
+            <p class="text-[11px] text-slate-400">今月の飛行</p>
+            <p class="num text-lg font-bold">
+              <span id="entry-month-flights">0</span><span class="text-xs font-normal text-slate-400"> 件 / </span><span id="entry-month-hours">0</span><span class="text-xs font-normal text-slate-400"> h</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <form id="entry-form" novalidate class="space-y-3">
+
+        <!-- 飛行情報 -->
+        <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-sm font-bold text-slate-900">1. 飛行情報</h2>
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">様式1</span>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label for="flight-date" class="mb-1 block text-xs font-semibold text-slate-600">飛行年月日 <span class="text-rose-500">*</span></label>
+              <input id="flight-date" type="date" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+              <p class="err" data-error="flight-date"></p>
+            </div>
+
+            <div>
+              <label for="flight-pilot" class="mb-1 block text-xs font-semibold text-slate-600">操縦者 <span class="text-rose-500">*</span></label>
+              <select id="flight-pilot" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
+              <p class="err" data-error="flight-pilot"></p>
+            </div>
+
+            <div class="sm:col-span-2">
+              <label for="flight-drone" class="mb-1 block text-xs font-semibold text-slate-600">機体 <span class="text-rose-500">*</span></label>
+              <select id="flight-drone" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
+              <p id="drone-hint" class="mt-1 text-[11px] text-slate-500"></p>
+              <p class="err" data-error="flight-drone"></p>
+            </div>
+
+            <div>
+              <label for="flight-takeoff-place" class="mb-1 block text-xs font-semibold text-slate-600">離陸場所 <span class="text-rose-500">*</span></label>
+              <div class="flex items-stretch gap-2">
+                <input id="flight-takeoff-place" type="text" placeholder="例: 千葉県香取市小見川" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <button type="button" id="btn-geocode" title="入力した住所から緯度・経度を検索します"
+                        class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-brand-200 bg-brand-50 px-3 text-xs font-semibold text-brand-700 hover:bg-brand-100 active:bg-brand-200 disabled:opacity-60">
+                  🔍 座標検索
+                </button>
+              </div>
+              <p class="err" data-error="flight-takeoff-place"></p>
+            </div>
+
+            <div>
+              <label for="flight-landing-place" class="mb-1 block text-xs font-semibold text-slate-600">着陸場所</label>
+              <input id="flight-landing-place" type="text" placeholder="未入力なら離陸場所と同じ" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            </div>
+
+            <div>
+              <label for="flight-takeoff-time" class="mb-1 block text-xs font-semibold text-slate-600">離陸時刻 <span class="text-rose-500">*</span></label>
+              <div class="flex items-center gap-2">
+                <input id="flight-takeoff-time" type="time" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <button type="button" id="btn-now-takeoff" title="現在時刻（JST）を離陸時刻に入力します"
+                        class="inline-flex h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-teal-200 bg-teal-50 px-2.5 text-xs font-semibold text-teal-700 hover:bg-teal-100 active:bg-teal-200">
+                  🛫 今すぐ離陸
+                </button>
+              </div>
+              <p class="err" data-error="flight-takeoff-time"></p>
+            </div>
+
+            <div>
+              <label for="flight-landing-time" class="mb-1 block text-xs font-semibold text-slate-600">着陸時刻 <span class="text-rose-500">*</span></label>
+              <div class="flex items-center gap-2">
+                <input id="flight-landing-time" type="time" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <button type="button" id="btn-now-landing" title="現在時刻（JST）を着陸時刻に入力します"
+                        class="inline-flex h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 active:bg-amber-200">
+                  🛬 今すぐ着陸
+                </button>
+              </div>
+              <p class="err" data-error="flight-landing-time"></p>
+            </div>
+
+            <div class="sm:col-span-2">
+              <label for="flight-duration" class="mb-1 block text-xs font-semibold text-slate-600">飛行時間（分） <span class="text-rose-500">*</span></label>
+              <div class="flex items-center gap-2">
+                <input id="flight-duration" type="number" min="1" max="1440" inputmode="numeric" class="num w-32 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <span class="text-xs text-slate-500">分</span>
+                <span id="duration-hint" class="text-[11px] text-amber-600"></span>
+              </div>
+              <p class="err" data-error="flight-duration"></p>
+            </div>
+          </div>
+
+          <div class="mt-3 space-y-3">
+            <div>
+              <label for="flight-purpose" class="mb-1 block text-xs font-semibold text-slate-600">飛行目的</label>
+              <select id="flight-purpose" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
+              <input id="flight-purpose-other" type="text" placeholder="目的を入力"
+                     class="mt-2 hidden w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            </div>
+
+            <div>
+              <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                <p class="text-xs font-semibold text-slate-600">特定飛行区分
+                  <span class="font-normal text-slate-400">（該当する項目をすべて選択）</span>
+                </p>
+                <span id="specific-status" class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">非特定飛行</span>
+              </div>
+              <div id="specific-flags" class="space-y-2"></div>
+
+              <div class="mt-2.5 flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                <div class="min-w-0">
+                  <p class="text-xs font-semibold text-slate-700">第三者の立入管理措置</p>
+                  <p class="mt-0.5 text-[11px] leading-relaxed text-slate-500">フェンス・看板・監視員などで第三者が入らないようにしている</p>
+                </div>
+                <label class="flex min-h-[44px] shrink-0 cursor-pointer items-center gap-2 py-1">
+                  <input id="clear-zone-toggle" type="checkbox" class="peer sr-only" checked>
+                  <span class="relative h-6 w-11 rounded-full bg-slate-300 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition peer-checked:bg-teal-500 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-teal-300"></span>
+                  <span id="clear-zone-label" class="w-12 text-xs font-semibold text-slate-700">講じる</span>
+                </label>
+              </div>
+
+              <div id="category-card" class="mt-3 rounded-xl border border-teal-200 bg-teal-50 p-3"></div>
+              <p class="mt-1 text-[10px] leading-relaxed text-slate-400">
+                判定は入力内容に基づく目安です。最終的な適用カテゴリーは申請内容・DIPS で確認してください。
+              </p>
+            </div>
+
+            <div>
+              <div class="mb-1.5 flex items-center justify-between gap-2">
+                <p class="text-xs font-semibold text-slate-600">離着陸座標</p>
+                <button type="button" id="btn-gps" title="端末の現在地を取得して緯度・経度と離陸場所へ反映します"
+                        class="inline-flex h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-60">
+                  📍 現在地（GPS）
+                </button>
+              </div>
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label for="flight-lat" class="mb-1 block text-xs font-semibold text-slate-600">緯度</label>
+                  <input id="flight-lat" type="number" step="0.000001" inputmode="decimal" placeholder="35.681236"
+                         class="num w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                  <p class="err" data-error="flight-lat"></p>
+                </div>
+                <div>
+                  <label for="flight-lng" class="mb-1 block text-xs font-semibold text-slate-600">経度</label>
+                  <input id="flight-lng" type="number" step="0.000001" inputmode="decimal" placeholder="139.767125"
+                         class="num w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                  <p class="err" data-error="flight-lng"></p>
+                </div>
+              </div>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <button type="button" id="btn-geo"
+                        class="inline-flex h-10 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-200">
+                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"></path><circle cx="12" cy="10" r="2.5"></circle>
+                  </svg>
+                  座標から地名を取得
+                </button>
+                <span id="geo-status" class="min-w-0 flex-1 truncate text-[11px] text-slate-500"></span>
+              </div>
+            </div>
+
+            <!-- 現場環境（天候・風速 / 海抜標高 / DID） -->
+            <div class="rounded-xl border border-sky-200 bg-sky-50/60 p-3">
+              <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-sky-900">
+                🌦 現場環境チェック
+                <span class="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 ring-1 ring-sky-200">Open-Meteo / 国土地理院</span>
+              </p>
+              <p class="mt-0.5 text-[11px] leading-relaxed text-sky-900/70">
+                離着陸座標から天候・風速（突風）・海抜標高・DID 規制を取得し、飛行適性を判定します。
+              </p>
+
+              <button type="button" id="btn-env" data-busy-label="取得中…"
+                      class="mt-2.5 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-xs font-bold text-sky-700 ring-1 ring-sky-200 hover:bg-sky-50 disabled:opacity-60">
+                🌦 現場環境を取得
+              </button>
+
+              <p id="env-status" class="mt-2 text-[11px] leading-relaxed text-slate-500"></p>
+
+              <div id="env-result" class="mt-2 hidden space-y-2">
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
+                    <p class="text-[10px] font-semibold text-slate-500">天候・風速</p>
+                    <p id="env-weather" class="mt-0.5 text-sm font-bold text-slate-800">—</p>
+                    <p id="env-wind" class="num mt-0.5 text-[11px] text-slate-600">—</p>
+                    <span id="env-safety" class="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold"></span>
+                    <p id="env-safety-label" class="mt-1 text-[10px] leading-relaxed text-slate-600"></p>
+                  </div>
+                  <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
+                    <p class="text-[10px] font-semibold text-slate-500">海抜標高</p>
+                    <p id="env-elevation" class="num mt-0.5 text-sm font-bold text-slate-800">—</p>
+                    <p id="env-limit" class="num mt-0.5 text-[11px] text-slate-600">—</p>
+                  </div>
+                  <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
+                    <p class="text-[10px] font-semibold text-slate-500">DID（人口集中地区）</p>
+                    <span id="env-did" class="mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"></span>
+                    <p id="env-did-note" class="mt-1 text-[10px] leading-relaxed text-slate-600"></p>
+                  </div>
+                </div>
+                <p id="env-source" class="text-[10px] leading-relaxed text-slate-400"></p>
+              </div>
+            </div>
+
+            <!-- AI 安全フライト診断（Gemini） -->
+            <div class="rounded-xl border border-brand-200 bg-brand-50/50 p-3">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-brand-800">
+                    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 3v3m0 12v3M3 12h3m12 0h3"></path>
+                      <circle cx="12" cy="12" r="4"></circle>
+                    </svg>
+                    AI 安全フライト診断
+                    <span class="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 ring-1 ring-brand-200">Gemini</span>
+                  </p>
+                  <p class="mt-0.5 text-[11px] leading-relaxed text-brand-900/70">衛星写真または現場写真から、障害物・第三者の立入りリスクと特定飛行の該当候補を推定します。</p>
+                </div>
+              </div>
+
+              <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button type="button" id="btn-ai-satellite" data-busy-label="解析中…"
+                        class="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-xs font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
+                  🛰 衛星写真で診断
+                </button>
+                <button type="button" id="btn-ai-photo" data-busy-label="解析中…"
+                        class="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-xs font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
+                  📷 現場写真で診断
+                </button>
+              </div>
+              <input id="ai-photo-file" type="file" accept="image/*" capture="environment" class="hidden">
+
+              <p id="ai-status" class="mt-2 text-[11px] leading-relaxed text-slate-500"></p>
+
+              <div id="ai-result" class="mt-2 hidden space-y-2">
+                <img id="ai-thumb" alt="解析に使用した衛星写真" class="hidden w-full max-w-[240px] rounded-lg ring-1 ring-slate-200">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span id="ai-risk-badge" class="rounded-full px-2.5 py-1 text-[11px] font-bold"></span>
+                  <span id="ai-source" class="text-[10px] text-slate-500"></span>
+                </div>
+                <p id="ai-summary" class="text-[11px] leading-relaxed text-slate-700"></p>
+                <ul id="ai-objects" class="space-y-1"></ul>
+                <ul id="ai-advice" class="list-disc space-y-0.5 pl-4 text-[11px] leading-relaxed text-slate-700"></ul>
+                <button type="button" id="btn-ai-apply"
+                        class="inline-flex min-h-[40px] items-center gap-1 rounded-lg bg-white px-3 text-[11px] font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50">
+                  検出項目を特定飛行区分に反映
+                </button>
+              </div>
+            </div>
+
+            <div class="rounded-xl bg-slate-50 p-3">
+              <p class="mb-2 text-xs font-semibold text-slate-600">飛行の安全に影響のあった事項</p>
+              <div class="flex gap-2">
+                <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 has-[:checked]:text-teal-700">
+                  <input type="radio" name="safety" value="none" class="accent-teal-600" checked>なし
+                </label>
+                <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50 has-[:checked]:text-rose-700">
+                  <input type="radio" name="safety" value="event" class="accent-rose-600">あり
+                </label>
+              </div>
+              <div id="safety-detail-wrap" class="mt-2 hidden">
+                <textarea id="safety-detail" rows="2" placeholder="例: バッテリー低下により自動帰還"
+                          class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+                <p class="err" data-error="safety-detail"></p>
+              </div>
+            </div>
+
+            <details class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+              <summary class="flex items-center justify-between text-xs font-semibold text-slate-600">
+                <span class="inline-flex items-center gap-1.5">
+                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 16V4m0 0L8 8m4-4 4 4"></path><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
+                  </svg>
+                  DJI ログを取り込む（準備中）
+                </span>
+                <span class="text-[10px] font-normal text-slate-400">タップで展開</span>
+              </summary>
+              <div id="dji-drop" class="mt-3 rounded-xl border-2 border-dashed border-slate-300 bg-white p-4 text-center">
+                <p class="text-xs text-slate-500">DJI の飛行ログ（.txt / .csv）をここにドロップ</p>
+                <p class="mt-1 text-[11px] text-slate-400">解析機能は未実装です。現在は手入力で記録してください。</p>
+                <input id="dji-file" type="file" accept=".txt,.csv" class="mt-2 block w-full text-xs text-slate-500">
+                <p id="dji-status" class="mt-2 text-[11px] text-slate-500"></p>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- 日常点検 -->
+        <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-sm font-bold text-slate-900">2. 日常点検</h2>
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">様式2・13項目</span>
+          </div>
+
+          <div class="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" id="inspection-type">
+            <button type="button" data-type="飛行前" class="rounded-lg px-2 py-2 text-sm font-semibold text-slate-500 transition">飛行前</button>
+            <button type="button" data-type="飛行後" class="rounded-lg px-2 py-2 text-sm font-semibold text-slate-500 transition">飛行後</button>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label for="inspection-date" class="mb-1 block text-xs font-semibold text-slate-600">点検実施日</label>
+              <input id="inspection-date" type="date" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            </div>
+            <div>
+              <label for="inspection-inspector" class="mb-1 block text-xs font-semibold text-slate-600">実施者 <span class="text-rose-500">*</span></label>
+              <input id="inspection-inspector" type="text" placeholder="例: 普施 太郎" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+              <p class="err" data-error="inspection-inspector"></p>
+            </div>
+          </div>
+
+          <div class="mt-3 flex items-center justify-between">
+            <p class="text-xs text-slate-500">
+              <span id="inspection-progress" class="num font-semibold text-slate-700">0 / 13</span> 項目 入力済み
+            </p>
+            <button type="button" id="btn-all-ok"
+                    class="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100">
+              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 13 4 4L19 7"></path></svg>
+              一括OK
+            </button>
+          </div>
+
+          <div id="inspection-items" class="mt-2 divide-y divide-slate-100"></div>
+          <p class="err" data-error="inspection-items"></p>
+
+          <div class="mt-3">
+            <label for="inspection-memo" class="mb-1 block text-xs font-semibold text-slate-600">点検詳細メモ</label>
+            <textarea id="inspection-memo" rows="2" placeholder="気づいた点・異常の詳細など"
+                      class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+          </div>
+
+          <div class="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
+            <span class="text-xs font-semibold text-slate-600">点検結果</span>
+            <span id="inspection-result" class="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600">未入力</span>
+          </div>
+          <p class="mt-1 text-[11px] text-slate-400">NG が1件でもある場合は「異常あり」になります。</p>
+        </div>
+
+        <!-- 保存バー -->
+        <div class="sticky bottom-2 z-10 rounded-2xl bg-white/95 p-3 shadow-lg ring-1 ring-slate-200 backdrop-blur no-print">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div class="min-w-0">
+              <p id="save-status" class="text-[11px] text-slate-500">未保存</p>
+              <p id="last-saved" class="truncate text-xs font-semibold text-slate-700"></p>
+            </div>
+            <div class="flex items-stretch gap-2">
+              <button id="clear-btn" type="button" title="入力中の内容をすべてクリアします"
+                      class="inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 active:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300">
+                🗑️ 入力をクリア
+              </button>
+              <button id="save-btn" type="submit"
+                      class="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-5">
+                <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                  <path d="M17 21v-8H7v8M7 3v5h8"></path>
+                </svg>
+                保存する
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===================== タブ2: 日誌 ===================== -->
+    <section id="panel-log" class="hidden space-y-3">
+
+      <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-sm font-bold text-slate-900">絞り込み</h2>
+          <button type="button" id="btn-log-reset" class="text-[11px] font-semibold text-slate-500 underline">条件をクリア</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div>
+            <label for="log-filter-from" class="mb-1 block text-[11px] font-semibold text-slate-500">開始日</label>
+            <input id="log-filter-from" type="date" class="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+          </div>
+          <div>
+            <label for="log-filter-to" class="mb-1 block text-[11px] font-semibold text-slate-500">終了日</label>
+            <input id="log-filter-to" type="date" class="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+          </div>
+          <div>
+            <label for="log-filter-drone" class="mb-1 block text-[11px] font-semibold text-slate-500">機体</label>
+            <select id="log-filter-drone" class="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
+          </div>
+          <div>
+            <label for="log-filter-q" class="mb-1 block text-[11px] font-semibold text-slate-500">キーワード</label>
+            <input id="log-filter-q" type="search" placeholder="場所・目的など" class="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+          </div>
+        </div>
+        <button type="button" id="btn-log-search"
+                class="mt-3 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white hover:bg-slate-800">この条件で検索</button>
+      </div>
+
+      <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-bold text-slate-900">記録の出力</h2>
+            <p id="log-summary" class="num mt-0.5 text-[11px] text-slate-500">—</p>
+          </div>
+        </div>
+        <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button type="button" id="btn-csv-flight"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 3v12m0 0-4-4m4 4 4-4"></path><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
+            </svg>
+            様式1 飛行記録 CSV
+          </button>
+          <button type="button" id="btn-csv-inspection"
+                  class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 11l3 3 8-8"></path><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"></path>
+            </svg>
+            様式2・3 点検記録 CSV
+          </button>
+        </div>
+        <p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
+          <strong>重要:</strong> DIPS 2.0 には飛行日誌の CSV インポート機能がありません。出力する CSV は
+          国交省「無人航空機の飛行日誌の取扱要領」様式1〜3の記載事項に準拠した<strong>記録・保管用</strong>データです。
+          DIPS への登録は画面からの入力が必要です。
+        </p>
+      </div>
+
+      <div id="log-empty" class="hidden rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200">
+        <p class="text-sm font-semibold text-slate-700">該当する飛行記録がありません</p>
+        <p class="mt-1 text-xs text-slate-500">条件を変えるか、新しい飛行を記録してください。</p>
+      </div>
+
+      <div id="log-list" class="space-y-2"></div>
+
+      <button type="button" id="log-more"
+              class="hidden w-full rounded-xl border border-slate-300 bg-white py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50">
+        さらに読み込む
+      </button>
+    </section>
+
+    <!-- ===================== タブ3: 機体管理 ===================== -->
+    <section id="panel-fleet" class="hidden space-y-3">
+
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+          <p class="text-[11px] text-slate-500">総飛行時間</p>
+          <p class="num mt-1 text-xl font-bold text-slate-900"><span id="fleet-stat-hours">0</span><span class="text-xs font-normal text-slate-400"> h</span></p>
+        </div>
+        <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+          <p class="text-[11px] text-slate-500">総飛行回数</p>
+          <p class="num mt-1 text-xl font-bold text-slate-900"><span id="fleet-stat-flights">0</span><span class="text-xs font-normal text-slate-400"> 回</span></p>
+        </div>
+        <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+          <p class="text-[11px] text-slate-500">点検アラート</p>
+          <p class="num mt-1 text-xl font-bold text-rose-600"><span id="fleet-stat-alert">0</span><span class="text-xs font-normal text-slate-400"> 台</span></p>
+        </div>
+        <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
+          <p class="text-[11px] text-slate-500">安全影響事象</p>
+          <p class="num mt-1 text-xl font-bold text-amber-600"><span id="fleet-stat-safety">0</span><span class="text-xs font-normal text-slate-400"> 件</span></p>
+        </div>
+      </div>
+
+      <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div class="mb-3 flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-bold text-slate-900">機体</h2>
+            <p class="text-[11px] text-slate-500">20時間（1200分）を基準に点検時期を表示</p>
+          </div>
+          <button type="button" id="btn-add-drone"
+                  class="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>
+            追加
+          </button>
+        </div>
+        <div id="drone-list" class="space-y-2"></div>
+      </div>
+
+      <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-sm font-bold text-slate-900">操縦者</h2>
+          <button type="button" id="btn-add-pilot"
+                  class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>
+            追加
+          </button>
+        </div>
+        <div id="pilot-list" class="space-y-2"></div>
+      </div>
+
+      <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+        <div class="mb-3 flex items-center justify-between">
+          <div>
+            <h2 class="text-sm font-bold text-slate-900">点検・整備の記録</h2>
+            <p class="text-[11px] text-slate-500">20時間定期点検・修理を記録</p>
+          </div>
+          <button type="button" id="btn-add-periodic"
+                  class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>
+            記録
+          </button>
+        </div>
+        <div id="periodic-list" class="space-y-2"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="mt-6 pb-6 text-center text-[10px] text-slate-400">
+    <p>ドローン飛行日誌 v<span id="app-version">1.0.0</span> ・ 国交省 様式1〜3 準拠</p>
+    <p class="mt-1">記録はスプレッドシートに保存されます。法定点検の要否は必ず原典でご確認ください。</p>
+  </footer>
+</div>
+
+<!-- ===================== モーダル: 機体 ===================== -->
+<div id="modal-drone" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true">
+  <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+      <h3 id="drone-modal-title" class="text-sm font-bold text-slate-900">機体を追加</h3>
+      <button type="button" data-close="modal-drone" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="閉じる">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+      </button>
+    </div>
+    <form id="drone-form" class="space-y-3 p-4" novalidate>
+      <input type="hidden" id="drone-id">
+      <div>
+        <label for="drone-model" class="mb-1 block text-xs font-semibold text-slate-600">機種名 <span class="text-rose-500">*</span></label>
+        <input id="drone-model" type="text" placeholder="例: DJI Mavic 3 Enterprise" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        <p class="err" data-error="drone-model"></p>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="drone-maker" class="mb-1 block text-xs font-semibold text-slate-600">メーカー</label>
+          <input id="drone-maker" type="text" placeholder="DJI" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+        <div>
+          <label for="drone-weight" class="mb-1 block text-xs font-semibold text-slate-600">重量(g)</label>
+          <input id="drone-weight" type="number" min="0" max="1000000" inputmode="numeric" placeholder="920" class="num w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+      </div>
+      <div>
+        <label for="drone-reg" class="mb-1 block text-xs font-semibold text-slate-600">機体登録記号</label>
+        <input id="drone-reg" type="text" placeholder="JU1234567890" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base uppercase focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        <p class="mt-1 text-[11px] text-slate-400">「JU」+ 英数字10桁（未登録の場合は空欄可）</p>
+      </div>
+      <div>
+        <label for="drone-serial" class="mb-1 block text-xs font-semibold text-slate-600">製造番号</label>
+        <input id="drone-serial" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+      <div>
+        <label for="drone-note" class="mb-1 block text-xs font-semibold text-slate-600">備考</label>
+        <textarea id="drone-note" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button type="button" data-close="modal-drone" class="flex-1 rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-600">キャンセル</button>
+        <button type="submit" id="drone-save" class="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== モーダル: 操縦者 ===================== -->
+<div id="modal-pilot" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true">
+  <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+      <h3 id="pilot-modal-title" class="text-sm font-bold text-slate-900">操縦者を追加</h3>
+      <button type="button" data-close="modal-pilot" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="閉じる">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+      </button>
+    </div>
+    <form id="pilot-form" class="space-y-3 p-4" novalidate>
+      <input type="hidden" id="pilot-id">
+      <div>
+        <label for="pilot-name" class="mb-1 block text-xs font-semibold text-slate-600">氏名 <span class="text-rose-500">*</span></label>
+        <input id="pilot-name" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        <p class="err" data-error="pilot-name"></p>
+      </div>
+      <div>
+        <label for="pilot-license" class="mb-1 block text-xs font-semibold text-slate-600">技能証明書番号</label>
+        <input id="pilot-license" type="text" placeholder="例: JP1234567890" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base uppercase focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+      <div>
+        <label for="pilot-contact" class="mb-1 block text-xs font-semibold text-slate-600">連絡先</label>
+        <input id="pilot-contact" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button type="button" data-close="modal-pilot" class="flex-1 rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-600">キャンセル</button>
+        <button type="submit" id="pilot-save" class="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===================== モーダル: 定期点検・修理 ===================== -->
+<div id="modal-periodic" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true">
+  <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+      <h3 class="text-sm font-bold text-slate-900">点検・整備を記録</h3>
+      <button type="button" data-close="modal-periodic" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="閉じる">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"></path></svg>
+      </button>
+    </div>
+    <form id="periodic-form" class="space-y-3 p-4" novalidate>
+      <div>
+        <label for="periodic-drone" class="mb-1 block text-xs font-semibold text-slate-600">機体 <span class="text-rose-500">*</span></label>
+        <select id="periodic-drone" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
+        <p class="err" data-error="periodic-drone"></p>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="periodic-type" class="mb-1 block text-xs font-semibold text-slate-600">種別</label>
+          <select id="periodic-type" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <option value="20時間定期点検">20時間定期点検</option>
+            <option value="修理">修理</option>
+          </select>
+        </div>
+        <div>
+          <label for="periodic-date" class="mb-1 block text-xs font-semibold text-slate-600">実施日</label>
+          <input id="periodic-date" type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label for="periodic-inspector" class="mb-1 block text-xs font-semibold text-slate-600">実施者 <span class="text-rose-500">*</span></label>
+          <input id="periodic-inspector" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+          <p class="err" data-error="periodic-inspector"></p>
+        </div>
+        <div>
+          <label for="periodic-result" class="mb-1 block text-xs font-semibold text-slate-600">結果</label>
+          <select id="periodic-result" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            <option value="合格">合格</option>
+            <option value="異常あり">異常あり</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label for="periodic-memo" class="mb-1 block text-xs font-semibold text-slate-600">内容・備考</label>
+        <textarea id="periodic-memo" rows="3" placeholder="交換部品・整備内容など" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+      </div>
+      <p class="rounded-lg bg-sky-50 px-3 py-2 text-[11px] leading-relaxed text-sky-800">
+        「20時間定期点検」または「修理」を記録すると、その日以降の飛行時間を基準に点検時期を再計算します。
+      </p>
+      <div class="flex gap-2 pt-1">
+        <button type="button" data-close="modal-periodic" class="flex-1 rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-600">キャンセル</button>
+        <button type="submit" id="periodic-save" class="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- トースト -->
+<div id="toast" class="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex flex-col items-center gap-2 px-4"></div>
+
+<script>
+'use strict';
+
+/* =========================================================================
+ * 定数・状態
+ * ========================================================================= */
+
+var LS = {
+  MOCK: 'drone-log:mock:v1',
+  PILOT: 'drone-log:last-pilot',
+  DRONE: 'drone-log:last-drone',
+  INSPECTOR: 'drone-log:inspector'
+};
+
+var LIMIT_MINUTES = 1200;
+var WARN_MINUTES = 960;
+
+var ITEM_NAMES = [
+  '機体全般', 'プロペラ', 'フレーム',
+  '通信系統', '推進系統', '電源系統', '自動制御系統', '操縦装置',
+  'バッテリー・燃料', '機体識別表示', 'リモートID', '灯火', 'カメラ'
+];
+
+var FALLBACK_GROUPS = [
+  { label: '機体本体', items: ['機体全般', 'プロペラ', 'フレーム'] },
+  { label: '制御・通信', items: ['通信系統', '推進系統', '電源系統', '自動制御系統', '操縦装置'] },
+  { label: '装備', items: ['バッテリー・燃料', '機体識別表示', 'リモートID', '灯火', 'カメラ'] }
+];
+
+/**
+ * 特定飛行10項目のフォールバック定義。
+ * 通常は GAS の getCatalog_ から受け取る（サーバーが正）。
+ */
+var FALLBACK_FLAG_DEFS = [
+  { key: 'did', label: 'DID（人口集中地区）', uiLabel: '人口集中地区（DID）の上空', group: 'airspace', severity: 'soft', description: '市街化区域など建物が密集している区域の上空' },
+  { key: 'airport', label: '空港周辺', uiLabel: '空港等の周辺空域', group: 'airspace', severity: 'hard', description: '空港・ヘリポート等の周辺（進入表面等の上空）' },
+  { key: 'altitude150m', label: '150m以上', uiLabel: '地表・水面から150m以上の上空', group: 'airspace', severity: 'hard', description: '地表または水面から150m以上の高さ' },
+  { key: 'emergency', label: '緊急用務空域', uiLabel: '緊急用務空域', group: 'airspace', severity: 'hard', description: '災害等で国土交通省が指定した空域' },
+  { key: 'night', label: '夜間', uiLabel: '夜間飛行', group: 'method', severity: 'soft', description: '日没後から日出前までの飛行' },
+  { key: 'bovlos', label: '目視外', uiLabel: '目視外飛行（VLOS外）', group: 'method', severity: 'soft', description: '操縦者が機体を直接目視できない飛行（FPV・自動飛行等）' },
+  { key: 'within30m', label: '人・物件から30m未満', uiLabel: '人または物件から30m未満', group: 'method', severity: 'soft', description: '人または物件（車両・建物等）から30m未満に接近' },
+  { key: 'event', label: 'イベント上空', uiLabel: '多数の者が集まる催し場所の上空', group: 'method', severity: 'hard', description: '不特定多数の人が集まる催し場所の上空' },
+  { key: 'hazmat', label: '危険物輸送', uiLabel: '危険物の輸送', group: 'method', severity: 'hard', description: '火薬類・高圧ガス等の危険物を積載した飛行' },
+  { key: 'drop', label: '物件投下', uiLabel: '物件の投下', group: 'method', severity: 'hard', description: '機体から物件を投下する飛行' }
+];
+
+var FALLBACK_FLAG_GROUPS = [
+  { key: 'airspace', label: '飛行空域', hint: '空域に関する4項目' },
+  { key: 'method', label: '飛行方法', hint: '飛ばし方に関する6項目' }
+];
+
+var FALLBACK_CATEGORY_META = {
+  I: { label: 'カテゴリーⅠ', level: 'good', summary: '非特定飛行（許可・承認申請は不要）' },
+  IIA: { label: 'カテゴリーⅡA', level: 'warn', summary: '特定飛行（機体認証＋包括申請が必要）' },
+  IIB: { label: 'カテゴリーⅡB', level: 'caution', summary: '特定飛行（二等資格＋飛行許可で実施可）' },
+  III: { label: 'カテゴリーⅢ', level: 'danger', summary: '特定飛行（一等資格＋事前の許可・承認が必要）' }
+};
+
+var FALLBACK_CATEGORY_PROCEDURES = {
+  I: ['非特定飛行に該当するため、事前の許可・承認申請は不要です。飛行日誌の記録と日常点検のみ継続してください。'],
+  IIA: ['特定飛行のうち、立入管理措置は講じるもののカテゴリーⅡBの要件を満たさない飛行です。二等以上の資格に加え、機体認証と包括申請（または個別の許可・承認）が必要です。'],
+  IIB: ['特定飛行のうち、立入管理措置を講じ、機体重量25kg未満で空港周辺・150m以上・緊急用務空域・イベント上空・危険物輸送・物件投下に該当しない飛行です。二等以上の資格と、飛行ごとの許可・承認（または包括申請）が必要です。'],
+  III: ['特定飛行のうち、第三者の立入管理措置を講じない飛行です。一等無人航空機操縦士の資格が必要で、飛行前に国土交通省への許可・承認申請を行ってください。']
+};
+
+var FALLBACK_CATALOG = {
+  specificOptions: FALLBACK_FLAG_DEFS.map(function (d) { return d.label; }).concat(['非特定飛行']),
+  specificFlagDefs: FALLBACK_FLAG_DEFS,
+  specificFlagGroups: FALLBACK_FLAG_GROUPS,
+  categoryMeta: FALLBACK_CATEGORY_META,
+  categoryProcedures: FALLBACK_CATEGORY_PROCEDURES,
+  purposes: ['空撮', '測量', 'インフラ点検・保守', '設備メンテナンス', '農林水産業', '環境調査',
+    '警備', '報道取材', '輸送・宅配', '研究開発', '訓練・練習', '趣味', 'その他'],
+  inspectionGroups: FALLBACK_GROUPS,
+  inspectionTypes: ['飛行前', '飛行後', '20時間定期点検', '修理'],
+  inspectionResults: ['合格', '異常あり'],
+  limitMinutes: LIMIT_MINUTES,
+  warnMinutes: WARN_MINUTES
+};
+
+var CATALOG = FALLBACK_CATALOG;
+var SAVE_BUTTON_HTML = '';
+
+/* =========================================================================
+ * バックエンド接続設定
+ * -------------------------------------------------------------------------
+ * GitHub Pages からは GAS の Web アプリ（doPost）を fetch で呼び出す。
+ * url が空のときは GAS 直ホスティング（google.script.run）→ モックの順に
+ * 自動で切り替わる。動作確認時は `?api=https://…/exec` で上書きできる。
+ * ========================================================================= */
+
+var API_CONFIG = {
+  // GAS Web アプリ（doPost）の本番エンドポイント
+  url: 'https://script.google.com/macros/s/AKfycbzzCRwgtNBXefv9IYcpU-h84j2VDWJ2VVJ-LwMTG0nxHdQSU5aapF0Ldj8C7pSzwnYt_Q/exec',
+  // 通常の API のタイムアウト（ミリ秒）
+  timeoutMs: 30000,
+  // 画像解析・現場環境は外部 API を複数叩くため長めに取る
+  aiTimeoutMs: 90000
+};
+
+(function applyApiUrlFromQuery_() {
+  try {
+    var api = new URLSearchParams(window.location.search).get('api');
+    if (api) API_CONFIG.url = api;
+  } catch (err) {
+    // URLSearchParams が無い環境では既定値のまま
+  }
+})();
+
+/** GAS 直ホスティング（HtmlService）で動作しているか */
+var HAS_SCRIPT_RUN = !!(window.google && window.google.script && window.google.script.run);
+/** バックエンドが無く、localStorage のモックで動作するか */
+var IS_MOCK = !API_CONFIG.url && !HAS_SCRIPT_RUN;
+
+/** カテゴリーカードの配色（Ⅰ=teal / ⅡB=sky / ⅡA=amber / Ⅲ=rose） */
+var CATEGORY_THEME = {
+  I: { card: 'border-teal-200 bg-teal-50', badge: 'bg-teal-600 text-white', text: 'text-teal-900', chip: 'bg-white/70 text-teal-800' },
+  IIB: { card: 'border-sky-200 bg-sky-50', badge: 'bg-sky-600 text-white', text: 'text-sky-900', chip: 'bg-white/70 text-sky-800' },
+  IIA: { card: 'border-amber-200 bg-amber-50', badge: 'bg-amber-500 text-white', text: 'text-amber-900', chip: 'bg-white/70 text-amber-800' },
+  III: { card: 'border-rose-200 bg-rose-50', badge: 'bg-rose-600 text-white', text: 'text-rose-900', chip: 'bg-white/70 text-rose-800' }
+};
+
+/** AI 診断のリスク配色 */
+var AI_RISK_BADGE = {
+  LOW: 'bg-emerald-100 text-emerald-700',
+  MEDIUM: 'bg-amber-100 text-amber-800',
+  HIGH: 'bg-rose-100 text-rose-700'
+};
+var AI_RISK_DOT = { LOW: 'bg-emerald-500', MEDIUM: 'bg-amber-500', HIGH: 'bg-rose-500' };
+
+/** 現場環境の飛行適性バッジ（バックエンドの safetyStatus に対応） */
+var ENV_STATUS_BADGE = {
+  GOOD: 'bg-emerald-100 text-emerald-700',
+  CAUTION: 'bg-amber-100 text-amber-800',
+  DANGER: 'bg-rose-100 text-rose-700'
+};
+
+var state = {
+  ready: false,
+  data: {
+    drones: [],
+    pilots: [],
+    flights: [],
+    inspections: [],
+    stats: {},
+    catalog: FALLBACK_CATALOG,
+    flightTotal: 0,
+    today: '',
+    version: ''
+  },
+  log: { items: [], total: 0, hasMore: false, loading: false },
+  filters: { from: '', to: '', droneId: '', q: '' },
+  entry: {
+    type: '飛行前', items: {}, durationTouched: false, saving: false,
+    purpose: '空撮', flags: [], hasClearZone: true, category: null,
+    aiResult: null, aiLoading: false,
+    envResult: null, envLoading: false,
+    // 「入力をクリア」で増やす世代番号。古い非同期応答を破棄するために使う。
+    reqSeq: 0
+  },
+  editing: { droneId: '', pilotId: '' }
+};
+
+/* =========================================================================
+ * 汎用ユーティリティ
+ * ========================================================================= */
+
+function $(selector, root) {
+  return (root || document).querySelector(selector);
+}
+
+function $$(selector, root) {
+  return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+}
+
+/** HTML エスケープ（テンプレート文字列へ埋め込む前に必ず通す） */
+function esc(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** localStorage はサンドボックス化された iframe で例外を投げる場合がある */
+function lsGet(key) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch (err) {
+    return null;
+  }
+}
+
+function lsSet(key, value) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch (err) {
+    // 保存できない環境でも画面は動作させる
+  }
+}
+
+/** 数値を2桁にゼロ埋めする */
+function pad2(value) {
+  var s = String(value);
+  return s.length < 2 ? '0' + s : s;
+}
+
+/** 分を「1時間23分」形式にする */
+function fmtMin(minutes) {
+  var m = Math.max(0, Math.round(Number(minutes) || 0));
+  var h = Math.floor(m / 60);
+  var rest = m % 60;
+  if (!h) return rest + '分';
+  return h + '時間' + (rest ? rest + '分' : '');
+}
+
+/** 分を時間（小数1桁）にする */
+function fmtHours(minutes) {
+  var h = Math.round(((Number(minutes) || 0) / 60) * 10) / 10;
+  return h.toFixed(1);
+}
+
+/** 今日（JST）を YYYY-MM-DD で返す */
+function todayISO() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo' }).format(new Date());
+}
+
+/**
+ * 現在時刻（JST）を HH:mm で返す。
+ * 端末のタイムゾーンに関係なく日本時間になるため、現場でのワンタップ入力に使う。
+ */
+function nowTimeHM() {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Tokyo',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).format(new Date());
+}
+
+/** 日付に日数を加算する */
+function isoAddDays(iso, days) {
+  var p = String(iso).split('-');
+  var d = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])));
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** YYYY-MM-DD を「2026/11/06 (金)」形式にする */
+function fmtDateJP(iso) {
+  if (!iso) return '';
+  var p = String(iso).split('-');
+  if (p.length !== 3) return iso;
+  var d = new Date(Date.UTC(Number(p[0]), Number(p[1]) - 1, Number(p[2])));
+  var weeks = ['日', '月', '火', '水', '木', '金', '土'];
+  return p[0] + '/' + p[1] + '/' + p[2] + ' (' + weeks[d.getUTCDay()] + ')';
+}
+
+/** HH:mm を 0:00 からの分に変換する */
+function timeToMinutes(hhmm) {
+  var m = String(hhmm || '').match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+/** トースト通知 */
+function toast(message, type) {
+  var root = $('#toast');
+  if (!root) return;
+  var colors = {
+    info: 'bg-slate-900',
+    success: 'bg-teal-600',
+    warn: 'bg-amber-500',
+    error: 'bg-rose-600'
+  };
+  var el = document.createElement('div');
+  el.className = 'pointer-events-auto w-full max-w-md rounded-xl px-4 py-3 text-sm font-semibold text-white shadow-lg transition ' +
+    (colors[type] || colors.info);
+  el.setAttribute('role', 'status');
+  el.textContent = message;
+  root.appendChild(el);
+
+  setTimeout(function () {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(6px)';
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 260);
+  }, 3600);
+}
+
+/** 同期状態インジケーター */
+function setSync(mode, text) {
+  var dot = $('#sync-dot');
+  var label = $('#sync-text');
+  if (!dot || !label) return;
+  var color = 'bg-slate-300';
+  if (mode === 'gas' || mode === 'api') color = 'bg-teal-500';
+  if (mode === 'mock') color = 'bg-amber-400';
+  if (mode === 'error') color = 'bg-rose-500';
+  dot.className = 'h-1.5 w-1.5 rounded-full ' + color;
+  label.textContent = text;
+}
+
+/** 同期バッジのモード（mock / api / gas）を返す */
+function syncMode() {
+  if (IS_MOCK) return 'mock';
+  return API_CONFIG.url ? 'api' : 'gas';
+}
+
+/** エラー表示をクリアする */
+function clearErrors(scope) {
+  $$('.err', scope).forEach(function (el) {
+    el.classList.remove('show');
+    el.textContent = '';
+  });
+  $$('.field-error', scope).forEach(function (el) {
+    el.classList.remove('field-error');
+  });
+}
+
+/**
+ * エラーを表示する。
+ * @param {Object} errors 入力ID → メッセージ
+ * @param {HTMLElement} scope 対象フォーム
+ */
+function showErrors(errors, scope) {
+  clearErrors(scope);
+  var first = null;
+  Object.keys(errors).forEach(function (id) {
+    var input = document.getElementById(id);
+    if (input) {
+      input.classList.add('field-error');
+      if (!first) first = input;
+    }
+    var box = $('.err[data-error="' + id + '"]', scope || document);
+    if (box) {
+      box.textContent = errors[id];
+      box.classList.add('show');
+    }
+  });
+  if (first) {
+    first.focus();
+    if (first.scrollIntoView) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
+/** テキストをファイルとしてダウンロードする */
+function downloadText(fileName, content, mime) {
+  var blob = new Blob([content], { type: mime || 'text/csv;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+}
+
+/* =========================================================================
+ * バックエンド呼び出しラッパー
+ * -------------------------------------------------------------------------
+ * 呼び出し先は次の順で決まる。
+ *   1. API_CONFIG.url があれば GAS の Web アプリ（doPost）へ fetch
+ *   2. google.script.run があれば GAS（HtmlService）経由
+ *   3. どちらも無ければ localStorage ベースのモック
+ * ========================================================================= */
+
+/**
+ * バックエンドの関数を Promise で呼び出す。
+ * @param {string} funcName 関数名（= doPost の action 名）
+ * @param {...*} args 引数
+ * @return {Promise<*>} 実行結果
+ */
+function callGas(funcName) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  if (API_CONFIG.url) return callApi(funcName, args);
+
+  var runner = window.google && window.google.script && window.google.script.run;
+  if (!runner) return mockCall(funcName, args);
+
+  return new Promise(function (resolve, reject) {
+    var chain = runner
+      .withSuccessHandler(function (result) { resolve(result); })
+      .withFailureHandler(function (err) {
+        var message = err && err.message ? err.message : String(err);
+        reject(new Error(message));
+      });
+    if (typeof chain[funcName] !== 'function') {
+      reject(new Error('サーバー関数が見つかりません: ' + funcName));
+      return;
+    }
+    chain[funcName].apply(chain, args);
+  });
+}
+
+/** 応答に時間がかかる action（タイムアウトを長めに取る） */
+var API_SLOW_ACTIONS = {
+  fetchFlightEnvironment: true,
+  analyzeRiskFromCoordinates: true,
+  analyzeRiskFromImage: true,
+  analyzeRiskWithGemini: true
+};
+
+/**
+ * GAS の Web アプリ（doPost）を fetch で呼ぶ。
+ *
+ * Content-Type に application/json を付けるとブラウザが CORS のプリフライト
+ * （OPTIONS）を送るが、GAS はこれに応答できず失敗する。そのため
+ * text/plain;charset=utf-8（simple request）で送信している。
+ *
+ * @param {string} funcName action 名
+ * @param {Array} args 引数
+ * @return {Promise<*>} レスポンスの data
+ */
+function callApi(funcName, args) {
+  var timeoutMs = API_SLOW_ACTIONS[funcName] ? API_CONFIG.aiTimeoutMs : API_CONFIG.timeoutMs;
+  var controller = null;
+  var timer = null;
+  var options = {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: funcName, args: args }),
+    redirect: 'follow'
+  };
+
+  if (typeof AbortController === 'function') {
+    controller = new AbortController();
+    options.signal = controller.signal;
+    timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+  }
+
+  function clearTimer() {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  }
+
+  return fetch(API_CONFIG.url, options)
+    .then(function (res) {
+      clearTimer();
+      if (!res.ok) throw new Error('サーバーエラー（HTTP ' + res.status + '）が返りました。');
+      return res.text();
+    })
+    .then(function (text) {
+      var json;
+      try {
+        json = JSON.parse(text);
+      } catch (err) {
+        throw new Error('サーバーの応答を解析できませんでした（JSON 以外の応答）。');
+      }
+      if (!json || json.success !== true) {
+        throw new Error((json && json.error) || 'サーバーでエラーが発生しました。');
+      }
+      return json.data;
+    })
+    .catch(function (err) {
+      clearTimer();
+      if (err && err.name === 'AbortError') {
+        throw new Error('サーバーの応答がありません（タイムアウト）。時間をおいて再試行してください。');
+      }
+      if (err && err.message && !/Failed to fetch|NetworkError|Load failed/i.test(err.message)) {
+        throw err;
+      }
+      throw new Error('サーバーに接続できません。ネットワークまたは Web アプリの公開設定'
+        + '（アクセス: 全員）を確認してください。');
+    });
+}
+
+
+/* =========================================================================
+ * モックバックエンド（google.script.run が無い環境用）
+ * -------------------------------------------------------------------------
+ * 本番では Code.gs が同じ形のデータを返す。ロジックの重複を避けるため、
+ * モックは「画面確認に必要な最小限」に留めている。
+ * ========================================================================= */
+
+function mockLoad() {
+  try {
+    var raw = lsGet(LS.MOCK);
+    if (raw) return JSON.parse(raw);
+  } catch (err) {
+    // 壊れたデータは作り直す
+  }
+  var seed = mockSeed();
+  mockSave(seed);
+  return seed;
+}
+
+function mockSave(db) {
+  try {
+    lsSet(LS.MOCK, JSON.stringify(db));
+  } catch (err) {
+    console.warn('mock save failed', err);
+  }
+}
+
+function mockNow() {
+  var parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Tokyo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(new Date());
+  var map = {};
+  parts.forEach(function (p) { map[p.type] = p.value; });
+  return map.year + '-' + map.month + '-' + map.day + ' ' +
+    map.hour + ':' + map.minute + ':' + map.second;
+}
+
+function mockSeed() {
+  var today = todayISO();
+  var d1 = isoAddDays(today, -2);
+  var d2 = isoAddDays(today, -1);
+  var allOk = {};
+  ITEM_NAMES.forEach(function (n) { allOk[n] = 'OK'; });
+
+  return {
+    next: { drone: 3, pilot: 2, flight: 4, inspection: 4 },
+    drones: [
+      {
+        droneId: 'DRN-0001', modelName: 'DJI Mavic 3 Enterprise', maker: 'DJI',
+        weightG: 920, registrationNo: 'JU1234567890', serialNo: 'SN-M3E-0001',
+        note: '空撮・点検用'
+      },
+      {
+        droneId: 'DRN-0002', modelName: 'DJI Mini 4 Pro', maker: 'DJI',
+        weightG: 249, registrationNo: '', serialNo: 'SN-M4P-0001',
+        note: '軽量機（訓練用）'
+      }
+    ],
+    pilots: [
+      { pilotId: 'PLT-0001', name: '普施 太郎', licenseNo: 'JP1234567890', contact: '090-0000-0000' }
+    ],
+    flights: [
+      {
+        flightId: 'FLT-0001', date: d1, pilotId: 'PLT-0001', droneId: 'DRN-0001',
+        takeoffPlace: '多摩川河川敷', landingPlace: '多摩川河川敷',
+        lat: 35.6412, lng: 139.5231, takeoffTime: '09:12', landingTime: '09:58',
+        durationMin: 46, specificFlags: ['目視外'], safetyEvent: 'なし',
+        purpose: '空撮', createdAt: d1 + ' 10:05:00'
+      },
+      {
+        flightId: 'FLT-0002', date: d2, pilotId: 'PLT-0001', droneId: 'DRN-0002',
+        takeoffPlace: '公園グラウンド', landingPlace: '公園グラウンド',
+        lat: null, lng: null, takeoffTime: '14:05', landingTime: '14:52',
+        durationMin: 47, specificFlags: ['非特定飛行'], safetyEvent: 'なし',
+        purpose: '訓練・練習', createdAt: d2 + ' 15:01:00'
+      },
+      {
+        flightId: 'FLT-0003', date: today, pilotId: 'PLT-0001', droneId: 'DRN-0001',
+        takeoffPlace: '物流倉庫 屋外ヤード', landingPlace: '物流倉庫 屋外ヤード',
+        lat: 35.6812, lng: 139.7671, takeoffTime: '08:30', landingTime: '09:24',
+        durationMin: 54, specificFlags: ['目視外', 'DID（人口集中地区）'],
+        safetyEvent: 'なし', purpose: 'インフラ点検・保守', createdAt: today + ' 09:40:00'
+      }
+    ],
+    inspections: [
+      {
+        inspectionId: 'INS-0001', flightId: 'FLT-0001', droneId: 'DRN-0001',
+        type: '飛行前', inspectionDate: d1, inspector: '普施 太郎',
+        result: '合格', memo: '', items: allOk, createdAt: d1 + ' 09:05:00'
+      },
+      {
+        inspectionId: 'INS-0002', flightId: 'FLT-0001', droneId: 'DRN-0001',
+        type: '飛行後', inspectionDate: d1, inspector: '普施 太郎',
+        result: '合格', memo: '異常なし', items: allOk, createdAt: d1 + ' 10:04:00'
+      },
+      {
+        inspectionId: 'INS-0003', flightId: 'FLT-0002', droneId: 'DRN-0002',
+        type: '飛行前', inspectionDate: d2, inspector: '普施 太郎',
+        result: '合格', memo: '', items: allOk, createdAt: d2 + ' 13:58:00'
+      }
+    ]
+  };
+}
+
+/** 機体ごとの飛行時間・点検基準を集計する（サーバーの decorateDrone_ 相当） */
+function mockDecorate(db) {
+  var totals = {};
+  var since = {};
+  var last = {};
+
+  db.flights.forEach(function (f) {
+    totals[f.droneId] = (totals[f.droneId] || 0) + Number(f.durationMin || 0);
+  });
+
+  db.inspections.forEach(function (i) {
+    if (i.type !== '20時間定期点検' && i.type !== '修理') return;
+    if (!last[i.droneId] || i.inspectionDate > last[i.droneId]) last[i.droneId] = i.inspectionDate;
+  });
+
+  Object.keys(last).forEach(function (id) { since[id] = 0; });
+  db.flights.forEach(function (f) {
+    if (last[f.droneId] && f.date > last[f.droneId]) {
+      since[f.droneId] = (since[f.droneId] || 0) + Number(f.durationMin || 0);
+    }
+  });
+
+  return db.drones.map(function (d) {
+    var total = totals[d.droneId] || 0;
+    var periodicDate = last[d.droneId] || '';
+    var sinceMinutes = periodicDate ? (since[d.droneId] || 0) : total;
+    var level = sinceMinutes >= LIMIT_MINUTES ? 'over' : (sinceMinutes >= WARN_MINUTES ? 'warn' : 'ok');
+    return {
+      droneId: d.droneId,
+      modelName: d.modelName,
+      maker: d.maker || '',
+      weightG: Number(d.weightG || 0),
+      registrationNo: d.registrationNo || '',
+      serialNo: d.serialNo || '',
+      note: d.note || '',
+      totalMinutes: total,
+      totalHours: Math.round(total / 6) / 10,
+      basisMinutes: sinceMinutes,
+      basisHours: Math.round(sinceMinutes / 6) / 10,
+      basisLabel: periodicDate ? '前回の20時間点検以降' : '累計飛行時間',
+      minutesSinceInspection: sinceMinutes,
+      lastInspectionDate: periodicDate,
+      remainingMinutes: Math.max(0, LIMIT_MINUTES - sinceMinutes),
+      limitMinutes: LIMIT_MINUTES,
+      warnMinutes: WARN_MINUTES,
+      progress: Math.min(100, Math.round((sinceMinutes / LIMIT_MINUTES) * 100)),
+      level: level,
+      needsInspection: level !== 'ok'
+    };
+  });
+}
+
+function mockInspectionView(i, drone) {
+  return {
+    inspectionId: i.inspectionId,
+    flightId: i.flightId || '',
+    droneId: i.droneId,
+    droneName: drone.modelName || '',
+    registrationNo: drone.registrationNo || '',
+    type: i.type,
+    inspectionDate: i.inspectionDate,
+    inspector: i.inspector || '',
+    result: i.result,
+    memo: i.memo || '',
+    items: i.items || {},
+    createdAt: i.createdAt || ''
+  };
+}
+
+/** 飛行記録を結合・絞り込み・並べ替えする */
+function mockFlightItems(db, filter) {
+  var f = filter || {};
+  var dronesById = {};
+  var pilotsById = {};
+  db.drones.forEach(function (d) { dronesById[d.droneId] = d; });
+  db.pilots.forEach(function (p) { pilotsById[p.pilotId] = p; });
+  var q = String(f.q || '').trim().toLowerCase();
+
+  var items = db.flights.map(function (row) {
+    var drone = dronesById[row.droneId] || {};
+    var pilot = pilotsById[row.pilotId] || {};
+    var inspections = db.inspections
+      .filter(function (i) { return i.flightId === row.flightId; })
+      .map(function (i) { return mockInspectionView(i, drone); });
+
+    return {
+      flightId: row.flightId,
+      date: row.date,
+      yearMonth: String(row.date).slice(0, 7),
+      pilotId: row.pilotId,
+      pilotName: pilot.name || row.pilotId,
+      licenseNo: pilot.licenseNo || '',
+      droneId: row.droneId,
+      droneName: drone.modelName || row.droneId,
+      registrationNo: drone.registrationNo || '',
+      serialNo: drone.serialNo || '',
+      takeoffPlace: row.takeoffPlace,
+      landingPlace: row.landingPlace || row.takeoffPlace,
+      lat: row.lat,
+      lng: row.lng,
+      takeoffTime: row.takeoffTime,
+      landingTime: row.landingTime,
+      durationMin: Number(row.durationMin || 0),
+      durationLabel: fmtMin(row.durationMin),
+      specificFlags: row.specificFlags || [],
+      hasClearZone: row.hasClearZone !== false && row.hasClearZone !== 'なし',
+      category: row.category || judgeCategoryLocal(
+        row.specificFlags || [], drone.weightG, row.hasClearZone !== 'なし'
+      ).label,
+      safetyEvent: row.safetyEvent || 'なし',
+      hasSafetyEvent: String(row.safetyEvent || '').indexOf('あり') === 0,
+      purpose: row.purpose || '',
+      createdAt: row.createdAt || '',
+      inspections: inspections,
+      hasAbnormalInspection: inspections.some(function (i) { return i.result === '異常あり'; })
+    };
+  });
+
+  items = items.filter(function (i) {
+    if (f.from && i.date < f.from) return false;
+    if (f.to && i.date > f.to) return false;
+    if (f.droneId && i.droneId !== f.droneId) return false;
+    if (f.pilotId && i.pilotId !== f.pilotId) return false;
+    if (q) {
+      var hay = [i.flightId, i.droneName, i.registrationNo, i.pilotName, i.takeoffPlace,
+        i.landingPlace, i.purpose, i.specificFlags.join(' '), i.safetyEvent]
+        .join(' ').toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+
+  items.sort(function (a, b) {
+    var ka = a.date + ' ' + a.takeoffTime + ' ' + a.flightId;
+    var kb = b.date + ' ' + b.takeoffTime + ' ' + b.flightId;
+    if (ka === kb) return 0;
+    return ka < kb ? 1 : -1;
+  });
+
+  return items;
+}
+
+function mockGetFlights(db, f) {
+  var filter = f || {};
+  var all = mockFlightItems(db, filter);
+  var limit = Math.min(500, Math.max(1, Number(filter.limit) || 50));
+  var offset = Math.max(0, Number(filter.offset) || 0);
+  var totalMinutes = all.reduce(function (s, i) { return s + i.durationMin; }, 0);
+  return {
+    ok: true,
+    total: all.length,
+    limit: limit,
+    offset: offset,
+    hasMore: offset + limit < all.length,
+    totalMinutes: totalMinutes,
+    items: all.slice(offset, offset + limit)
+  };
+}
+
+function mockGetInspections(db, filter) {
+  var f = filter || {};
+  var dronesById = {};
+  db.drones.forEach(function (d) { dronesById[d.droneId] = d; });
+
+  var items = db.inspections.map(function (i) {
+    return mockInspectionView(i, dronesById[i.droneId] || {});
+  }).filter(function (i) {
+    if (f.from && i.inspectionDate < f.from) return false;
+    if (f.to && i.inspectionDate > f.to) return false;
+    if (f.droneId && i.droneId !== f.droneId) return false;
+    if (f.type && i.type !== f.type) return false;
+    return true;
+  });
+
+  items.sort(function (a, b) {
+    var ka = a.inspectionDate + ' ' + a.createdAt + ' ' + a.inspectionId;
+    var kb = b.inspectionDate + ' ' + b.createdAt + ' ' + b.inspectionId;
+    if (ka === kb) return 0;
+    return ka < kb ? 1 : -1;
+  });
+
+  var limit = Math.min(1000, Math.max(1, Number(f.limit) || 100));
+  return { ok: true, total: items.length, limit: limit, items: items.slice(0, limit) };
+}
+
+function mockBootstrap(db) {
+  var drones = mockDecorate(db);
+  var all = mockFlightItems(db, {});
+  var month = todayISO().slice(0, 7);
+  var monthFlights = all.filter(function (f) { return f.yearMonth === month; });
+  var totalMinutes = all.reduce(function (s, f) { return s + f.durationMin; }, 0);
+  var monthMinutes = monthFlights.reduce(function (s, f) { return s + f.durationMin; }, 0);
+  var inspections = mockGetInspections(db, { limit: 300 }).items;
+  var flightCounts = {};
+  db.flights.forEach(function (f) { flightCounts[f.pilotId] = (flightCounts[f.pilotId] || 0) + 1; });
+
+  return {
+    ok: true,
+    version: '1.0.0-mock',
+    now: mockNow(),
+    today: todayISO(),
+    monthPrefix: month,
+    spreadsheetUrl: '',
+    drones: drones,
+    pilots: db.pilots.map(function (p) {
+      return {
+        pilotId: p.pilotId, name: p.name,
+        licenseNo: p.licenseNo || '', contact: p.contact || '',
+        flightCount: flightCounts[p.pilotId] || 0
+      };
+    }),
+    flights: all.slice(0, 100),
+    flightTotal: all.length,
+    inspections: inspections,
+    stats: {
+      totalFlights: all.length,
+      totalMinutes: totalMinutes,
+      totalHours: Math.round(totalMinutes / 6) / 10,
+      monthFlights: monthFlights.length,
+      monthMinutes: monthMinutes,
+      monthHours: Math.round(monthMinutes / 6) / 10,
+      safetyEventCount: all.filter(function (f) { return f.hasSafetyEvent; }).length,
+      alertDrones: drones.filter(function (d) { return d.needsInspection; }).length
+    },
+    catalog: FALLBACK_CATALOG
+  };
+}
+
+/* ===== モック用 CSV（サーバーの csvCell_ / buildCsv_ 相当） ===== */
+
+function csvCell(value) {
+  var s = value === null || value === undefined ? '' : String(value);
+  s = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (/^[=+@\t]/.test(s) || /^-(?![\d.])/.test(s)) s = "'" + s;
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+function buildCsvText(headers, rows) {
+  var lines = [headers.map(csvCell).join(',')];
+  rows.forEach(function (row) { lines.push(row.map(csvCell).join(',')); });
+  return '\uFEFF' + lines.join('\r\n') + '\r\n';
+}
+
+function mockCsvName(prefix, from, to) {
+  var f = String(from || '').replace(/-/g, '');
+  var t = String(to || '').replace(/-/g, '');
+  var today = todayISO().replace(/-/g, '');
+  if (f && t) return prefix + '_' + f + '-' + t + '.csv';
+  if (f || t) return prefix + '_' + (f || t) + '-' + today + '.csv';
+  return prefix + '_' + today + '.csv';
+}
+
+function mockBuildDipsCsv(db, options) {
+  var o = options || {};
+  var allAsc = mockFlightItems(db, {}).slice().reverse();
+  var cumulative = {};
+  var running = {};
+  allAsc.forEach(function (f) {
+    running[f.droneId] = (running[f.droneId] || 0) + f.durationMin;
+    cumulative[f.flightId] = running[f.droneId];
+  });
+
+  var flights = mockFlightItems(db, o).slice().reverse();
+  var headers = ['飛行年月日', '操縦者氏名', '技能証明書番号', '機体登録記号', '機種名（種類及び型式）',
+    '製造番号', '飛行目的', '飛行概要（特定飛行区分）', '離陸場所', '着陸場所', '離陸時刻', '着陸時刻',
+    '飛行時間(分)', '総飛行時間(分)', '飛行の安全に影響のあった事項', '緯度', '経度', '飛行ID（管理用）'];
+
+  var rows = flights.map(function (f) {
+    return [f.date, f.pilotName, f.licenseNo, f.registrationNo, f.droneName, f.serialNo,
+      f.purpose, f.specificFlags.join('、'), f.takeoffPlace, f.landingPlace,
+      f.takeoffTime, f.landingTime, f.durationMin,
+      cumulative[f.flightId] || f.durationMin, f.safetyEvent,
+      f.lat === null || f.lat === undefined ? '' : f.lat,
+      f.lng === null || f.lng === undefined ? '' : f.lng,
+      f.flightId];
+  });
+
+  var totalMinutes = flights.reduce(function (s, f) { return s + f.durationMin; }, 0);
+
+  return {
+    ok: true,
+    count: rows.length,
+    totalMinutes: totalMinutes,
+    columns: headers,
+    content: buildCsvText(headers, rows),
+    fileName: mockCsvName('dips_flight_log', o.from, o.to),
+    mimeType: 'text/csv;charset=utf-8',
+    empty: rows.length === 0,
+    note: 'モックデータの CSV です。'
+  };
+}
+
+function mockBuildInspectionCsv(db, options) {
+  var o = options || {};
+  var rowsData = mockGetInspections(db, o).items.slice().reverse();
+  var headers = ['点検ID', '点検種別', '点検実施日', '機体登録記号', '機種名（種類及び型式）',
+    '実施者', '点検結果', '飛行ID', '備考'].concat(ITEM_NAMES.map(function (n) { return '点検項目:' + n; }));
+
+  var rows = rowsData.map(function (i) {
+    var base = [i.inspectionId, i.type, i.inspectionDate, i.registrationNo, i.droneName,
+      i.inspector, i.result, i.flightId, i.memo];
+    var cells = ITEM_NAMES.map(function (name) {
+      var v = i.items ? i.items[name] : '';
+      if (v === 'OK') return '良';
+      if (v === 'NG') return '異常';
+      return '';
+    });
+    return base.concat(cells);
+  });
+
+  return {
+    ok: true,
+    count: rows.length,
+    columns: headers,
+    content: buildCsvText(headers, rows),
+    fileName: mockCsvName('dips_inspection_log', o.from, o.to),
+    mimeType: 'text/csv;charset=utf-8',
+    empty: rows.length === 0,
+    note: 'モックデータの CSV です。'
+  };
+}
+
+/* ===== モックの書き込み系 ===== */
+
+function mockNextId(db, kind, prefix) {
+  var id = prefix + ('0000' + db.next[kind]).slice(-4);
+  db.next[kind] += 1;
+  return id;
+}
+
+function mockSaveFlight(payload) {
+  var db = mockLoad();
+  var p = payload || {};
+  var f = p.flight || {};
+
+  if (!f.date) throw new Error('飛行年月日を入力してください。');
+  if (!f.pilotId) throw new Error('操縦者を選択してください。');
+  if (!f.droneId) throw new Error('機体を選択してください。');
+  if (!f.takeoffPlace) throw new Error('離陸場所を入力してください。');
+  if (!f.takeoffTime || !f.landingTime) throw new Error('離着陸時刻を入力してください。');
+  if (!db.drones.some(function (d) { return d.droneId === f.droneId; })) {
+    throw new Error('機体ID「' + f.droneId + '」がマスタに登録されていません。');
+  }
+  if (!db.pilots.some(function (pl) { return pl.pilotId === f.pilotId; })) {
+    throw new Error('操縦者ID「' + f.pilotId + '」がマスタに登録されていません。');
+  }
+
+  var flags = (f.specificFlags || []).filter(function (v) { return v; });
+  if (!flags.length) flags = ['非特定飛行'];
+  if (flags.length > 1) {
+    flags = flags.filter(function (v) { return v !== '非特定飛行'; });
+  }
+
+  var hasClearZone = !(f.hasClearZone === false || f.hasClearZone === 'なし' || f.hasClearZone === 'false');
+  var droneMaster = db.drones.filter(function (d) { return d.droneId === f.droneId; })[0] || {};
+  var category = judgeCategoryLocal(flags, droneMaster.weightG, hasClearZone);
+
+  // 点検は保存前に検証する（中途半端な保存を避ける）
+  var inspection = null;
+  if (p.inspection) {
+    var ins = p.inspection;
+    var items = ins.items || {};
+    var missing = ITEM_NAMES.filter(function (n) { return !items[n]; });
+    if (missing.length) throw new Error('未入力の点検項目があります: ' + missing.join('、'));
+    inspection = {
+      type: ins.type || '飛行前',
+      date: ins.date || f.date,
+      inspector: ins.inspector || '',
+      memo: ins.memo || '',
+      items: items,
+      result: ITEM_NAMES.some(function (n) { return items[n] === 'NG'; }) ? '異常あり' : '合格'
+    };
+    if (!inspection.inspector) throw new Error('点検の実施者を入力してください。');
+  }
+
+  var flightId = mockNextId(db, 'flight', 'FLT-');
+  db.flights.push({
+    flightId: flightId,
+    date: f.date,
+    pilotId: f.pilotId,
+    droneId: f.droneId,
+    takeoffPlace: f.takeoffPlace,
+    landingPlace: f.landingPlace || f.takeoffPlace,
+    lat: f.lat === '' || f.lat === undefined ? null : Number(f.lat),
+    lng: f.lng === '' || f.lng === undefined ? null : Number(f.lng),
+    takeoffTime: f.takeoffTime,
+    landingTime: f.landingTime,
+    durationMin: Number(f.durationMin) || 0,
+    specificFlags: flags,
+    hasClearZone: hasClearZone,
+    category: category.label,
+    safetyEvent: f.safetyEvent && f.safetyEvent.hasEvent
+      ? 'あり：' + String(f.safetyEvent.detail || '')
+      : 'なし',
+    purpose: f.purpose || 'その他',
+    createdAt: mockNow()
+  });
+
+  var inspectionId = '';
+  if (inspection) {
+    inspectionId = mockNextId(db, 'inspection', 'INS-');
+    db.inspections.push({
+      inspectionId: inspectionId,
+      flightId: flightId,
+      droneId: f.droneId,
+      type: inspection.type,
+      inspectionDate: inspection.date,
+      inspector: inspection.inspector,
+      result: inspection.result,
+      memo: inspection.memo,
+      items: inspection.items,
+      createdAt: mockNow()
+    });
+  }
+
+  mockSave(db);
+
+  var total = db.flights
+    .filter(function (x) { return x.droneId === f.droneId; })
+    .reduce(function (s, x) { return s + Number(x.durationMin || 0); }, 0);
+
+  return {
+    ok: true,
+    flightId: flightId,
+    inspectionId: inspectionId,
+    inspectionResult: inspection ? inspection.result : '',
+    durationMin: Number(f.durationMin) || 0,
+    cumulativeMinutes: total,
+    specificFlags: flags.join('、'),
+    hasClearZone: hasClearZone,
+    category: category.label,
+    categoryLevel: category.level,
+    drone: mockDecorate(db).filter(function (d) { return d.droneId === f.droneId; })[0] || null,
+    message: '飛行記録を保存しました（' + flightId + '）。' +
+      (inspectionId ? ' 点検記録も保存しました（' + inspectionId + '）。' : '')
+  };
+}
+
+function mockSaveDrone(payload) {
+  var db = mockLoad();
+  var p = payload || {};
+  if (!p.modelName) throw new Error('機種名を入力してください。');
+
+  if (p.droneId) {
+    var target = db.drones.filter(function (d) { return d.droneId === p.droneId; })[0];
+    if (!target) throw new Error('機体が見つかりません。');
+    target.modelName = p.modelName;
+    target.maker = p.maker || '';
+    target.weightG = Number(p.weightG) || 0;
+    target.registrationNo = String(p.registrationNo || '').toUpperCase();
+    target.serialNo = p.serialNo || '';
+    target.note = p.note || '';
+    mockSave(db);
+    return { ok: true, created: false, droneId: target.droneId, warnings: [], message: '機体情報を更新しました。' };
+  }
+
+  var duplicate = db.drones.filter(function (d) {
+    if (p.serialNo && d.serialNo === p.serialNo) return true;
+    return p.registrationNo &&
+      String(d.registrationNo).toUpperCase() === String(p.registrationNo).toUpperCase();
+  })[0];
+  if (duplicate) {
+    throw new Error('同じ製造番号または機体登録記号の機体が登録済みです（' + duplicate.droneId + '）。');
+  }
+
+  var id = mockNextId(db, 'drone', 'DRN-');
+  db.drones.push({
+    droneId: id,
+    modelName: p.modelName,
+    maker: p.maker || '',
+    weightG: Number(p.weightG) || 0,
+    registrationNo: String(p.registrationNo || '').toUpperCase(),
+    serialNo: p.serialNo || '',
+    note: p.note || ''
+  });
+  mockSave(db);
+  return { ok: true, created: true, droneId: id, warnings: [], message: '機体を登録しました（' + id + '）。' };
+}
+
+function mockSavePilot(payload) {
+  var db = mockLoad();
+  var p = payload || {};
+  if (!p.name) throw new Error('氏名を入力してください。');
+
+  if (p.pilotId) {
+    var target = db.pilots.filter(function (x) { return x.pilotId === p.pilotId; })[0];
+    if (!target) throw new Error('操縦者が見つかりません。');
+    target.name = p.name;
+    target.licenseNo = String(p.licenseNo || '').toUpperCase();
+    target.contact = p.contact || '';
+    mockSave(db);
+    return { ok: true, created: false, pilotId: target.pilotId, warnings: [], message: '操縦者情報を更新しました。' };
+  }
+
+  var id = mockNextId(db, 'pilot', 'PLT-');
+  db.pilots.push({
+    pilotId: id,
+    name: p.name,
+    licenseNo: String(p.licenseNo || '').toUpperCase(),
+    contact: p.contact || ''
+  });
+  mockSave(db);
+  return { ok: true, created: true, pilotId: id, warnings: [], message: '操縦者を登録しました（' + id + '）。' };
+}
+
+function mockSaveInspectionRecord(payload) {
+  var db = mockLoad();
+  var p = payload || {};
+  if (!p.droneId) throw new Error('機体を選択してください。');
+  if (!p.inspector) throw new Error('点検の実施者を入力してください。');
+  if (!db.drones.some(function (d) { return d.droneId === p.droneId; })) {
+    throw new Error('機体が見つかりません。');
+  }
+
+  var id = mockNextId(db, 'inspection', 'INS-');
+  db.inspections.push({
+    inspectionId: id,
+    flightId: p.flightId || '',
+    droneId: p.droneId,
+    type: p.type || '20時間定期点検',
+    inspectionDate: p.date || todayISO(),
+    inspector: p.inspector,
+    result: p.result || '合格',
+    memo: p.memo || '',
+    items: {},
+    createdAt: mockNow()
+  });
+  mockSave(db);
+
+  return {
+    ok: true,
+    inspectionId: id,
+    drone: mockDecorate(db).filter(function (d) { return d.droneId === p.droneId; })[0] || null,
+    message: '点検記録を保存しました（' + id + '）。'
+  };
+}
+
+/* ----- モック: カテゴリー判定 / AI 診断 ----- */
+
+/** モックのカテゴリー判定（Code.gs と同じ規則をローカル関数で再現） */
+function mockJudgeCategory(input) {
+  var p = input || {};
+  var result = judgeCategoryLocal(p.flags || p.specificFlags || [], p.weightG, p.hasClearZone);
+  result.ok = true;
+  return result;
+}
+
+/** モックの衛星写真（SVG のダミー画像。data URI の表示経路を確認するため） */
+function mockSatelliteImageUrl() {
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">' +
+    '<rect width="240" height="240" fill="#1f2937"/>' +
+    '<path d="M0 168h240M60 0v240M156 0v240" stroke="#4b5563" stroke-width="10"/>' +
+    '<rect x="72" y="72" width="60" height="52" fill="#6b7280"/>' +
+    '<rect x="168" y="24" width="56" height="72" fill="#4b5563"/>' +
+    '<text x="120" y="226" font-size="12" fill="#9ca3af" text-anchor="middle">MOCK SATELLITE z19</text>' +
+    '</svg>';
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+/** モックのリスク診断結果を組み立てる */
+function mockRiskResult(source, lat, lng) {
+  var satellite = source === 'satellite';
+  return {
+    ok: true,
+    source: source,
+    model: 'mock-gemini',
+    lat: satellite ? Number(lat) : null,
+    lng: satellite ? Number(lng) : null,
+    riskLevel: 'MEDIUM',
+    riskLabel: '中リスク',
+    detectedObjects: satellite ? [
+      { objectType: '歩行者', description: '南東の道路に2名。離陸地点から約25m', risk: 'MEDIUM' },
+      { objectType: '車両', description: '東側駐車場に3台。離陸地点から約35m', risk: 'LOW' },
+      { objectType: '倉庫', description: '北側の建物。屋根が約20mまで近接', risk: 'MEDIUM' }
+    ] : [
+      { objectType: '電線', description: '画面右上に電柱と電線。進入経路の高さ約8m', risk: 'HIGH' },
+      { objectType: '見物者', description: '手前側に立入りを制限する柵がなく、人が接近しやすい', risk: 'MEDIUM' }
+    ],
+    suggestedFlags: satellite
+      ? { within30m: true, did: false, altitude150m: false, event: false }
+      : { within30m: true, did: true, altitude150m: false, event: false },
+    summary: satellite
+      ? '周辺に歩行者と車両があります。離陸地点の南東25mに第三者がいるため、立入管理措置と補助者の配置を検討してください。'
+      : '電線が進入経路に近接し、第三者の立入りを制限する柵も確認できません。離陸地点の見直しが必要です。',
+    actionableAdvice: satellite ? [
+      '南東25mの歩行者が離れるまで離陸を待つ',
+      '東側駐車場の車両が動かないことを確認する',
+      '北側の倉庫は見通しが悪いため、飛行経路を南側へ寄せる'
+    ] : [
+      '電線の高さと距離を現地で実測し、飛行高度の上限を決める',
+      '柵または監視員で第三者の立入りを制限する',
+      '補助者を配置し、離陸・着陸時の周囲確認を分担する'
+    ],
+    satelliteImageUrl: satellite ? mockSatelliteImageUrl() : null,
+    analyzedAt: new Date().toISOString(),
+    mock: true
+  };
+}
+
+/* ===== モックのディスパッチャ ===== */
+
+var MOCK = {
+  getBootstrapData: function () { return mockBootstrap(mockLoad()); },
+  getDrones: function () { return mockDecorate(mockLoad()); },
+  getPilots: function () {
+    var db = mockLoad();
+    var bootstrap = mockBootstrap(db);
+    return bootstrap.pilots;
+  },
+  getFlights: function (filter) { return mockGetFlights(mockLoad(), filter); },
+  getInspections: function (filter) { return mockGetInspections(mockLoad(), filter); },
+  saveFlightRecord: function (payload) { return mockSaveFlight(payload); },
+  saveInspection: function (payload) { return mockSaveInspectionRecord(payload); },
+  saveDrone: function (payload) { return mockSaveDrone(payload); },
+  savePilot: function (payload) { return mockSavePilot(payload); },
+  buildDipsCsv: function (options) { return mockBuildDipsCsv(mockLoad(), options); },
+  buildInspectionCsv: function (options) { return mockBuildInspectionCsv(mockLoad(), options); },
+  recalcDroneTotals: function () {
+    var drones = mockDecorate(mockLoad());
+    return {
+      ok: true,
+      count: drones.length,
+      totals: drones.map(function (d) { return { droneId: d.droneId, totalMinutes: d.totalMinutes }; }),
+      message: 'モックの累計を再計算しました。'
+    };
+  },
+  initSpreadsheet: function () {
+    return { ok: true, created: [], headersAdded: [], message: 'モックでは初期化は不要です。' };
+  },
+  parseDjiLog: function () {
+    throw new Error('DJI ログの自動解析は未実装です。飛行時間・離着陸時刻を手入力してください。');
+  },
+  fetchGeoFromAddress: function (address) {
+    var text = String(address == null ? '' : address).trim();
+    if (!text) throw new Error('住所を入力してください。');
+    if (text.indexOf('存在しない') !== -1) {
+      throw new Error('住所が見つかりませんでした: 「' + text + '」。');
+    }
+    return {
+      ok: true,
+      address: text,
+      lat: 35.854,
+      lng: 140.598,
+      formattedAddress: '千葉県香取市小見川',
+      partial: false,
+      status: 'OK',
+      mock: true,
+      message: 'モックの座標を返しました。'
+    };
+  },
+  fetchAddressFromGeo: function (lat, lng) {
+    var la = Number(lat);
+    var ln = Number(lng);
+    if (!isFinite(la) || !isFinite(ln)) {
+      throw new Error('緯度・経度を数値で指定してください。');
+    }
+    return {
+      ok: true,
+      address: '千葉県香取市小見川',
+      formattedAddress: '千葉県香取市小見川',
+      lat: la,
+      lng: ln,
+      status: 'OK',
+      mock: true,
+      message: 'モックの住所を返しました。'
+    };
+  },
+  fetchGeoInfo: function (lat, lng) {
+    return {
+      ok: true,
+      address: '千葉県香取市小見川',
+      isDID: null,
+      restrictions: [],
+      lat: Number(lat),
+      lng: Number(lng),
+      mock: true,
+      message: 'モックの周辺情報です。'
+    };
+  },
+  fetchFlightEnvironment: function (lat, lng) {
+    var la = Number(lat);
+    var ln = Number(lng);
+    if (!isFinite(la) || !isFinite(ln)) {
+      throw new Error('緯度・経度を数値で指定してください。');
+    }
+    if (la < -90 || la > 90 || ln < -180 || ln > 180) {
+      throw new Error('緯度・経度の範囲が不正です（緯度 -90〜90 / 経度 -180〜180）。');
+    }
+
+    // モックは東京周辺（緯度35.5〜35.9 / 経度139.5〜140.0）を DID とみなす
+    var isDID = la >= 35.5 && la <= 35.9 && ln >= 139.5 && ln <= 140.0;
+    var ground = 12.4;
+
+    return {
+      ok: true,
+      lat: la,
+      lng: ln,
+      weather: {
+        text: '薄曇り',
+        temperature: 18.5,
+        humidity: 58,
+        precipitation: 0,
+        windSpeed: 3.2,
+        windGust: 5.1,
+        weatherCode: 2,
+        safetyStatus: 'GOOD',
+        safetyLabel: '飛行適性: 良好（安全圏）',
+        observedAt: mockNow().replace(' ', 'T').slice(0, 16)
+      },
+      elevation: {
+        groundElevation: ground,
+        max150mLimit: Math.round((ground + 150) * 10) / 10,
+        note: 'モックの標高です。'
+      },
+      regulations: {
+        isDID: isDID,
+        note: isDID ? '人口集中地区（DID）内' : '人口集中地区（DID）外',
+        source: 'モック'
+      },
+      sources: {
+        weather: 'Open-Meteo（モック）',
+        elevation: '国土地理院 標高API（モック）',
+        did: '地理院タイル（モック）'
+      },
+      message: 'モックの環境情報です。',
+      fetchedAt: mockNow()
+    };
+  },
+  judgeFlightCategory: function (input) { return mockJudgeCategory(input); },
+  analyzeRiskFromCoordinates: function (lat, lng) {
+    var la = Number(lat);
+    var ln = Number(lng);
+    if (!isFinite(la) || !isFinite(ln)) throw new Error('緯度・経度を数値で指定してください。');
+    if (la < -90 || la > 90 || ln < -180 || ln > 180) {
+      throw new Error('緯度・経度の範囲が不正です（緯度 -90〜90 / 経度 -180〜180）。');
+    }
+    return mockRiskResult('satellite', la, ln);
+  },
+  analyzeRiskFromImage: function (base64, mimeType) {
+    var data = String(base64 || '');
+    if (!data) throw new Error('解析する画像が空です。画像を選択し直してください。');
+    if (/^data:/.test(data) && !/^data:image\//.test(data)) {
+      throw new Error('画像ファイルではありません。JPEG / PNG を指定してください。');
+    }
+    return mockRiskResult('photo', null, null);
+  },
+  analyzeRiskWithGemini: function (base64, mimeType) {
+    return MOCK.analyzeRiskFromImage(base64, mimeType);
+  }
+};
+
+/**
+ * モック関数を非同期で呼ぶ（GAS の往復を模して 220ms 待つ）。
+ * @param {string} name 関数名
+ * @param {Array} args 引数
+ * @return {Promise<*>} 結果
+ */
+function mockCall(name, args) {
+  return new Promise(function (resolve, reject) {
+    setTimeout(function () {
+      try {
+        var fn = MOCK[name];
+        if (!fn) throw new Error('未対応の関数です: ' + name);
+        resolve(fn.apply(null, args || []));
+      } catch (err) {
+        reject(err);
+      }
+    }, 220);
+  });
+}
+
+/* =========================================================================
+ * 描画: 共通・ヘッダー・セレクト
+ * ========================================================================= */
+
+function renderAll() {
+  var d = state.data;
+  CATALOG = d.catalog || FALLBACK_CATALOG;
+  renderHeaderStats();
+  renderSelects();
+  renderCatalogControls();
+  renderEntryAlerts();
+  renderDroneHint();
+  renderInspectionItems();
+  renderLogFromBootstrap();
+  renderFleet();
+  renderPeriodicList();
+  renderInspectionTypeButtons();
+  updateInspectionSummary();
+}
+
+function renderHeaderStats() {
+  var d = state.data;
+  var s = d.stats || {};
+
+  $('#entry-today').textContent = fmtDateJP(d.today || todayISO());
+  $('#entry-month-flights').textContent = s.monthFlights || 0;
+  $('#entry-month-hours').textContent = fmtHours(s.monthMinutes || 0);
+  $('#tab-log-count').textContent = d.flightTotal ? '(' + d.flightTotal + ')' : '';
+
+  $('#fleet-stat-hours').textContent = fmtHours(s.totalMinutes || 0);
+  $('#fleet-stat-flights').textContent = s.totalFlights || 0;
+  $('#fleet-stat-alert').textContent = s.alertDrones || 0;
+  $('#fleet-stat-safety').textContent = s.safetyEventCount || 0;
+  $('#app-version').textContent = d.version || '1.0.0';
+
+  var link = $('#sheet-link');
+  if (d.spreadsheetUrl) {
+    link.href = d.spreadsheetUrl;
+    link.classList.remove('hidden');
+  }
+}
+
+/**
+ * select の選択肢を差し替え、可能なら選択値を維持する。
+ *
+ * @param {HTMLSelectElement} select 対象
+ * @param {string} html option 群
+ * @param {string} [preferred] 優先して選択する値
+ */
+function setSelectOptions(select, html, preferred) {
+  if (!select) return;
+  var previous = select.value;
+  select.innerHTML = html;
+  var wanted = preferred || previous;
+  if (!wanted) return;
+  var exists = $$('option', select).some(function (o) { return o.value === wanted; });
+  if (exists) select.value = wanted;
+}
+
+function renderSelects() {
+  var drones = state.data.drones || [];
+  var pilots = state.data.pilots || [];
+
+  var pilotHtml = pilots.length
+    ? pilots.map(function (p) {
+      return '<option value="' + esc(p.pilotId) + '">' + esc(p.name) + '（' + esc(p.pilotId) + '）</option>';
+    }).join('')
+    : '<option value="">操縦者が未登録です</option>';
+
+  var droneHtml = drones.length
+    ? drones.map(function (d) {
+      return '<option value="' + esc(d.droneId) + '">' + esc(d.modelName) +
+        '（累計 ' + esc(fmtHours(d.totalMinutes)) + 'h）</option>';
+    }).join('')
+    : '<option value="">機体が未登録です</option>';
+
+  var dronePlaceholderHtml = '<option value="">すべての機体</option>' + droneHtml;
+
+  setSelectOptions($('#flight-pilot'), pilotHtml, lsGet(LS.PILOT));
+  setSelectOptions($('#flight-drone'), droneHtml, lsGet(LS.DRONE));
+  setSelectOptions($('#log-filter-drone'), dronePlaceholderHtml, state.filters.droneId);
+  setSelectOptions($('#periodic-drone'), droneHtml, lsGet(LS.DRONE));
+}
+
+/** 目的・特定飛行区分などの選択UIを組み立てる */
+function renderCatalogControls() {
+  var purposes = CATALOG.purposes || FALLBACK_CATALOG.purposes;
+  var purpose = state.entry.purpose || purposes[0] || 'その他';
+  var values = purposes.slice();
+  if (values.indexOf(purpose) === -1) values.push(purpose);
+  values.push('__other__');
+
+  $('#flight-purpose').innerHTML = values.map(function (p) {
+    var label = p === '__other__' ? 'その他（自由入力）' : p;
+    return '<option value="' + esc(p) + '"' + (p === purpose ? ' selected' : '') + '>' + esc(label) + '</option>';
+  }).join('');
+
+  var other = $('#flight-purpose-other');
+  if (purpose === '__other__') other.classList.remove('hidden');
+  else other.classList.add('hidden');
+
+  renderSpecificFlags();
+}
+
+function renderSpecificFlags() {
+  renderSpecificFlagGrid_();
+  renderSpecificStatus();
+  renderCategoryCard();
+}
+
+/** クリックされた行だけを再塗装する（再描画によるフォーカス喪失を避ける） */
+function paintFlagRow_(input) {
+  if (!input) return;
+  var label = input.closest ? input.closest('label') : null;
+  if (!label) return;
+  var on = !!input.checked;
+
+  label.className = 'flex cursor-pointer select-none items-start gap-2 rounded-lg border px-2.5 py-2 transition ' +
+    (on ? 'border-brand-500 bg-brand-50' : 'border-slate-200 bg-white');
+
+  var title = label.querySelector('[data-flag-title]');
+  if (title) {
+    title.className = 'block text-xs font-semibold leading-snug ' + (on ? 'text-brand-800' : 'text-slate-700');
+  }
+}
+
+/** 10項目のチェックボックス（飛行空域4 / 飛行方法6）を描画する */
+function renderSpecificFlagGrid_() {
+  var defs = CATALOG.specificFlagDefs || FALLBACK_FLAG_DEFS;
+  var groups = CATALOG.specificFlagGroups || FALLBACK_FLAG_GROUPS;
+  var selected = state.entry.flags || [];
+
+  $('#specific-flags').innerHTML = groups.map(function (group) {
+    var rows = defs.filter(function (d) { return d.group === group.key; }).map(function (def) {
+      var checked = selected.indexOf(def.label) !== -1;
+      var box = checked ? 'border-brand-500 bg-brand-50' : 'border-slate-200 bg-white';
+      var text = checked ? 'text-brand-800' : 'text-slate-700';
+      return '<label class="flex cursor-pointer select-none items-start gap-2 rounded-lg border px-2.5 py-2 transition ' + box + '">' +
+        '<input type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-brand-600" data-flag value="' + esc(def.label) + '" data-key="' + esc(def.key) + '"' + (checked ? ' checked' : '') + '>' +
+        '<span class="min-w-0">' +
+          '<span data-flag-title class="block text-xs font-semibold leading-snug ' + text + '">' + esc(def.uiLabel || def.label) + '</span>' +
+          '<span class="mt-0.5 block text-[10px] leading-snug text-slate-400">' + esc(def.description || '') + '</span>' +
+        '</span>' +
+      '</label>';
+    }).join('');
+
+    return '<div class="rounded-xl border border-slate-200 bg-white p-2.5">' +
+      '<p class="mb-1.5 flex flex-wrap items-baseline gap-1.5 text-[11px] font-bold text-slate-500">' +
+        esc(group.label) + '<span class="text-[10px] font-normal text-slate-400">' + esc(group.hint || '') + '</span>' +
+      '</p>' +
+      '<div class="grid grid-cols-1 gap-1.5 sm:grid-cols-2">' + rows + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+/** 特定飛行 / 非特定飛行 のバッジを更新する */
+function renderSpecificStatus() {
+  var el = $('#specific-status');
+  if (!el) return;
+  var flags = (state.entry.flags || []).filter(function (f) { return f !== '非特定飛行'; });
+  if (flags.length) {
+    el.textContent = '特定飛行 ' + flags.length + '項目';
+    el.className = 'rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800';
+  } else {
+    el.textContent = '非特定飛行';
+    el.className = 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700';
+  }
+}
+
+/**
+ * 特定飛行区分からカテゴリーを判定する（Code.gs の judgeFlightCategory と同じ規則）。
+ * 画面はサーバー往復なしで即時反映したいため、同じロジックをローカルにも持つ。
+ */
+function judgeCategoryLocal(flags, weightG, hasClearZone) {
+  var defs = CATALOG.specificFlagDefs || FALLBACK_FLAG_DEFS;
+  var keys = [];
+  (flags || []).forEach(function (value) {
+    var hit = defs.filter(function (d) {
+      return d.label === value || d.key === value || d.uiLabel === value;
+    })[0];
+    if (hit && keys.indexOf(hit.key) === -1) keys.push(hit.key);
+  });
+
+  var weight = Number(weightG) || 0;
+  var clear = hasClearZone !== false;
+  var code = 'I';
+
+  if (keys.length) {
+    var hasHard = keys.some(function (k) {
+      var hit = defs.filter(function (d) { return d.key === k; })[0];
+      return !!hit && hit.severity === 'hard';
+    });
+    if (!clear) code = 'III';
+    else if (hasHard) code = 'IIA';
+    else if (weight >= 25000) code = 'IIA';
+    else code = 'IIB';
+  }
+
+  var metaMap = CATALOG.categoryMeta || FALLBACK_CATEGORY_META;
+  var procMap = CATALOG.categoryProcedures || FALLBACK_CATEGORY_PROCEDURES;
+  var meta = metaMap[code] || FALLBACK_CATEGORY_META[code];
+
+  var reasons = keys.map(function (k) {
+    var hit = defs.filter(function (d) { return d.key === k; })[0];
+    return hit ? hit.label : k;
+  });
+  if (keys.length) {
+    if (!clear) reasons.push('立入管理措置なし');
+    if (weight >= 25000) reasons.push('機体重量25kg以上');
+  }
+
+  return {
+    category: code,
+    label: meta.label,
+    level: meta.level,
+    summary: meta.summary,
+    procedures: (procMap[code] || []).slice(),
+    reasons: reasons,
+    flags: keys,
+    weightG: weight,
+    weightLabel: weight >= 25000 ? '25kg以上' : '25kg未満',
+    hasClearZone: clear
+  };
+}
+
+/** 現在の入力内容から飛行カテゴリーのカードを描画する */
+function renderCategoryCard() {
+  var card = $('#category-card');
+  if (!card) return;
+
+  var droneId = $('#flight-drone') ? $('#flight-drone').value : '';
+  var drone = (state.data.drones || []).filter(function (d) { return d.droneId === droneId; })[0];
+  var flags = (state.entry.flags || []).filter(function (f) { return f !== '非特定飛行'; });
+  var result = judgeCategoryLocal(flags, drone ? drone.weightG : 0, state.entry.hasClearZone !== false);
+  state.entry.category = result;
+
+  var theme = CATEGORY_THEME[result.category] || CATEGORY_THEME.I;
+  card.className = 'mt-3 rounded-xl border p-3 ' + theme.card;
+
+  var reasons = result.reasons.length
+    ? '<div class="mt-2 flex flex-wrap gap-1">' + result.reasons.map(function (r) {
+        return '<span class="rounded-full px-2 py-0.5 text-[10px] font-semibold ' + theme.chip + '">' + esc(r) + '</span>';
+      }).join('') + '</div>'
+    : '<p class="mt-1.5 text-[11px] ' + theme.text + '">特定飛行の項目が未選択のため、非特定飛行として扱います。</p>';
+
+  card.innerHTML =
+    '<div class="flex flex-wrap items-center gap-2">' +
+      '<span class="rounded-full px-2.5 py-1 text-xs font-bold ' + theme.badge + '">' + esc(result.label) + '</span>' +
+      '<span class="text-[11px] font-semibold ' + theme.text + '">' + esc(result.summary) + '</span>' +
+    '</div>' +
+    '<p class="mt-2 text-[11px] leading-relaxed ' + theme.text + '">' + esc(result.procedures[0] || '') + '</p>' +
+    reasons +
+    '<p class="mt-2 text-[10px] ' + theme.text + ' opacity-80">機体重量: ' + esc(result.weightLabel) +
+      ' / 立入管理措置: ' + (result.hasClearZone ? '講じる' : '講じない') + '</p>';
+}
+
+function renderInspectionTypeButtons() {
+  $$('#inspection-type button').forEach(function (btn) {
+    var active = btn.getAttribute('data-type') === state.entry.type;
+    btn.className = 'rounded-lg px-2 py-2 text-sm font-semibold transition ' +
+      (active ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500');
+    btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+/** 13項目の点検UIを構築する */
+function renderInspectionItems() {
+  var groups = CATALOG.inspectionGroups || FALLBACK_GROUPS;
+  var html = groups.map(function (group) {
+    var rows = group.items.map(function (name) {
+      return '<div class="flex items-center justify-between gap-2 py-1.5" data-item="' + esc(name) + '">' +
+        '<span class="text-[13px] text-slate-700">' + esc(name) + '</span>' +
+        '<div class="flex shrink-0 overflow-hidden rounded-lg border border-slate-200">' +
+        '<button type="button" data-item-btn="OK" class="px-3 py-1.5 text-xs font-bold text-slate-500 transition">OK</button>' +
+        '<button type="button" data-item-btn="NG" class="border-l border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 transition">異常</button>' +
+        '</div></div>';
+    }).join('');
+    return '<div class="py-1">' +
+      '<p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">' + esc(group.label) + '</p>' +
+      rows + '</div>';
+  }).join('');
+
+  $('#inspection-items').innerHTML = html;
+  Object.keys(state.entry.items).forEach(function (name) { paintItemRow(name); });
+  updateInspectionSummary();
+}
+
+/** 1項目の OK / 異常 ボタンの見た目を state に合わせる */
+function paintItemRow(name) {
+  var value = state.entry.items[name] || '';
+  $$('#inspection-items [data-item]').forEach(function (row) {
+    if (row.getAttribute('data-item') !== name) return;
+    $$('button', row).forEach(function (btn) {
+      btn.classList.remove('item-ok', 'item-ng', 'text-slate-500');
+      if (btn.getAttribute('data-item-btn') === value) {
+        btn.classList.add(value === 'OK' ? 'item-ok' : 'item-ng');
+      } else {
+        btn.classList.add('text-slate-500');
+      }
+    });
+  });
+}
+
+function updateInspectionSummary() {
+  var filled = ITEM_NAMES.filter(function (n) { return !!state.entry.items[n]; }).length;
+  var ng = ITEM_NAMES.filter(function (n) { return state.entry.items[n] === 'NG'; }).length;
+  var badge = $('#inspection-result');
+  if (!badge) return;
+
+  $('#inspection-progress').textContent = filled + ' / ' + ITEM_NAMES.length;
+
+  if (!filled) {
+    badge.textContent = '未入力';
+    badge.className = 'rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600';
+  } else if (ng) {
+    badge.textContent = '異常あり';
+    badge.className = 'rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700';
+  } else if (filled === ITEM_NAMES.length) {
+    badge.textContent = '合格';
+    badge.className = 'rounded-full bg-teal-100 px-3 py-1 text-xs font-bold text-teal-700';
+  } else {
+    badge.textContent = '入力中';
+    badge.className = 'rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700';
+  }
+}
+
+/** 選択中の機体の点検状態をヒント表示する */
+function renderDroneHint() {
+  var droneId = $('#flight-drone') ? $('#flight-drone').value : '';
+  var drone = (state.data.drones || []).filter(function (d) { return d.droneId === droneId; })[0];
+  var hint = $('#drone-hint');
+  if (!hint) return;
+
+  if (!drone) {
+    hint.textContent = '機体管理タブから機体を登録してください。';
+    hint.className = 'mt-1 text-[11px] text-rose-600';
+    return;
+  }
+
+  var remain = Math.max(0, drone.limitMinutes - drone.basisMinutes);
+  hint.textContent = drone.basisLabel + ' ' + fmtMin(drone.basisMinutes) +
+    ' / 20時間（点検まで あと ' + fmtMin(remain) + '）';
+  hint.className = 'mt-1 text-[11px] ' +
+    (drone.level === 'over' ? 'font-semibold text-rose-600'
+      : drone.level === 'warn' ? 'font-semibold text-amber-600' : 'text-slate-500');
+}
+
+/** 点検アラートを上部に表示する */
+function renderEntryAlerts() {
+  var targets = (state.data.drones || []).filter(function (d) { return d.needsInspection; });
+  var box = $('#entry-alerts');
+  if (!box) return;
+
+  if (!targets.length) {
+    box.classList.add('hidden');
+    box.innerHTML = '';
+    return;
+  }
+
+  box.classList.remove('hidden');
+  box.innerHTML = '<p class="mb-1 text-xs font-bold text-rose-700">点検アラート</p>' +
+    targets.map(function (d) {
+      return '<p class="text-[11px] text-rose-700">・' + esc(d.modelName) + '（' + esc(d.droneId) + '）: ' +
+        (d.level === 'over'
+          ? '20時間点検の基準を超えています（' + esc(fmtHours(d.basisMinutes)) + 'h）'
+          : 'まもなく20時間点検です（' + esc(fmtHours(d.basisMinutes)) + 'h）') +
+        '</p>';
+    }).join('');
+}
+
+/* =========================================================================
+ * ブートストラップ読み込み
+ * ========================================================================= */
+
+/**
+ * 初期データを取得して画面全体を描画する。
+ *
+ * @param {Object} [opts] silent: true でトーストを抑制
+ * @return {Promise<Object>} 取得データ
+ */
+function loadBootstrap(opts) {
+  return callGas('getBootstrapData').then(function (data) {
+    state.data = data;
+    state.data.catalog = data.catalog || FALLBACK_CATALOG;
+    state.ready = true;
+    setSync(syncMode(), IS_MOCK ? 'ローカル(デモ)' : (API_CONFIG.url ? 'GAS API' : '同期済み'));
+    renderAll();
+    return data;
+  }).catch(function (err) {
+    setSync('error', '接続エラー');
+    if (!opts || !opts.silent) {
+      toast('データを取得できませんでした: ' + err.message, 'error');
+    }
+    throw err;
+  });
+}
+
+function hasActiveFilters() {
+  var f = state.filters;
+  return !!(f.from || f.to || f.droneId || f.q);
+}
+
+function readFilters() {
+  state.filters = {
+    from: $('#log-filter-from').value || '',
+    to: $('#log-filter-to').value || '',
+    droneId: $('#log-filter-drone').value || '',
+    q: $('#log-filter-q').value.trim()
+  };
+  return state.filters;
+}
+
+/* =========================================================================
+ * タブ1: 飛行を記録
+ * ========================================================================= */
+
+/** 離着陸時刻から飛行時間を自動計算する（日跨ぎ対応） */
+function recalcDuration(force) {
+  var t1 = $('#flight-takeoff-time').value;
+  var t2 = $('#flight-landing-time').value;
+  var hint = $('#duration-hint');
+  if (!hint) return;
+
+  if (!t1 || !t2) {
+    hint.textContent = '';
+    return;
+  }
+
+  var a = timeToMinutes(t1);
+  var b = timeToMinutes(t2);
+  if (a === null || b === null) return;
+
+  var diff = b - a;
+  var overnight = diff < 0;
+  if (overnight) diff += 1440;
+
+  if (!state.entry.durationTouched || force) {
+    $('#flight-duration').value = diff;
+  }
+  hint.textContent = overnight
+    ? '日を跨ぐため +24時間で計算しました'
+    : (diff === 0 ? '離着陸が同時刻です。ご確認ください。' : '');
+}
+
+/** 画面入力を検証する（キーは入力ID） */
+function validateEntry() {
+  var errors = {};
+
+  if (!$('#flight-date').value) errors['flight-date'] = '飛行年月日を入力してください。';
+  if (!$('#flight-pilot').value) errors['flight-pilot'] = '操縦者を選択してください。';
+  if (!$('#flight-drone').value) errors['flight-drone'] = '機体を選択してください。';
+  if (!$('#flight-takeoff-place').value.trim()) errors['flight-takeoff-place'] = '離陸場所を入力してください。';
+  if (!$('#flight-takeoff-time').value) errors['flight-takeoff-time'] = '離陸時刻を入力してください。';
+  if (!$('#flight-landing-time').value) errors['flight-landing-time'] = '着陸時刻を入力してください。';
+
+  var duration = Number($('#flight-duration').value);
+  if (!duration || duration <= 0) {
+    errors['flight-duration'] = '飛行時間を入力してください。';
+  } else if (duration > 1440) {
+    errors['flight-duration'] = '飛行時間は24時間（1440分）以内で入力してください。';
+  }
+
+  var lat = $('#flight-lat').value;
+  var lng = $('#flight-lng').value;
+  if (lat !== '' && (Number(lat) < -90 || Number(lat) > 90)) {
+    errors['flight-lat'] = '緯度は -90 〜 90 で入力してください。';
+  }
+  if (lng !== '' && (Number(lng) < -180 || Number(lng) > 180)) {
+    errors['flight-lng'] = '経度は -180 〜 180 で入力してください。';
+  }
+
+  if (!$('#inspection-inspector').value.trim()) {
+    errors['inspection-inspector'] = '点検の実施者を入力してください。';
+  }
+
+  var missing = ITEM_NAMES.filter(function (n) { return !state.entry.items[n]; });
+  if (missing.length) {
+    errors['inspection-items'] = '未入力の点検項目が ' + missing.length + ' 件あります（' + missing.slice(0, 3).join('、') + ' など）。';
+  }
+
+  var safety = $('input[name="safety"]:checked');
+  if (safety && safety.value === 'event' && !$('#safety-detail').value.trim()) {
+    errors['safety-detail'] = '安全に影響のあった事項の内容を入力してください。';
+  }
+
+  return errors;
+}
+
+/** 画面入力から保存用のペイロードを組み立てる */
+function buildPayload() {
+  var purpose = $('#flight-purpose').value;
+  if (purpose === '__other__') {
+    purpose = $('#flight-purpose-other').value.trim() || 'その他';
+  }
+
+  var safety = $('input[name="safety"]:checked');
+
+  return {
+    flight: {
+      date: $('#flight-date').value,
+      pilotId: $('#flight-pilot').value,
+      droneId: $('#flight-drone').value,
+      takeoffPlace: $('#flight-takeoff-place').value.trim(),
+      landingPlace: $('#flight-landing-place').value.trim(),
+      lat: $('#flight-lat').value,
+      lng: $('#flight-lng').value,
+      takeoffTime: $('#flight-takeoff-time').value,
+      landingTime: $('#flight-landing-time').value,
+      durationMin: $('#flight-duration').value,
+      purpose: purpose,
+      specificFlags: (state.entry.flags || []).slice(),
+      hasClearZone: state.entry.hasClearZone !== false,
+      safetyEvent: {
+        hasEvent: !!(safety && safety.value === 'event'),
+        detail: $('#safety-detail').value.trim()
+      }
+    },
+    inspection: {
+      type: state.entry.type,
+      date: $('#inspection-date').value || $('#flight-date').value,
+      inspector: $('#inspection-inspector').value.trim(),
+      memo: $('#inspection-memo').value.trim(),
+      items: state.entry.items
+    }
+  };
+}
+
+/** 保存後の入力リセット（同じ現場で連続記録しやすいよう日付・場所は残す） */
+function resetEntryAfterSave() {
+  $('#flight-takeoff-time').value = '';
+  $('#flight-landing-time').value = '';
+  $('#flight-duration').value = '';
+  $('#duration-hint').textContent = '';
+  $('#flight-landing-place').value = '';
+  $('#flight-lat').value = '';
+  $('#flight-lng').value = '';
+  $('#safety-detail').value = '';
+  $('#inspection-memo').value = '';
+
+  var none = $('input[name="safety"][value="none"]');
+  if (none) none.checked = true;
+  $('#safety-detail-wrap').classList.add('hidden');
+
+  state.entry.items = {};
+  state.entry.flags = [];
+  state.entry.hasClearZone = true;
+  state.entry.durationTouched = false;
+
+  var clearZone = $('#clear-zone-toggle');
+  if (clearZone) clearZone.checked = true;
+  var clearZoneLabel = $('#clear-zone-label');
+  if (clearZoneLabel) clearZoneLabel.textContent = '講じる';
+
+  resetAiResult();
+  resetEnvResult();
+
+  $('#inspection-inspector').value = lsGet(LS.INSPECTOR) || '';
+  renderSpecificFlags();
+  renderInspectionItems();
+  clearErrors($('#entry-form'));
+}
+
+/**
+ * フォーム全体を初期状態へ戻す（「🗑️ 入力をクリア」）。
+ *
+ * 操縦者・機体は現場の連続運用を考慮して維持する（未選択時の初期値は描画側に任せる）。
+ * 日付は当日（JST）、立入管理措置は既定の「講じる」に戻す。
+ */
+function clearFlightForm() {
+  var today = todayISO();
+
+  // 飛行情報
+  $('#flight-date').value = today;
+  $('#flight-takeoff-place').value = '';
+  $('#flight-landing-place').value = '';
+  $('#flight-takeoff-time').value = '';
+  $('#flight-landing-time').value = '';
+  $('#flight-duration').value = '';
+  $('#duration-hint').textContent = '';
+  $('#flight-lat').value = '';
+  $('#flight-lng').value = '';
+  $('#geo-status').textContent = '';
+
+  // 日常点検（実施者は初期値＝前回値、日付は当日）
+  $('#inspection-date').value = today;
+  $('#inspection-inspector').value = lsGet(LS.INSPECTOR) || '';
+  $('#inspection-memo').value = '';
+  $('#dji-file').value = '';
+  $('#dji-status').textContent = '';
+
+  // 飛行の安全に影響のあった事項
+  var none = $('input[name="safety"][value="none"]');
+  if (none) none.checked = true;
+  $('#safety-detail').value = '';
+  $('#safety-detail-wrap').classList.add('hidden');
+
+  // 内部状態（目的は既定の先頭＝空撮、立入管理措置は ON）
+  var purposes = CATALOG.purposes || FALLBACK_CATALOG.purposes || ['空撮'];
+  state.entry.type = '飛行前';
+  state.entry.items = {};
+  state.entry.flags = [];
+  state.entry.hasClearZone = true;
+  state.entry.durationTouched = false;
+  state.entry.category = null;
+  state.entry.purpose = purposes[0] || '空撮';
+  // 進行中の取得・診断の応答を破棄する（クリア後に結果が戻ってこないようにする）
+  state.entry.reqSeq = (state.entry.reqSeq || 0) + 1;
+
+  var clearZone = $('#clear-zone-toggle');
+  if (clearZone) clearZone.checked = true;
+  var clearZoneLabel = $('#clear-zone-label');
+  if (clearZoneLabel) clearZoneLabel.textContent = '講じる';
+
+  var purposeOther = $('#flight-purpose-other');
+  if (purposeOther) purposeOther.value = '';
+
+  // 診断・外部データ連携の表示を消す
+  resetAiResult();
+  resetEnvResult();
+  var aiFile = $('#ai-photo-file');
+  if (aiFile) aiFile.value = '';
+
+  // 進行中だったボタンの表示を戻す
+  setButtonBusy($('#btn-env'), false);
+  setButtonBusy($('#btn-ai-satellite'), false);
+  setButtonBusy($('#btn-ai-photo'), false);
+
+  // 再描画（特定飛行10項目は未チェック → カテゴリーⅠへ戻る）
+  renderCatalogControls();
+  renderInspectionTypeButtons();
+  renderInspectionItems();
+  clearErrors($('#entry-form'));
+}
+
+/** 「🗑️ 入力をクリア」ボタンのハンドラ（誤タップ防止のため確認する） */
+function handleClearForm() {
+  if (state.entry.saving) {
+    toast('保存中です。完了してからクリアしてください。', 'warn');
+    return;
+  }
+  if (!window.confirm('入力中の内容をすべてクリアしますか？')) return;
+
+  clearFlightForm();
+  toast('入力をクリアしました', 'success');
+}
+
+/** 保存ボタンのハンドラ */
+function handleSave(ev) {
+  if (ev) ev.preventDefault();
+  if (state.entry.saving) return;
+
+  var form = $('#entry-form');
+  clearErrors(form);
+  var errors = validateEntry();
+
+  if (Object.keys(errors).length) {
+    showErrors(errors, form);
+    var itemErr = $('.err[data-error="inspection-items"]');
+    if (itemErr && errors['inspection-items']) itemErr.classList.add('show');
+    toast('入力内容を確認してください（' + Object.keys(errors).length + '件）', 'warn');
+    return;
+  }
+
+  state.entry.saving = true;
+  var btn = $('#save-btn');
+  if (!SAVE_BUTTON_HTML) SAVE_BUTTON_HTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = '保存中…';
+  $('#save-status').textContent = '保存しています…';
+
+  callGas('saveFlightRecord', buildPayload()).then(function (res) {
+    lsSet(LS.INSPECTOR, $('#inspection-inspector').value.trim());
+    lsSet(LS.PILOT, $('#flight-pilot').value);
+    lsSet(LS.DRONE, $('#flight-drone').value);
+
+    var now = new Date();
+    $('#save-status').textContent = '保存済み ' +
+      pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    $('#last-saved').textContent = res.flightId + ' ・ ' + fmtMin(res.durationMin) +
+      ' ・ 累計 ' + fmtMin(res.cumulativeMinutes);
+
+    toast(res.message || '保存しました。', res.inspectionResult === '異常あり' ? 'warn' : 'success');
+    resetEntryAfterSave();
+
+    return loadBootstrap({ silent: true })
+      .then(function () {
+        if (hasActiveFilters()) return searchLog(true);
+        return null;
+      })
+      .catch(function () {
+        // 再読み込みの失敗は loadBootstrap 側で通知済み（保存自体は成功している）
+        return null;
+      });
+  }).catch(function (err) {
+    $('#save-status').textContent = '保存に失敗しました';
+    toast(err.message || '保存に失敗しました。', 'error');
+  }).then(function () {
+    state.entry.saving = false;
+    btn.disabled = false;
+    btn.innerHTML = SAVE_BUTTON_HTML;
+  });
+}
+
+/* =========================================================================
+ * タブ2: 日誌
+ * ========================================================================= */
+
+function renderLogFromBootstrap() {
+  var flights = state.data.flights || [];
+  state.log.items = flights.slice();
+  state.log.total = state.data.flightTotal || flights.length;
+  state.log.hasMore = state.data.flightTotal > flights.length;
+  renderLogList();
+}
+
+function renderLogList() {
+  var items = state.log.items || [];
+  var list = $('#log-list');
+  if (!list) return;
+
+  list.innerHTML = items.map(flightCard).join('');
+  $('#log-empty').classList.toggle('hidden', items.length > 0);
+  $('#log-more').classList.toggle('hidden', !state.log.hasMore);
+  renderLogSummary();
+}
+
+function renderLogSummary() {
+  var items = state.log.items || [];
+  var minutes = items.reduce(function (s, f) { return s + (f.durationMin || 0); }, 0);
+  $('#log-summary').textContent = '該当 ' + state.log.total + ' 件 ・ 表示中 ' + items.length +
+    ' 件（' + fmtHours(minutes) + ' h）';
+}
+
+/**
+ * 飛行記録1件のカードHTML。
+ *
+ * @param {Object} f 飛行記録
+ * @return {string} HTML
+ */
+function flightCard(f) {
+  var categoryInfo = f.category
+    ? { label: f.category, level: f.categoryLevel || '' }
+    : judgeCategoryLocal(f.specificFlags || [], 0, f.hasClearZone !== false);
+  var categoryClass = categoryInfo.level === 'danger' ? 'bg-rose-100 text-rose-700'
+    : categoryInfo.level === 'warn' ? 'bg-amber-100 text-amber-800'
+      : categoryInfo.level === 'caution' ? 'bg-sky-100 text-sky-700'
+        : 'bg-teal-100 text-teal-700';
+
+  var chips = '<span class="rounded-full px-2 py-0.5 text-[10px] font-bold ' + categoryClass + '">' +
+    esc(categoryInfo.label) + '</span>';
+  chips += (f.specificFlags || []).filter(function (flag) {
+    return flag !== '非特定飛行';
+  }).map(function (flag) {
+    return '<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">' +
+      esc(flag) + '</span>';
+  }).join('');
+
+  if (f.hasSafetyEvent) {
+    chips += '<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">安全影響あり</span>';
+  }
+  if (f.hasAbnormalInspection) {
+    chips += '<span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">点検異常</span>';
+  }
+
+  var inspections = (f.inspections || []).map(function (i) {
+    var ng = Object.keys(i.items || {}).filter(function (k) { return i.items[k] === 'NG'; });
+    return '<div class="flex items-start justify-between gap-2 border-t border-slate-100 py-1.5 first:border-t-0">' +
+      '<div class="min-w-0">' +
+      '<p class="text-[11px] font-semibold text-slate-700">' + esc(i.type) +
+      ' <span class="font-normal text-slate-400">' + esc(i.inspectionId) + '</span></p>' +
+      (ng.length ? '<p class="text-[11px] text-rose-600">異常: ' + esc(ng.join('、')) + '</p>' : '') +
+      (i.memo ? '<p class="truncate text-[11px] text-slate-500">' + esc(i.memo) + '</p>' : '') +
+      '</div>' +
+      '<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ' +
+      (i.result === '異常あり' ? 'bg-rose-100 text-rose-700' : 'bg-teal-100 text-teal-700') + '">' +
+      esc(i.result) + '</span>' +
+      '</div>';
+  }).join('');
+
+  var hasCoords = f.lat !== null && f.lat !== undefined && f.lng !== null && f.lng !== undefined;
+  var mapLink = hasCoords
+    ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(f.lat + ',' + f.lng) +
+      '" target="_blank" rel="noopener" class="text-brand-600 underline">地図を開く</a>'
+    : '未記録';
+
+  return '<article class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">' +
+    '<div class="flex items-start justify-between gap-2">' +
+    '<div class="min-w-0">' +
+    '<p class="text-[11px] text-slate-500">' + esc(fmtDateJP(f.date)) +
+    ' <span class="ml-1 font-mono text-[10px] text-slate-400">' + esc(f.flightId) + '</span></p>' +
+    '<p class="mt-0.5 truncate text-sm font-bold text-slate-900">' + esc(f.takeoffPlace) +
+    ' <span class="text-slate-400">→</span> ' + esc(f.landingPlace) + '</p>' +
+    '<p class="mt-0.5 truncate text-[11px] text-slate-500">' + esc(f.droneName) +
+    (f.registrationNo ? ' / ' + esc(f.registrationNo) : '') + ' ・ ' + esc(f.pilotName) + '</p>' +
+    '</div>' +
+    '<div class="shrink-0 text-right">' +
+    '<p class="num text-base font-bold text-slate-900">' + esc(f.durationLabel || fmtMin(f.durationMin)) + '</p>' +
+    '<p class="num text-[11px] text-slate-500">' + esc(f.takeoffTime) + ' - ' + esc(f.landingTime) + '</p>' +
+    '</div></div>' +
+    '<div class="mt-2 flex flex-wrap items-center gap-1">' + chips + '</div>' +
+    '<details class="mt-2">' +
+    '<summary class="text-[11px] font-semibold text-brand-600">詳細・点検記録を見る</summary>' +
+    '<div class="mt-2 space-y-1 rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-600">' +
+    '<p>飛行目的: ' + esc(f.purpose || '—') + '</p>' +
+    '<p>座標: ' + (hasCoords ? esc(f.lat) + ', ' + esc(f.lng) + '（' + mapLink + '）' : '未記録') + '</p>' +
+    '<p>安全影響: ' + esc(f.safetyEvent || 'なし') + '</p>' +
+    '<p>登録日時: ' + esc(f.createdAt || '—') + '</p>' +
+    (inspections
+      ? '<div class="mt-1.5">' + inspections + '</div>'
+      : '<p class="text-slate-400">紐づく点検記録はありません。</p>') +
+    '</div></details>' +
+    '</article>';
+}
+
+/**
+ * 条件を指定して飛行記録を検索する。
+ *
+ * @param {boolean} reset true なら先頭から
+ * @return {Promise<void>} 完了
+ */
+function searchLog(reset) {
+  if (state.log.loading) return Promise.resolve();
+  state.log.loading = true;
+
+  var filters = readFilters();
+  var offset = reset ? 0 : state.log.items.length;
+  var payload = {
+    from: filters.from,
+    to: filters.to,
+    droneId: filters.droneId,
+    q: filters.q,
+    limit: 50,
+    offset: offset
+  };
+
+  return callGas('getFlights', payload).then(function (res) {
+    var incoming = res.items || [];
+    state.log.items = reset ? incoming.slice() : state.log.items.concat(incoming);
+    state.log.total = res.total || 0;
+    state.log.hasMore = !!res.hasMore;
+    renderLogList();
+  }).catch(function (err) {
+    toast('検索に失敗しました: ' + err.message, 'error');
+  }).then(function () {
+    state.log.loading = false;
+  });
+}
+
+/**
+ * CSV を生成してダウンロードする。
+ *
+ * @param {string} kind 'flight'（様式1）または 'inspection'（様式2・3）
+ * @return {Promise<void>} 完了
+ */
+function exportCsv(kind) {
+  var btn = kind === 'flight' ? $('#btn-csv-flight') : $('#btn-csv-inspection');
+  var original = btn.innerHTML;
+  btn.disabled = true;
+  btn.textContent = 'CSVを作成中…';
+
+  var filters = readFilters();
+  var request = kind === 'flight'
+    ? callGas('buildDipsCsv', filters)
+    : callGas('buildInspectionCsv', filters);
+
+  return request.then(function (res) {
+    if (!res.count) {
+      toast('対象データがありません。条件を変更してください。', 'warn');
+      return;
+    }
+    downloadText(res.fileName, res.content, res.mimeType);
+    toast(res.count + ' 件の CSV を出力しました（' + res.fileName + '）', 'success');
+  }).catch(function (err) {
+    toast('CSV の出力に失敗しました: ' + err.message, 'error');
+  }).then(function () {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  });
+}
+
+/* =========================================================================
+ * タブ3: 機体管理
+ * ========================================================================= */
+
+function renderFleet() {
+  renderDroneList();
+  renderPilotList();
+}
+
+function droneLevelMeta(drone) {
+  if (drone.level === 'over') return { text: '要点検', cls: 'bg-rose-100 text-rose-700', bar: 'bg-rose-500' };
+  if (drone.level === 'warn') return { text: 'まもなく', cls: 'bg-amber-100 text-amber-700', bar: 'bg-amber-400' };
+  return { text: '良好', cls: 'bg-teal-100 text-teal-700', bar: 'bg-teal-500' };
+}
+
+function renderDroneList() {
+  var drones = state.data.drones || [];
+  var box = $('#drone-list');
+  if (!box) return;
+
+  if (!drones.length) {
+    box.innerHTML = '<p class="rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-500">' +
+      '機体が登録されていません。「追加」から登録してください。</p>';
+    return;
+  }
+
+  box.innerHTML = drones.map(function (d) {
+    var meta = droneLevelMeta(d);
+    return '<article class="rounded-xl border border-slate-200 p-3">' +
+      '<div class="flex items-start justify-between gap-2">' +
+      '<div class="min-w-0">' +
+      '<p class="truncate text-sm font-bold text-slate-900">' + esc(d.modelName) +
+      ' <span class="font-mono text-[10px] font-normal text-slate-400">' + esc(d.droneId) + '</span></p>' +
+      '<p class="mt-0.5 truncate text-[11px] text-slate-500">' +
+      (d.registrationNo ? esc(d.registrationNo) + ' ・ ' : '') +
+      (d.weightG ? esc(d.weightG) + ' g ・ ' : '') +
+      (d.serialNo ? 'S/N ' + esc(d.serialNo) : 'S/N 未登録') + '</p>' +
+      '</div>' +
+      '<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ' + meta.cls + '">' +
+      esc(meta.text) + '</span>' +
+      '</div>' +
+
+      '<div class="mt-2.5">' +
+      '<div class="flex items-center justify-between text-[11px] text-slate-500">' +
+      '<span>' + esc(d.basisLabel) + '</span>' +
+      '<span class="num"><strong class="text-slate-800">' + esc(fmtHours(d.basisMinutes)) + '</strong> / 20.0 h</span>' +
+      '</div>' +
+      '<div class="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">' +
+      '<div class="h-2 rounded-full ' + meta.bar + '" style="width:' + Number(d.progress || 0) + '%"></div>' +
+      '</div>' +
+      '<p class="mt-1 text-[11px] text-slate-500">点検まで あと ' + esc(fmtMin(d.remainingMinutes)) +
+      ' ・ 累計 ' + esc(fmtHours(d.totalMinutes)) + ' h' +
+      (d.lastInspectionDate ? ' ・ 前回点検 ' + esc(fmtDateJP(d.lastInspectionDate)) : '') + '</p>' +
+      '</div>' +
+
+      '<div class="mt-2 flex gap-2">' +
+      '<button type="button" data-edit-drone="' + esc(d.droneId) + '" class="flex-1 rounded-lg border border-slate-300 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">編集</button>' +
+      '<button type="button" data-periodic="' + esc(d.droneId) + '" class="flex-1 rounded-lg bg-slate-900 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800">点検を記録</button>' +
+      '</div>' +
+      '</article>';
+  }).join('');
+}
+
+function renderPilotList() {
+  var pilots = state.data.pilots || [];
+  var box = $('#pilot-list');
+  if (!box) return;
+
+  if (!pilots.length) {
+    box.innerHTML = '<p class="rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-500">' +
+      '操縦者が登録されていません。「追加」から登録してください。</p>';
+    return;
+  }
+
+  box.innerHTML = pilots.map(function (p) {
+    return '<div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 p-3">' +
+      '<div class="min-w-0">' +
+      '<p class="truncate text-sm font-bold text-slate-900">' + esc(p.name) +
+      ' <span class="font-mono text-[10px] font-normal text-slate-400">' + esc(p.pilotId) + '</span></p>' +
+      '<p class="mt-0.5 truncate text-[11px] text-slate-500">技能証明: ' +
+      (p.licenseNo ? esc(p.licenseNo) : '未登録') +
+      ' ・ 飛行 ' + esc(p.flightCount || 0) + ' 回</p>' +
+      '</div>' +
+      '<button type="button" data-edit-pilot="' + esc(p.pilotId) + '" class="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">編集</button>' +
+      '</div>';
+  }).join('');
+}
+
+function renderPeriodicList() {
+  var inspections = (state.data.inspections || []).filter(function (i) {
+    return i.type === '20時間定期点検' || i.type === '修理';
+  });
+  var box = $('#periodic-list');
+  if (!box) return;
+
+  if (!inspections.length) {
+    box.innerHTML = '<p class="rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-500">' +
+      '20時間定期点検・修理の記録はまだありません。</p>';
+    return;
+  }
+
+  box.innerHTML = inspections.map(function (i) {
+    var abnormal = i.result === '異常あり';
+    return '<div class="flex items-start justify-between gap-2 rounded-xl border border-slate-200 p-3">' +
+      '<div class="min-w-0">' +
+      '<p class="text-sm font-bold text-slate-900">' + esc(i.type) +
+      ' <span class="font-mono text-[10px] font-normal text-slate-400">' + esc(i.inspectionId) + '</span></p>' +
+      '<p class="mt-0.5 truncate text-[11px] text-slate-500">' + esc(fmtDateJP(i.inspectionDate)) +
+      ' ・ ' + esc(i.droneName || i.droneId) + ' ・ 実施者 ' + esc(i.inspector || '—') + '</p>' +
+      (i.memo ? '<p class="mt-0.5 text-[11px] text-slate-500">' + esc(i.memo) + '</p>' : '') +
+      '</div>' +
+      '<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ' +
+      (abnormal ? 'bg-rose-100 text-rose-700' : 'bg-teal-100 text-teal-700') + '">' +
+      esc(i.result) + '</span>' +
+      '</div>';
+  }).join('');
+}
+
+/* =========================================================================
+ * モーダル操作
+ * ========================================================================= */
+
+var MODAL_IDS = ['modal-drone', 'modal-pilot', 'modal-periodic'];
+
+function openModal(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.remove('hidden');
+  el.classList.add('flex');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.classList.add('hidden');
+  el.classList.remove('flex');
+  document.body.style.overflow = '';
+}
+
+function closeAllModals() {
+  MODAL_IDS.forEach(closeModal);
+}
+
+/**
+ * 機体モーダルを開く（drone が null なら新規）。
+ *
+ * @param {Object|null} drone 編集対象
+ */
+function openDroneModal(drone) {
+  state.editing.droneId = drone ? drone.droneId : '';
+  $('#drone-modal-title').textContent = drone ? '機体を編集' : '機体を追加';
+  $('#drone-id').value = drone ? drone.droneId : '';
+  $('#drone-model').value = drone ? drone.modelName : '';
+  $('#drone-maker').value = drone ? drone.maker : '';
+  $('#drone-weight').value = drone ? drone.weightG : '';
+  $('#drone-reg').value = drone ? drone.registrationNo : '';
+  $('#drone-serial').value = drone ? drone.serialNo : '';
+  $('#drone-note').value = drone ? drone.note : '';
+  clearErrors($('#drone-form'));
+  openModal('modal-drone');
+  setTimeout(function () { $('#drone-model').focus(); }, 60);
+}
+
+/**
+ * 操縦者モーダルを開く（pilot が null なら新規）。
+ *
+ * @param {Object|null} pilot 編集対象
+ */
+function openPilotModal(pilot) {
+  state.editing.pilotId = pilot ? pilot.pilotId : '';
+  $('#pilot-modal-title').textContent = pilot ? '操縦者を編集' : '操縦者を追加';
+  $('#pilot-id').value = pilot ? pilot.pilotId : '';
+  $('#pilot-name').value = pilot ? pilot.name : '';
+  $('#pilot-license').value = pilot ? pilot.licenseNo : '';
+  $('#pilot-contact').value = pilot ? pilot.contact : '';
+  clearErrors($('#pilot-form'));
+  openModal('modal-pilot');
+  setTimeout(function () { $('#pilot-name').focus(); }, 60);
+}
+
+/**
+ * 定期点検・修理モーダルを開く。
+ *
+ * @param {string} droneId 初期選択の機体ID
+ */
+function openPeriodicModal(droneId) {
+  var drones = state.data.drones || [];
+  if (!drones.length) {
+    toast('先に機体を登録してください。', 'warn');
+    return;
+  }
+  if (droneId) $('#periodic-drone').value = droneId;
+  $('#periodic-type').value = '20時間定期点検';
+  $('#periodic-date').value = todayISO();
+  $('#periodic-inspector').value = lsGet(LS.INSPECTOR) || '';
+  $('#periodic-result').value = '合格';
+  $('#periodic-memo').value = '';
+  clearErrors($('#periodic-form'));
+  openModal('modal-periodic');
+}
+
+/** 機体フォーム送信 */
+function handleDroneSubmit(ev) {
+  ev.preventDefault();
+  var form = $('#drone-form');
+  var errors = {};
+  if (!$('#drone-model').value.trim()) {
+    errors['drone-model'] = '機種名を入力してください。';
+  }
+  if (Object.keys(errors).length) {
+    showErrors(errors, form);
+    return;
+  }
+
+  var btn = $('#drone-save');
+  var original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '保存中…';
+
+  callGas('saveDrone', {
+    droneId: $('#drone-id').value,
+    modelName: $('#drone-model').value.trim(),
+    maker: $('#drone-maker').value.trim(),
+    weightG: $('#drone-weight').value,
+    registrationNo: $('#drone-reg').value.trim(),
+    serialNo: $('#drone-serial').value.trim(),
+    note: $('#drone-note').value.trim()
+  }).then(function (res) {
+    closeModal('modal-drone');
+    toast(res.message, 'success');
+    if (res.warnings && res.warnings.length) toast(res.warnings[0], 'warn');
+    return loadBootstrap({ silent: true });
+  }).catch(function (err) {
+    toast(err.message || '保存に失敗しました。', 'error');
+  }).then(function () {
+    btn.disabled = false;
+    btn.textContent = original;
+  });
+}
+
+/** 操縦者フォーム送信 */
+function handlePilotSubmit(ev) {
+  ev.preventDefault();
+  var form = $('#pilot-form');
+  var errors = {};
+  if (!$('#pilot-name').value.trim()) {
+    errors['pilot-name'] = '氏名を入力してください。';
+  }
+  if (Object.keys(errors).length) {
+    showErrors(errors, form);
+    return;
+  }
+
+  var btn = $('#pilot-save');
+  var original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '保存中…';
+
+  callGas('savePilot', {
+    pilotId: $('#pilot-id').value,
+    name: $('#pilot-name').value.trim(),
+    licenseNo: $('#pilot-license').value.trim(),
+    contact: $('#pilot-contact').value.trim()
+  }).then(function (res) {
+    closeModal('modal-pilot');
+    toast(res.message, 'success');
+    if (res.warnings && res.warnings.length) toast(res.warnings[0], 'warn');
+    return loadBootstrap({ silent: true });
+  }).catch(function (err) {
+    toast(err.message || '保存に失敗しました。', 'error');
+  }).then(function () {
+    btn.disabled = false;
+    btn.textContent = original;
+  });
+}
+
+/** 定期点検・修理フォーム送信 */
+function handlePeriodicSubmit(ev) {
+  ev.preventDefault();
+  var form = $('#periodic-form');
+  var errors = {};
+  if (!$('#periodic-drone').value) errors['periodic-drone'] = '機体を選択してください。';
+  if (!$('#periodic-inspector').value.trim()) {
+    errors['periodic-inspector'] = '実施者を入力してください。';
+  }
+  if (Object.keys(errors).length) {
+    showErrors(errors, form);
+    return;
+  }
+
+  var btn = $('#periodic-save');
+  var original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '保存中…';
+
+  callGas('saveInspection', {
+    droneId: $('#periodic-drone').value,
+    type: $('#periodic-type').value,
+    date: $('#periodic-date').value,
+    inspector: $('#periodic-inspector').value.trim(),
+    result: $('#periodic-result').value,
+    memo: $('#periodic-memo').value.trim()
+  }).then(function (res) {
+    lsSet(LS.INSPECTOR, $('#periodic-inspector').value.trim());
+    closeModal('modal-periodic');
+    toast(res.message, 'success');
+    return loadBootstrap({ silent: true });
+  }).catch(function (err) {
+    toast(err.message || '保存に失敗しました。', 'error');
+  }).then(function () {
+    btn.disabled = false;
+    btn.textContent = original;
+  });
+}
+
+/* =========================================================================
+ * タブ切替・イベント
+ * ========================================================================= */
+
+function switchTab(name) {
+  $$('.tab-btn').forEach(function (btn) {
+    var active = btn.getAttribute('data-tab') === name;
+    btn.classList.toggle('tab-active', active);
+    btn.classList.toggle('text-slate-500', !active);
+  });
+  ['entry', 'log', 'fleet'].forEach(function (key) {
+    var panel = document.getElementById('panel-' + key);
+    if (panel) panel.classList.toggle('hidden', key !== name);
+  });
+  if (location.hash !== '#' + name) {
+    try { history.replaceState(null, '', '#' + name); } catch (err) { /* noop */ }
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/** URL の #tab から初期タブを決める（ディープリンク対応） */
+function initialTab() {
+  var hash = String(location.hash || '').replace('#', '');
+  return ['entry', 'log', 'fleet'].indexOf(hash) !== -1 ? hash : 'entry';
+}
+
+/* =========================================================================
+ * 現場効率化: 時刻ワンタップ・ジオコーディング
+ * -------------------------------------------------------------------------
+ * - 離陸/着陸ボタン: 現在時刻（JST）を入れて飛行時間を即再計算
+ * - 座標検索: 住所 → 緯度経度（Code.gs の fetchGeoFromAddress）
+ * - 現在地: Geolocation API → 緯度経度＋住所（Code.gs の fetchAddressFromGeo）
+ * ========================================================================= */
+
+/**
+ * 現在時刻（JST）を時刻入力へ入れて飛行時間を再計算する。
+ * @param {string} targetId 入力ID（#flight-takeoff-time / #flight-landing-time）
+ * @param {string} label トースト用の名称
+ */
+function stampNowTime(targetId, label) {
+  var input = $(targetId);
+  if (!input) return;
+  var value = nowTimeHM();
+  input.value = value;
+
+  // ボタン操作は「いま測った時刻」なので、手入力済みの飛行時間より優先する
+  state.entry.durationTouched = false;
+  recalcDuration(true);
+  clearFieldError(targetId);
+
+  var duration = $('#flight-duration').value;
+  var note = '';
+  if (duration !== '' && Number(duration) > 0) {
+    note = '（飛行時間 ' + fmtMin(duration) + '）';
+  } else if (duration === '0') {
+    note = '（離陸と同時刻です）';
+  }
+  toast(label + '時刻を ' + value + ' にセットしました' + note + '。', 'success');
+}
+
+/** 1項目分のエラー表示だけを消す（id は '#flight-lat' 形式でも可） */
+function clearFieldError(id) {
+  var key = String(id).replace(/^#/, '');
+  var input = document.getElementById(key);
+  if (input) input.classList.remove('field-error');
+  var box = $('.err[data-error="' + key + '"]');
+  if (box) {
+    box.classList.remove('show');
+    box.textContent = '';
+  }
+}
+
+/** 緯度・経度を入力欄へ反映する（6桁丸め） */
+function setGeoFields(lat, lng) {
+  var la = Number(lat);
+  var ln = Number(lng);
+  if (!isFinite(la) || !isFinite(ln)) return false;
+  $('#flight-lat').value = la.toFixed(6);
+  $('#flight-lng').value = ln.toFixed(6);
+  clearFieldError('flight-lat');
+  clearFieldError('flight-lng');
+  return true;
+}
+
+/** 通信中はボタンを無効化してラベルを差し替える */
+function setButtonBusy(button, busy) {
+  if (!button) return;
+  if (!button.dataset.idleLabel) button.dataset.idleLabel = button.innerHTML;
+  button.disabled = !!busy;
+  button.classList.toggle('opacity-60', !!busy);
+  button.innerHTML = busy ? (button.dataset.busyLabel || '取得中…') : button.dataset.idleLabel;
+}
+
+/** Geolocation API のエラーコードを日本語にする */
+function geoErrorMessage(err) {
+  var code = err && err.code;
+  if (code === 1) return '位置情報の利用が許可されていません。ブラウザの設定を確認してください。';
+  if (code === 2) return '現在地を取得できませんでした。空の見える場所で再試行してください。';
+  if (code === 3) return '現在地の取得がタイムアウトしました。再試行してください。';
+  return '現在地を取得できませんでした。緯度・経度を手入力してください。';
+}
+
+/** 住所 → 緯度経度（入力欄の「🔍 座標検索」） */
+function handleAddressGeocode() {
+  var input = $('#flight-takeoff-place');
+  var address = input.value.trim();
+  var status = $('#geo-status');
+  if (!address) {
+    toast('離陸場所に住所を入力してください（例: 千葉県香取市小見川）。', 'warn');
+    input.focus();
+    return;
+  }
+
+  var btn = $('#btn-geocode');
+  setButtonBusy(btn, true);
+  if (status) status.textContent = '住所から座標を検索しています…';
+
+  callGas('fetchGeoFromAddress', address).then(function (res) {
+    if (!setGeoFields(res && res.lat, res && res.lng)) {
+      throw new Error('座標を取得できませんでした。住所を確認してください。');
+    }
+    var formatted = (res && res.formattedAddress) || address;
+    if (status) status.textContent = '座標を取得: ' + formatted;
+    toast('緯度・経度を入力しました（' + formatted + '）。', 'success');
+  }).catch(function (err) {
+    if (status) status.textContent = '';
+    toast(err.message || '住所から座標を取得できませんでした。', 'warn');
+  }).then(function () {
+    setButtonBusy(btn, false);
+  });
+}
+
+/** 現在地 → 緯度経度＋住所（「📍 現在地（GPS）」） */
+function handleGpsLocate() {
+  var btn = $('#btn-gps');
+  var status = $('#geo-status');
+
+  if (!navigator.geolocation) {
+    toast('この環境では位置情報を利用できません。緯度・経度を手入力してください。', 'warn');
+    return;
+  }
+
+  setButtonBusy(btn, true);
+  if (status) status.textContent = '現在地を取得しています…';
+
+  navigator.geolocation.getCurrentPosition(function (position) {
+    var lat = Number(Number(position.coords.latitude).toFixed(6));
+    var lng = Number(Number(position.coords.longitude).toFixed(6));
+    setGeoFields(lat, lng);
+    if (status) status.textContent = '現在地: ' + lat + ', ' + lng;
+
+    callGas('fetchAddressFromGeo', lat, lng).then(function (res) {
+      var address = res && (res.address || res.formattedAddress);
+      if (!address) {
+        toast('現在地の座標を入力しました（住所は取得できませんでした）。', 'success');
+        return;
+      }
+      $('#flight-takeoff-place').value = address;
+      clearFieldError('flight-takeoff-place');
+      if (status) status.textContent = address;
+      toast('現在地の座標と住所を入力しました' + (res.mock ? '（モック）' : '') + '。', 'success');
+    }).catch(function () {
+      if (status) status.textContent = '座標のみ入力しました（住所は取得できませんでした）。';
+      toast('座標は入力しましたが、住所を取得できませんでした。', 'warn');
+    }).then(function () {
+      setButtonBusy(btn, false);
+    });
+  }, function (err) {
+    if (status) status.textContent = '';
+    setButtonBusy(btn, false);
+    toast(geoErrorMessage(err), 'warn');
+  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+}
+
+/** 座標 → 地名（「座標から地名を取得」） */
+function handleGeoLookup() {
+  var lat = $('#flight-lat').value;
+  var lng = $('#flight-lng').value;
+  var status = $('#geo-status');
+  if (lat === '' || lng === '') {
+    toast('緯度・経度を入力してください。', 'warn');
+    return;
+  }
+
+  var btn = $('#btn-geo');
+  setButtonBusy(btn, true);
+  if (status) status.textContent = '座標から地名を取得しています…';
+
+  callGas('fetchGeoInfo', Number(lat), Number(lng)).then(function (res) {
+    var address = res && res.address;
+    if (status) status.textContent = address || '地名を取得できませんでした。';
+    toast(address || '地名を取得できませんでした。', address ? 'success' : 'warn');
+  }).catch(function (err) {
+    if (status) status.textContent = '';
+    toast(err.message || '周辺情報を取得できませんでした。', 'warn');
+  }).then(function () {
+    setButtonBusy(btn, false);
+  });
+}
+
+
+/* =========================================================================
+ * 現場環境（天候・風速 / 海抜標高 / DID）
+ * -------------------------------------------------------------------------
+ * Code.gs の fetchFlightEnvironment が返す値を表示する。
+ * DID 内だった場合は特定飛行区分へ「追加のみ」反映してカテゴリーを再判定する。
+ * ========================================================================= */
+
+/** 現場環境の表示をリセットする */
+function resetEnvResult() {
+  state.entry.envResult = null;
+  state.entry.envLoading = false;
+
+  var box = $('#env-result');
+  if (box) box.classList.add('hidden');
+
+  ['#env-weather', '#env-wind', '#env-elevation', '#env-limit',
+    '#env-did-note', '#env-safety-label', '#env-source'].forEach(function (sel) {
+    var el = $(sel);
+    if (el) el.textContent = '';
+  });
+
+  ['#env-safety', '#env-did'].forEach(function (sel) {
+    var el = $(sel);
+    if (!el) return;
+    el.textContent = '';
+    el.className = 'mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold';
+  });
+
+  envSetStatus('');
+}
+
+/** 現場環境のステータス文言を更新する */
+function envSetStatus(text, isError) {
+  var el = $('#env-status');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'mt-2 text-[11px] leading-relaxed ' + (isError ? 'text-rose-600' : 'text-slate-500');
+}
+
+/**
+ * 環境データの DID 判定を特定飛行区分へ反映する（追加のみ）。
+ *
+ * @param {boolean|null} isDID DID 判定
+ * @return {boolean} 追加したか
+ */
+function applyEnvDidFlag(isDID) {
+  if (isDID !== true) return false;
+
+  var label = 'DID（人口集中地区）';
+  var flags = (state.entry.flags || []).filter(function (f) { return f !== '非特定飛行'; });
+  if (flags.indexOf(label) !== -1) return false;
+
+  flags.push(label);
+  state.entry.flags = flags;
+  renderSpecificFlags();
+  return true;
+}
+
+/**
+ * 天候・風速・標高・DID の結果を描画する。
+ *
+ * @param {Object} result fetchFlightEnvironment の戻り値
+ */
+function renderEnvResult(result) {
+  var box = $('#env-result');
+  if (!box || !result) return;
+  state.entry.envResult = result;
+  box.classList.remove('hidden');
+
+  var weather = result.weather || {};
+  var elevation = result.elevation || {};
+  var regulations = result.regulations || {};
+
+  var weatherEl = $('#env-weather');
+  if (weatherEl) {
+    var head = [weather.text || '不明'];
+    if (weather.temperature !== null && weather.temperature !== undefined) {
+      head.push(weather.temperature + '℃');
+    }
+    weatherEl.textContent = head.join(' / ');
+  }
+
+  var windEl = $('#env-wind');
+  if (windEl) {
+    var wind = (weather.windSpeed === null || weather.windSpeed === undefined)
+      ? '—' : weather.windSpeed + ' m/s';
+    var gust = (weather.windGust === null || weather.windGust === undefined)
+      ? '—' : weather.windGust + ' m/s';
+    windEl.textContent = '風速 ' + wind + '（突風 ' + gust + '）';
+  }
+
+  var safetyEl = $('#env-safety');
+  if (safetyEl) {
+    var status = weather.safetyStatus || 'CAUTION';
+    safetyEl.textContent = status === 'GOOD' ? '良好' : (status === 'DANGER' ? '危険' : '注意');
+    safetyEl.className = 'mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ' +
+      (ENV_STATUS_BADGE[status] || ENV_STATUS_BADGE.CAUTION);
+  }
+
+  var safetyLabel = $('#env-safety-label');
+  if (safetyLabel) safetyLabel.textContent = weather.safetyLabel || '';
+
+  var elevationEl = $('#env-elevation');
+  if (elevationEl) {
+    elevationEl.textContent = (elevation.groundElevation === null || elevation.groundElevation === undefined)
+      ? '取得できません'
+      : '海抜 ' + elevation.groundElevation + ' m';
+  }
+
+  var limitEl = $('#env-limit');
+  if (limitEl) {
+    limitEl.textContent = (elevation.max150mLimit === null || elevation.max150mLimit === undefined)
+      ? (elevation.note || '—')
+      : '150m規制の上限 ' + elevation.max150mLimit + ' m';
+  }
+
+  var didEl = $('#env-did');
+  if (didEl) {
+    if (regulations.isDID === true) {
+      didEl.textContent = 'DID 内';
+      didEl.className = 'mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold bg-amber-100 text-amber-800';
+    } else if (regulations.isDID === false) {
+      didEl.textContent = 'DID 外';
+      didEl.className = 'mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold bg-emerald-100 text-emerald-700';
+    } else {
+      didEl.textContent = '判定できません';
+      didEl.className = 'mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold bg-slate-100 text-slate-600';
+    }
+  }
+
+  var didNote = $('#env-did-note');
+  if (didNote) didNote.textContent = regulations.note || '';
+
+  var sourceEl = $('#env-source');
+  if (sourceEl) {
+    var sources = result.sources || {};
+    var list = [sources.weather, sources.elevation, sources.did].filter(Boolean);
+    sourceEl.textContent = (list.length ? '出典: ' + list.join(' / ') : '') +
+      (result.fetchedAt ? '（取得 ' + result.fetchedAt + '）' : '');
+  }
+}
+
+/** 離着陸座標から現場環境を取得する（「🌦 現場環境を取得」） */
+function handleFetchEnvironment() {
+  if (state.entry.envLoading) return;
+
+  var lat = $('#flight-lat').value;
+  var lng = $('#flight-lng').value;
+  if (lat === '' || lng === '') {
+    toast('先に緯度・経度を入力するか「📍 現在地（GPS）」で取得してください。', 'warn');
+    $('#flight-lat').focus();
+    return;
+  }
+
+  var btn = $('#btn-env');
+  var seq = state.entry.reqSeq;
+  state.entry.envLoading = true;
+  setButtonBusy(btn, true);
+  envSetStatus('天候・標高・DID を取得しています…（数秒）');
+
+  callGas('fetchFlightEnvironment', Number(lat), Number(lng)).then(function (res) {
+    if (seq !== state.entry.reqSeq) return; // クリア済みの応答は破棄する
+    renderEnvResult(res);
+    var regulations = (res && res.regulations) || {};
+    var added = applyEnvDidFlag(regulations.isDID);
+
+    var notes = [];
+    if (res && res.weather && res.weather.safetyLabel) notes.push(res.weather.safetyLabel);
+    if (added) notes.push('DID を特定飛行区分に反映しました');
+    if (regulations.isDID === null || regulations.isDID === undefined) {
+      notes.push('DID は判定できませんでした（DIPS で確認してください）');
+    }
+
+    envSetStatus('取得しました。' + notes.join(' / '), false);
+    var warn = regulations.isDID === true ||
+      !!(res && res.weather && res.weather.safetyStatus !== 'GOOD');
+    toast('現場環境を取得しました' + (notes.length ? '。' + notes.join(' / ') : '') + '。',
+      warn ? 'warn' : 'success');
+  }).catch(function (err) {
+    if (seq !== state.entry.reqSeq) return;
+    envSetStatus(err.message || '現場環境を取得できませんでした。', true);
+    toast(err.message || '現場環境を取得できませんでした。', 'error');
+  }).then(function () {
+    if (seq !== state.entry.reqSeq) return; // クリア後にボタン状態を触らない
+    state.entry.envLoading = false;
+    setButtonBusy(btn, false);
+  });
+}
+
+/* =========================================================================
+ * AI 安全フライト診断
+ * ========================================================================= */
+
+/** AI 診断の表示をリセットする */
+function resetAiResult() {
+  state.entry.aiResult = null;
+  state.entry.aiLoading = false;
+  var box = $('#ai-result');
+  if (box) box.classList.add('hidden');
+  var thumb = $('#ai-thumb');
+  if (thumb) {
+    thumb.removeAttribute('src');
+    thumb.classList.add('hidden');
+  }
+  ['#ai-objects', '#ai-advice'].forEach(function (sel) {
+    var el = $(sel);
+    if (el) el.innerHTML = '';
+  });
+  var summary = $('#ai-summary');
+  if (summary) summary.textContent = '';
+  var badge = $('#ai-risk-badge');
+  if (badge) {
+    badge.className = 'rounded-full px-2.5 py-1 text-[11px] font-bold';
+    badge.textContent = '';
+  }
+  aiSetStatus('');
+}
+
+/** AI 診断のステータス文言を更新する */
+function aiSetStatus(text, isError) {
+  var el = $('#ai-status');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'mt-2 text-[11px] leading-relaxed ' + (isError ? 'text-rose-600' : 'text-slate-500');
+}
+
+/** AI 診断の結果を描画する */
+function renderAiResult(result) {
+  var box = $('#ai-result');
+  if (!box || !result) return;
+  state.entry.aiResult = result;
+  box.classList.remove('hidden');
+
+  var thumb = $('#ai-thumb');
+  if (thumb) {
+    if (result.satelliteImageUrl) {
+      thumb.src = result.satelliteImageUrl;
+      thumb.classList.remove('hidden');
+    } else {
+      thumb.removeAttribute('src');
+      thumb.classList.add('hidden');
+    }
+  }
+
+  var badge = $('#ai-risk-badge');
+  if (badge) {
+    var level = result.riskLevel || 'MEDIUM';
+    badge.className = 'rounded-full px-2.5 py-1 text-[11px] font-bold ' +
+      (AI_RISK_BADGE[level] || AI_RISK_BADGE.MEDIUM);
+    badge.textContent = result.riskLabel || '中リスク';
+  }
+
+  var source = $('#ai-source');
+  if (source) {
+    source.textContent = (result.source === 'satellite' ? '衛星写真' : '現場写真') +
+      ' / ' + (result.model || 'gemini') + (result.mock ? '（モック）' : '');
+  }
+
+  var summary = $('#ai-summary');
+  if (summary) summary.textContent = result.summary || '';
+
+  var objects = $('#ai-objects');
+  if (objects) {
+    objects.innerHTML = (result.detectedObjects || []).map(function (o) {
+      var dot = AI_RISK_DOT[o.risk] || AI_RISK_DOT.MEDIUM;
+      return '<li class="flex items-start gap-1.5 text-[11px] leading-relaxed text-slate-700">' +
+        '<span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ' + dot + '"></span>' +
+        '<span><span class="font-semibold">' + esc(o.objectType) + '</span>：' + esc(o.description) + '</span></li>';
+    }).join('');
+  }
+
+  var advice = $('#ai-advice');
+  if (advice) {
+    advice.innerHTML = (result.actionableAdvice || []).map(function (a) {
+      return '<li>' + esc(a) + '</li>';
+    }).join('');
+  }
+}
+
+/** AI の suggestedFlags を特定飛行区分へ反映する（追加した項目を返す） */
+function applyAiSuggestions(showToast) {
+  var result = state.entry.aiResult;
+  if (!result || !result.suggestedFlags) return [];
+
+  var map = [
+    ['within30m', '人・物件から30m未満'],
+    ['did', 'DID（人口集中地区）'],
+    ['altitude150m', '150m以上'],
+    ['event', 'イベント上空']
+  ];
+  var flags = (state.entry.flags || []).filter(function (f) { return f !== '非特定飛行'; });
+  var added = [];
+
+  map.forEach(function (pair) {
+    if (result.suggestedFlags[pair[0]] !== true) return;
+    if (flags.indexOf(pair[1]) === -1) {
+      flags.push(pair[1]);
+      added.push(pair[1]);
+    }
+  });
+
+  if (!added.length) {
+    if (showToast) toast('AI の検出項目はすでに反映されています。', 'info');
+    return [];
+  }
+
+  state.entry.flags = flags;
+  renderSpecificFlags();
+  if (showToast) toast('AI 診断から「' + added.join('・') + '」を選択しました。', 'success');
+  return added;
+}
+
+/**
+ * 画像を長辺 maxEdge に縮小して JPEG の data URI を作る（通信量と解析時間の削減）。
+ *
+ * @param {File} file 画像ファイル
+ * @param {number} maxEdge 長辺の最大ピクセル
+ * @return {Promise<{dataUrl: string, mimeType: string}>} 圧縮した画像
+ */
+function compressImage(file, maxEdge) {
+  return new Promise(function (resolve, reject) {
+    if (!file) {
+      reject(new Error('画像が選択されていません。'));
+      return;
+    }
+    if (!/^image\//.test(file.type)) {
+      reject(new Error('画像ファイルを選択してください（JPEG / PNG）。'));
+      return;
+    }
+
+    var reader = new FileReader();
+    reader.onerror = function () { reject(new Error('画像を読み込めませんでした。')); };
+    reader.onload = function () {
+      var img = new Image();
+      img.onerror = function () { reject(new Error('画像を読み込めませんでした。')); };
+      img.onload = function () {
+        var edge = maxEdge || 1200;
+        var scale = Math.min(1, edge / Math.max(img.width, img.height));
+        var width = Math.max(1, Math.round(img.width * scale));
+        var height = Math.max(1, Math.round(img.height * scale));
+
+        var canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('この環境では画像を圧縮できません。'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+
+        var dataUrl;
+        try {
+          dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        } catch (err) {
+          reject(new Error('画像を圧縮できませんでした。別の写真を選んでください。'));
+          return;
+        }
+
+        var base64 = dataUrl.split(',')[1] || '';
+        if (base64.length > 8 * 1024 * 1024) {
+          reject(new Error('画像サイズが大きすぎます。別の写真を選んでください。'));
+          return;
+        }
+        resolve({ dataUrl: dataUrl, base64: base64, mimeType: 'image/jpeg', width: width, height: height });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/** 衛星写真での AI 診断 */
+function handleAiSatellite() {
+  if (state.entry.aiLoading) return;
+
+  var lat = $('#flight-lat').value;
+  var lng = $('#flight-lng').value;
+  if (lat === '' || lng === '') {
+    toast('先に緯度・経度を入力するか「📍 現在地（GPS）」で取得してください。', 'warn');
+    $('#flight-lat').focus();
+    return;
+  }
+
+  var btn = $('#btn-ai-satellite');
+  var seq = state.entry.reqSeq;
+  state.entry.aiLoading = true;
+  setButtonBusy(btn, true);
+  aiSetStatus('衛星写真を取得して Gemini が解析しています…（10〜20秒）');
+
+  callGas('analyzeRiskFromCoordinates', Number(lat), Number(lng)).then(function (res) {
+    if (seq !== state.entry.reqSeq) return; // クリア済みの応答は破棄する
+    renderAiResult(res);
+    var added = applyAiSuggestions(false);
+    aiSetStatus('診断が完了しました。' +
+      (added.length ? '「' + added.join('・') + '」を特定飛行区分に反映しました。' : ''), false);
+    toast('AI 診断が完了しました（' + (res.riskLabel || '中リスク') + '）' +
+      (added.length ? '。' + added.join('・') + ' を反映' : '') + '。', 'success');
+  }).catch(function (err) {
+    if (seq !== state.entry.reqSeq) return;
+    aiSetStatus(err.message || 'AI 診断に失敗しました。', true);
+    toast(err.message || 'AI 診断に失敗しました。', 'error');
+  }).then(function () {
+    if (seq !== state.entry.reqSeq) return;
+    state.entry.aiLoading = false;
+    setButtonBusy(btn, false);
+  });
+}
+
+/** 現場写真での AI 診断（選択された画像を圧縮して送信） */
+function handleAiPhotoSelected(file) {
+  if (!file || state.entry.aiLoading) return;
+
+  var btn = $('#btn-ai-photo');
+  var seq = state.entry.reqSeq;
+  state.entry.aiLoading = true;
+  setButtonBusy(btn, true);
+  aiSetStatus('写真を読み込んでいます…');
+
+  compressImage(file, 1200).then(function (image) {
+    if (seq !== state.entry.reqSeq) return null; // クリア済みなら送信しない
+    aiSetStatus('画像を送信して Gemini が解析しています…（10〜20秒）');
+    return callGas('analyzeRiskFromImage', image.dataUrl, image.mimeType);
+  }).then(function (res) {
+    if (!res || seq !== state.entry.reqSeq) return;
+    renderAiResult(res);
+    var added = applyAiSuggestions(false);
+    aiSetStatus('診断が完了しました。' +
+      (added.length ? '「' + added.join('・') + '」を特定飛行区分に反映しました。' : ''), false);
+    toast('AI 診断が完了しました（' + (res.riskLabel || '中リスク') + '）' +
+      (added.length ? '。' + added.join('・') + ' を反映' : '') + '。', 'success');
+  }).catch(function (err) {
+    if (seq !== state.entry.reqSeq) return;
+    aiSetStatus(err.message || 'AI 診断に失敗しました。', true);
+    toast(err.message || 'AI 診断に失敗しました。', 'error');
+  }).then(function () {
+    var input = $('#ai-photo-file');
+    if (input) input.value = '';
+    if (seq !== state.entry.reqSeq) return;
+    state.entry.aiLoading = false;
+    setButtonBusy(btn, false);
+  });
+}
+
+/** 将来拡張: DJI ログの取り込み（サーバー側は未実装） */
+function handleDjiFile(file) {
+  if (!file) return;
+  var status = $('#dji-status');
+  status.textContent = '「' + file.name + '」を解析しています…';
+  callGas('parseDjiLog', { name: file.name, size: file.size }).then(function () {
+    status.textContent = '解析しました。';
+  }).catch(function (err) {
+    status.textContent = '自動解析は準備中です。離着陸時刻と飛行時間を手入力してください。';
+    toast(err.message || 'DJI ログの解析は準備中です。', 'warn');
+  });
+}
+
+/** クリックのイベント委譲（再描画されるリストも対象） */
+function handleDelegatedClick(ev) {
+  var target = ev.target;
+  if (!target || !target.closest) return;
+
+  var tab = target.closest('[data-tab]');
+  if (tab) {
+    switchTab(tab.getAttribute('data-tab'));
+    return;
+  }
+
+  var closer = target.closest('[data-close]');
+  if (closer) {
+    closeModal(closer.getAttribute('data-close'));
+    return;
+  }
+
+  var typeBtn = target.closest('#inspection-type [data-type]');
+  if (typeBtn) {
+    state.entry.type = typeBtn.getAttribute('data-type');
+    renderInspectionTypeButtons();
+    return;
+  }
+
+  var itemBtn = target.closest('[data-item-btn]');
+  if (itemBtn) {
+    var row = itemBtn.closest('[data-item]');
+    if (!row) return;
+    var name = row.getAttribute('data-item');
+    var value = itemBtn.getAttribute('data-item-btn');
+    if (state.entry.items[name] === value) {
+      delete state.entry.items[name];
+    } else {
+      state.entry.items[name] = value;
+    }
+    paintItemRow(name);
+    updateInspectionSummary();
+    return;
+  }
+
+  var editDrone = target.closest('[data-edit-drone]');
+  if (editDrone) {
+    var droneId = editDrone.getAttribute('data-edit-drone');
+    var drone = (state.data.drones || []).filter(function (d) { return d.droneId === droneId; })[0];
+    if (drone) openDroneModal(drone);
+    return;
+  }
+
+  var periodic = target.closest('[data-periodic]');
+  if (periodic) {
+    openPeriodicModal(periodic.getAttribute('data-periodic'));
+    return;
+  }
+
+  var editPilot = target.closest('[data-edit-pilot]');
+  if (editPilot) {
+    var pilotId = editPilot.getAttribute('data-edit-pilot');
+    var pilot = (state.data.pilots || []).filter(function (p) { return p.pilotId === pilotId; })[0];
+    if (pilot) openPilotModal(pilot);
+  }
+}
+
+/** 特定飛行区分の排他制御（非特定飛行は他区分と併用しない） */
+function handleFlagChange(ev) {
+  var input = ev.target && ev.target.closest ? ev.target.closest('[data-flag]') : null;
+  if (!input) return;
+
+  var value = input.value;
+  var flags = (state.entry.flags || []).slice();
+
+  if (input.checked) {
+    if (value === '非特定飛行') {
+      flags = ['非特定飛行'];
+    } else {
+      flags = flags.filter(function (f) { return f !== '非特定飛行'; });
+      if (flags.indexOf(value) === -1) flags.push(value);
+    }
+  } else {
+    flags = flags.filter(function (f) { return f !== value; });
+  }
+
+  state.entry.flags = flags;
+
+  // 「非特定飛行」は他区分をすべて解除するため、その場合だけ全体を再描画する
+  if (value === '非特定飛行') {
+    renderSpecificFlags();
+    return;
+  }
+
+  paintFlagRow_(input);
+  renderSpecificStatus();
+  renderCategoryCard();
+}
+
+function bindEvents() {
+  document.addEventListener('click', handleDelegatedClick);
+  document.addEventListener('change', handleFlagChange);
+
+  $('#entry-form').addEventListener('submit', handleSave);
+
+  var clearBtn = $('#clear-btn');
+  if (clearBtn) clearBtn.addEventListener('click', handleClearForm);
+
+  ['#flight-takeoff-time', '#flight-landing-time'].forEach(function (selector) {
+    var input = $(selector);
+    input.addEventListener('change', function () {
+      state.entry.durationTouched = false;
+      recalcDuration(true);
+    });
+    input.addEventListener('input', function () {
+      recalcDuration(false);
+    });
+  });
+
+  $('#flight-duration').addEventListener('input', function () {
+    state.entry.durationTouched = true;
+  });
+
+  $('#flight-drone').addEventListener('change', function () {
+    renderDroneHint();
+    renderCategoryCard();
+  });
+
+  var clearZone = $('#clear-zone-toggle');
+  if (clearZone) {
+    clearZone.addEventListener('change', function () {
+      state.entry.hasClearZone = this.checked;
+      var label = $('#clear-zone-label');
+      if (label) label.textContent = this.checked ? '講じる' : '講じない';
+      renderCategoryCard();
+    });
+  }
+
+  var aiSatellite = $('#btn-ai-satellite');
+  if (aiSatellite) aiSatellite.addEventListener('click', handleAiSatellite);
+
+  var aiPhoto = $('#btn-ai-photo');
+  if (aiPhoto) {
+    aiPhoto.addEventListener('click', function () {
+      var input = $('#ai-photo-file');
+      if (input) input.click();
+    });
+  }
+
+  var aiFile = $('#ai-photo-file');
+  if (aiFile) {
+    aiFile.addEventListener('change', function () {
+      handleAiPhotoSelected(this.files && this.files[0]);
+    });
+  }
+
+  var aiApply = $('#btn-ai-apply');
+  if (aiApply) {
+    aiApply.addEventListener('click', function () { applyAiSuggestions(true); });
+  }
+
+  $('#flight-purpose').addEventListener('change', function () {
+    var value = this.value;
+    state.entry.purpose = value === '__other__' ? 'その他' : value;
+    $('#flight-purpose-other').classList.toggle('hidden', value !== '__other__');
+    if (value === '__other__') $('#flight-purpose-other').focus();
+  });
+
+  $$('input[name="safety"]').forEach(function (radio) {
+    radio.addEventListener('change', function () {
+      $('#safety-detail-wrap').classList.toggle('hidden', this.value !== 'event');
+    });
+  });
+
+  $('#btn-all-ok').addEventListener('click', function () {
+    ITEM_NAMES.forEach(function (name) { state.entry.items[name] = 'OK'; });
+    renderInspectionItems();
+  });
+
+  $('#btn-geo').addEventListener('click', handleGeoLookup);
+  $('#btn-geocode').addEventListener('click', handleAddressGeocode);
+  $('#btn-gps').addEventListener('click', handleGpsLocate);
+  $('#btn-env').addEventListener('click', handleFetchEnvironment);
+  $('#btn-now-takeoff').addEventListener('click', function () {
+    stampNowTime('#flight-takeoff-time', '離陸');
+  });
+  $('#btn-now-landing').addEventListener('click', function () {
+    stampNowTime('#flight-landing-time', '着陸');
+  });
+
+  $('#dji-file').addEventListener('change', function () {
+    handleDjiFile(this.files && this.files[0]);
+  });
+
+  var drop = $('#dji-drop');
+  ['dragenter', 'dragover'].forEach(function (type) {
+    drop.addEventListener(type, function (ev) {
+      ev.preventDefault();
+      drop.classList.add('border-brand-400', 'bg-brand-50');
+    });
+  });
+  ['dragleave', 'dragend'].forEach(function (type) {
+    drop.addEventListener(type, function () {
+      drop.classList.remove('border-brand-400', 'bg-brand-50');
+    });
+  });
+  drop.addEventListener('drop', function (ev) {
+    ev.preventDefault();
+    drop.classList.remove('border-brand-400', 'bg-brand-50');
+    var file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    handleDjiFile(file);
+  });
+
+  $('#btn-log-search').addEventListener('click', function () {
+    searchLog(true);
+  });
+
+  $('#btn-log-reset').addEventListener('click', function () {
+    $('#log-filter-from').value = '';
+    $('#log-filter-to').value = '';
+    $('#log-filter-drone').value = '';
+    $('#log-filter-q').value = '';
+    state.filters = { from: '', to: '', droneId: '', q: '' };
+    renderLogFromBootstrap();
+  });
+
+  $('#log-more').addEventListener('click', function () {
+    searchLog(false);
+  });
+
+  $('#btn-csv-flight').addEventListener('click', function () { exportCsv('flight'); });
+  $('#btn-csv-inspection').addEventListener('click', function () { exportCsv('inspection'); });
+
+  $('#btn-add-drone').addEventListener('click', function () { openDroneModal(null); });
+  $('#btn-add-pilot').addEventListener('click', function () { openPilotModal(null); });
+  $('#btn-add-periodic').addEventListener('click', function () { openPeriodicModal(''); });
+
+  $('#drone-form').addEventListener('submit', handleDroneSubmit);
+  $('#pilot-form').addEventListener('submit', handlePilotSubmit);
+  $('#periodic-form').addEventListener('submit', handlePeriodicSubmit);
+
+  MODAL_IDS.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', function (ev) {
+      if (ev.target === el) closeModal(id);
+    });
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') closeAllModals();
+  });
+}
+
+/** 初期化 */
+function init() {
+  HAS_SCRIPT_RUN = !!(window.google && window.google.script && window.google.script.run);
+  IS_MOCK = !API_CONFIG.url && !HAS_SCRIPT_RUN;
+
+  var today = todayISO();
+  $('#flight-date').value = today;
+  $('#inspection-date').value = today;
+  $('#periodic-date').value = today;
+  $('#entry-today').textContent = fmtDateJP(today);
+  $('#inspection-inspector').value = lsGet(LS.INSPECTOR) || '';
+
+  SAVE_BUTTON_HTML = $('#save-btn').innerHTML;
+
+  bindEvents();
+  switchTab(initialTab());
+
+  setSync(IS_MOCK ? 'mock' : 'loading', IS_MOCK ? 'ローカル(デモ)' : '接続中…');
+
+  // 公開ホスティング（GitHub Pages 等）で API URL 未設定のまま開いた場合、
+  // 入力内容が保存されないことを知らせる（file:// のデモでは出さない）。
+  if (IS_MOCK && window.location.protocol !== 'file:') {
+    toast('バックエンド未設定のためデモ表示です（データは保存されません）。', 'warn');
+  }
+
+  // カタログ取得前でもフォームを操作できるよう、先に選択肢を描画する
+  renderCatalogControls();
+  renderInspectionItems();
+
+  loadBootstrap().catch(function () {
+    // エラーは loadBootstrap 内でトースト表示済み
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>
