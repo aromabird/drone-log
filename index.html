@@ -28,6 +28,49 @@
       }
     };
   </script>
+  <script>
+    /* 文字サイズ（野外視認性）: 4段階。rem ベースの Tailwind を丸ごと拡縮するため
+       <html> の font-size を % で操作する（ブラウザの既定文字サイズに対する相対値）。
+       リロード直後のちらつきを防ぐため、本文の描画前に保存値を適用する。
+       UI 側の操作（ボタン・保存）は下部スクリプトの setFontScale が行う。 */
+    window.DroneLogFontSize = (function () {
+      var KEY = 'droneLogFontSize';
+      var SCALES = [
+        { key: 'sm', label: '小', percent: 90 },
+        { key: 'md', label: '標準', percent: 100 },
+        { key: 'lg', label: '大', percent: 115 },
+        { key: 'xl', label: '特大', percent: 130 }
+      ];
+      function find(key) {
+        for (var i = 0; i < SCALES.length; i++) {
+          if (SCALES[i].key === key) return SCALES[i];
+        }
+        return null;
+      }
+      /** 保存値を読む（未保存・不正値・localStorage 不可は標準） */
+      function read() {
+        var stored = null;
+        try { stored = window.localStorage.getItem(KEY); } catch (err) { stored = null; }
+        return find(stored) || SCALES[1];
+      }
+      function apply(key, persist) {
+        var scale = find(key) || SCALES[1];
+        document.documentElement.style.fontSize = scale.percent + '%';
+        // 注: ボタン側の [data-font-scale] と衝突しないよう、html 側は別名にする
+        document.documentElement.setAttribute('data-font-scale-active', scale.key);
+        if (persist) {
+          try { window.localStorage.setItem(KEY, scale.key); } catch (err) { /* 保存不可でも動作させる */ }
+        }
+        return scale;
+      }
+      /** 現在適用中の段階（html の data-font-scale-active が正） */
+      function current() {
+        return find(document.documentElement.getAttribute('data-font-scale-active')) || SCALES[1];
+      }
+      apply(read().key, false);
+      return { KEY: KEY, SCALES: SCALES, find: find, read: read, apply: apply, current: current };
+    })();
+  </script>
   <style>
     html { -webkit-text-size-adjust: 100%; }
     body { font-feature-settings: 'palt'; }
@@ -42,11 +85,28 @@
     .field > select, .field > input, .field > textarea { min-width: 0; max-width: 100%; }
     /* WebKit は select の選択中テキストを要素幅でクリップせずに描画し、隣のカラムへ
        はみ出したうえ横スクロールまで発生させる（iPad 実機の「侵食」現象）。
-       overflow:hidden で必ずカラム内にクリップする。 */
-    select { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+       overflow:hidden で必ずカラム内にクリップする。
+       さらに WebKit のネイティブ select は padding を無視し、文字サイズを特大（130%）に
+       すると高さが約29pxへ潰れて選択値が切れる（min-height も効かない）。
+       appearance:none ＋ 自前の矢印にして、全ブラウザで同じ高さ・タップ領域を確保する。 */
+    select {
+      max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+      -webkit-appearance: none; appearance: none;
+      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+      background-position: right 0.75rem center;
+      background-repeat: no-repeat;
+      background-size: 1.25rem 1.25rem;
+      padding-right: 2.5rem;
+    }
+    /* 時刻入力は「今すぐ離陸／着陸」と横並びのため、狭い画面＋特大では
+       入力欄が潰れて時刻が見えなくなる。8rem を下回るならボタンを次行へ折り返す。 */
+    .field input.quick-time-input { min-width: 8rem; }
     i.fas, i.far, i.fab { line-height: 1; }
     input[type="date"], input[type="time"] { min-height: 44px; }
     .tab-active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+    /* 文字サイズ切替（野外視認性）: 選択中はタブと同じ「白＋影」で示す */
+    .font-scale-btn[aria-pressed="true"] { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
+    .font-scale-btn[aria-pressed="true"] i { color: #0f172a; }
     .field-error { border-color: #f43f5e !important; background: #fff1f2; }
     .err { color: #e11d48; font-size: 12px; margin-top: 4px; display: none; }
     .err.show { display: block; }
@@ -79,17 +139,36 @@
           </svg>
         </div>
         <div class="min-w-0">
-          <h1 class="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">ドローン飛行日誌</h1>
+          <h1 class="text-xl sm:text-2xl font-bold text-slate-900 leading-tight text-balance">ドローン飛行日誌</h1>
           <p class="text-sm text-slate-500 truncate">飛行記録・日常点検・機体管理</p>
         </div>
       </div>
       <div class="flex flex-col items-end gap-1">
-        <div id="sync-status" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-xs text-slate-500 ring-1 ring-slate-200">
+        <div id="sync-status" role="status" aria-live="polite" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-xs text-slate-500 ring-1 ring-slate-200">
           <span id="sync-dot" class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
-          <span id="sync-text">接続中…</span>
+          <span id="sync-text" class="sr-only sm:not-sr-only">接続中…</span>
         </div>
-        <a id="sheet-link" href="#" target="_blank" rel="noopener"
-           class="hidden text-xs text-brand-600 hover:underline">スプレッドシートを開く</a>
+        <a id="sheet-link" href="#" target="_blank" rel="noopener" aria-label="スプレッドシートを開く" title="スプレッドシートを開く"
+           class="hidden inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-lg px-2 text-xs text-brand-600 hover:underline sm:min-h-0 sm:min-w-0 sm:px-0">
+          <i class="fas fa-table-cells-large" aria-hidden="true"></i>
+          <span class="hidden sm:inline">スプレッドシートを開く</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- 文字サイズ（野外視認性）: 屋外では大きめに。rem ベースの全体スケール -->
+    <div class="mt-3 flex flex-col gap-1 no-print sm:flex-row sm:items-center sm:gap-2">
+      <span id="font-scale-label" class="shrink-0 text-xs font-semibold text-slate-500">文字サイズ</span>
+      <div class="grid min-w-0 flex-1 grid-cols-4 gap-1 rounded-xl bg-slate-200/70 p-1"
+           role="group" aria-labelledby="font-scale-label">
+        <button type="button" data-font-scale="sm" aria-pressed="false" title="文字サイズ 小（90%）"
+                class="font-scale-btn min-h-[44px] whitespace-nowrap rounded-lg px-1 py-2 text-sm font-semibold text-slate-500 transition">小</button>
+        <button type="button" data-font-scale="md" aria-pressed="false" title="文字サイズ 標準（100%）"
+                class="font-scale-btn min-h-[44px] whitespace-nowrap rounded-lg px-1 py-2 text-sm font-semibold text-slate-500 transition">標準</button>
+        <button type="button" data-font-scale="lg" aria-pressed="false" title="文字サイズ 大（115%）"
+                class="font-scale-btn min-h-[44px] whitespace-nowrap rounded-lg px-1 py-2 text-sm font-semibold text-slate-500 transition">大</button>
+        <button type="button" data-font-scale="xl" aria-pressed="false" title="文字サイズ 特大（130%）"
+                class="font-scale-btn min-h-[44px] whitespace-nowrap rounded-lg px-1 py-2 text-sm font-semibold text-slate-500 transition">特大</button>
       </div>
     </div>
   </header>
@@ -97,11 +176,11 @@
   <!-- タブ -->
   <nav class="sticky top-0 z-20 -mx-3 sm:-mx-5 lg:-mx-6 px-3 sm:px-5 lg:px-6 py-2 bg-slate-100/90 backdrop-blur no-print">
     <div class="grid grid-cols-3 gap-1 rounded-2xl bg-slate-200/70 p-1">
-      <button type="button" class="tab-btn tab-active min-h-[48px] rounded-xl px-1.5 py-3 text-sm font-semibold transition sm:text-base"
+      <button type="button" class="tab-btn tab-active min-h-[48px] rounded-xl px-1.5 py-3 text-sm font-semibold leading-tight text-balance transition sm:text-base"
               data-tab="entry"><i class="fas fa-pen-to-square mr-1.5 hidden sm:inline" aria-hidden="true"></i>飛行を記録</button>
-      <button type="button" class="tab-btn min-h-[48px] rounded-xl px-1.5 py-3 text-sm font-semibold text-slate-500 transition sm:text-base"
+      <button type="button" class="tab-btn min-h-[48px] rounded-xl px-1.5 py-3 text-sm font-semibold leading-tight text-balance text-slate-500 transition sm:text-base"
               data-tab="log"><i class="fas fa-list mr-1.5 hidden sm:inline" aria-hidden="true"></i>日誌<span id="tab-log-count" class="ml-1 text-xs text-slate-400"></span></button>
-      <button type="button" class="tab-btn min-h-[48px] rounded-xl px-1.5 py-3 text-sm font-semibold text-slate-500 transition sm:text-base"
+      <button type="button" class="tab-btn min-h-[48px] rounded-xl px-1.5 py-3 text-sm font-semibold leading-tight text-balance text-slate-500 transition sm:text-base"
               data-tab="fleet"><i class="fas fa-helicopter mr-1.5 hidden sm:inline" aria-hidden="true"></i>機体管理</button>
     </div>
   </nav>
@@ -176,10 +255,10 @@
 
             <div class="field">
               <label for="flight-takeoff-time" class="block text-sm font-semibold text-slate-600"><i class="fas fa-plane-departure fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>離陸時刻 <span class="text-rose-500">*</span></label>
-              <div class="flex items-center gap-2">
-                <input id="flight-takeoff-time" type="time" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+              <div class="flex flex-wrap items-center gap-2">
+                <input id="flight-takeoff-time" type="time" class="quick-time-input min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
                 <button type="button" id="btn-now-takeoff" title="現在時刻（JST）を離陸時刻に入力します"
-                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-teal-200 bg-teal-50 px-3 text-sm font-semibold text-teal-700 hover:bg-teal-100 active:bg-teal-200">
+                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-teal-200 bg-teal-50 px-3 text-sm font-semibold text-teal-700 hover:bg-teal-100 active:bg-teal-200">
                   <i class="fas fa-plane-departure" aria-hidden="true"></i>今すぐ離陸
                 </button>
               </div>
@@ -188,10 +267,10 @@
 
             <div class="field">
               <label for="flight-landing-time" class="block text-sm font-semibold text-slate-600"><i class="fas fa-plane-arrival fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>着陸時刻 <span class="text-rose-500">*</span></label>
-              <div class="flex items-center gap-2">
-                <input id="flight-landing-time" type="time" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+              <div class="flex flex-wrap items-center gap-2">
+                <input id="flight-landing-time" type="time" class="quick-time-input min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
                 <button type="button" id="btn-now-landing" title="現在時刻（JST）を着陸時刻に入力します"
-                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-700 hover:bg-amber-100 active:bg-amber-200">
+                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-700 hover:bg-amber-100 active:bg-amber-200">
                   <i class="fas fa-plane-arrival" aria-hidden="true"></i>今すぐ着陸
                 </button>
               </div>
@@ -426,7 +505,7 @@
               <span id="inspection-progress" class="num font-semibold text-slate-700">0 / 13</span> 項目 入力済み
             </p>
             <button type="button" id="btn-all-ok"
-                    class="inline-flex min-h-[40px] items-center gap-1 rounded-lg bg-teal-50 px-3 py-2 text-sm font-bold text-teal-700 hover:bg-teal-100">
+                    class="inline-flex min-h-[40px] shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-teal-50 px-3 py-2 text-sm font-bold text-teal-700 hover:bg-teal-100">
               <i class="fas fa-check-double" aria-hidden="true"></i>
               一括OK
             </button>
@@ -455,13 +534,13 @@
               <p id="save-status" class="text-xs text-slate-500">未保存</p>
               <p id="last-saved" class="truncate text-xs font-semibold text-slate-700"></p>
             </div>
-            <div class="flex items-stretch gap-2">
+            <div class="flex flex-wrap items-stretch gap-2">
               <button id="clear-btn" type="button" title="入力中の内容をすべてクリアします"
                       class="inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-300 bg-white min-h-[48px] px-3 py-3 text-base font-semibold text-slate-600 transition hover:bg-slate-100 active:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300">
                 <i class="fas fa-trash-alt" aria-hidden="true"></i>入力をクリア
               </button>
               <button id="save-btn" type="submit"
-                      class="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 min-h-[48px] px-4 py-3 text-base font-bold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-5">
+                      class="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-brand-600 min-h-[48px] px-4 py-3 text-base font-bold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-5">
                 <i class="fas fa-save" aria-hidden="true"></i>
                 保存する
               </button>
@@ -479,7 +558,7 @@
           <h2 class="text-base font-bold text-slate-900">絞り込み</h2>
           <button type="button" id="btn-log-reset" class="py-1 text-sm font-semibold text-slate-500 underline">条件をクリア</button>
         </div>
-        <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <div class="field">
             <label for="log-filter-from" class="block text-sm font-semibold text-slate-500"><i class="fas fa-calendar-day fa-fw mr-1.5 text-slate-400" aria-hidden="true"></i>開始日</label>
             <input id="log-filter-from" type="date" class="w-full rounded-lg border border-slate-300 px-2.5 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
@@ -768,6 +847,39 @@ var LS = {
 
 var LIMIT_MINUTES = 1200;
 var WARN_MINUTES = 960;
+
+/* =========================================================================
+ * 文字サイズ（野外視認性）
+ * -------------------------------------------------------------------------
+ * <html> の font-size を % で操作し、rem ベースの Tailwind を丸ごと拡縮する。
+ * 実際の適用と localStorage 保存は head の先行スクリプト
+ * （window.DroneLogFontSize）が担い、ここでは UI の状態反映と操作を扱う。
+ * ========================================================================= */
+
+/** head の先行スクリプト（読めない環境では null） */
+function fontScaleApi() {
+  return window.DroneLogFontSize || null;
+}
+
+/** 文字サイズの選択状態をボタンへ反映する */
+function renderFontScaleControls() {
+  var api = fontScaleApi();
+  if (!api) return;
+  var active = api.current().key;
+  $$('button[data-font-scale]').forEach(function (btn) {
+    var on = btn.getAttribute('data-font-scale') === active;
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+/** 文字サイズを変更して保存する（'sm' | 'md' | 'lg' | 'xl'） */
+function setFontScale(key) {
+  var api = fontScaleApi();
+  if (!api) return;
+  var scale = api.apply(key, true);
+  renderFontScaleControls();
+  toast('文字サイズ: ' + scale.label + '（' + scale.percent + '%）', 'info');
+}
 
 var ITEM_NAMES = [
   '機体全般', 'プロペラ', 'フレーム',
@@ -1058,6 +1170,7 @@ function setSync(mode, text) {
   if (mode === 'error') color = 'bg-rose-500';
   dot.className = 'h-1.5 w-1.5 rounded-full ' + color;
   label.textContent = text;
+  label.title = text;
 }
 
 /** 同期バッジのモード（mock / api / gas）を返す */
@@ -3977,6 +4090,12 @@ function handleDelegatedClick(ev) {
     return;
   }
 
+  var fontBtn = target.closest('button[data-font-scale]');
+  if (fontBtn) {
+    setFontScale(fontBtn.getAttribute('data-font-scale'));
+    return;
+  }
+
   var closer = target.closest('[data-close]');
   if (closer) {
     closeModal(closer.getAttribute('data-close'));
@@ -4231,6 +4350,8 @@ function init() {
 
   bindEvents();
   switchTab(initialTab());
+  // head で適用済みの文字サイズをボタンの選択状態へ反映する
+  renderFontScaleControls();
 
   setSync(IS_MOCK ? 'mock' : 'loading', IS_MOCK ? 'ローカル(デモ)' : '接続中…');
 
