@@ -457,20 +457,25 @@
             </div>
 
             <details class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
-              <summary class="flex items-center justify-between py-1 text-sm font-semibold text-slate-600">
-                <span class="inline-flex items-center gap-1.5">
-                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 16V4m0 0L8 8m4-4 4 4"></path><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
-                  </svg>
-                  DJI ログを取り込む（準備中）
+              <summary class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 py-1 text-sm font-semibold text-slate-600">
+                <span class="inline-flex min-w-0 items-center gap-1.5">
+                  <i class="fas fa-file-import fa-fw text-brand-600" aria-hidden="true"></i>
+                  DJI ログを取り込む
+                  <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">モック</span>
                 </span>
                 <span class="text-xs font-normal text-slate-400">タップで展開</span>
               </summary>
-              <div id="dji-drop" class="mt-3 rounded-xl border-2 border-dashed border-slate-300 bg-white p-4 text-center">
-                <p class="text-xs text-slate-500">DJI の飛行ログ（.txt / .csv）をここにドロップ</p>
-                <p class="mt-1 text-xs text-slate-400">解析機能は未実装です。現在は手入力で記録してください。</p>
-                <input id="dji-file" type="file" accept=".txt,.csv" class="mt-2 block w-full text-sm text-slate-500">
-                <p id="dji-status" class="mt-2 text-xs text-slate-500"></p>
+              <div id="dji-drop" class="mt-3 rounded-xl border-2 border-dashed border-slate-300 bg-white p-4 text-center transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-200">
+                <i class="fas fa-file-import mb-1 text-2xl text-slate-300" aria-hidden="true"></i>
+                <p class="text-sm font-semibold text-slate-600">DJI の飛行ログ（.txt）を選択</p>
+                <label for="dji-file"
+                       class="mt-3 inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 active:bg-slate-700">
+                  <i class="fas fa-folder-open" aria-hidden="true"></i>
+                  ファイルを選択
+                </label>
+                <input id="dji-file" type="file" accept=".txt" class="sr-only">
+                <p class="mt-2 text-xs text-slate-400">ドラッグ＆ドロップにも対応（固定データで自動転記します）</p>
+                <p id="dji-status" role="status" aria-live="polite" class="mt-1 text-xs text-slate-500"></p>
               </div>
             </details>
           </div>
@@ -4066,16 +4071,92 @@ function handleAiPhotoSelected(file) {
   });
 }
 
-/** 将来拡張: DJI ログの取り込み（サーバー側は未実装） */
-function handleDjiFile(file) {
-  if (!file) return;
+/**
+ * モック: DJI ログ解析。
+ * ファイル内容は読まず、UI と自動転記の動作確認用に固定値を返す。
+ * 実装時は FileReader / callGas('parseDjiLog', ...) に置き換える。
+ *
+ * @param {File} file 選択された .txt ファイル
+ * @return {Promise<Object>} 解析結果（日付・離着陸時刻・飛行時間・座標）
+ */
+function mockParseDjiLog(file) {
+  return new Promise(function (resolve, reject) {
+    if (!file) {
+      reject(new Error('ファイルが選択されていません。'));
+      return;
+    }
+    if (!/\.txt$/i.test(file.name || '')) {
+      reject(new Error('.txt ファイルを選択してください。'));
+      return;
+    }
+
+    setTimeout(function () {
+      resolve({
+        fileName: file.name,
+        date: todayISO(),
+        takeoffTime: '10:00',
+        landingTime: '10:15',
+        durationMinutes: 15,
+        lat: 35.8988,
+        lng: 140.6385,
+        takeoffPlace: '35.8988, 140.6385'
+      });
+    }, 400);
+  });
+}
+
+/** モック解析結果を飛行情報フォームへ反映する */
+function applyDjiLogToForm(log) {
+  if (!log) return;
+
+  var t1 = log.takeoffTime || '';
+  var t2 = log.landingTime || '';
+  var minutes = Number(log.durationMinutes) || 0;
+  var date = log.date || todayISO();
+
+  $('#flight-date').value = date;
+  $('#flight-takeoff-time').value = t1;
+  $('#flight-landing-time').value = t2;
+  $('#flight-takeoff-place').value = log.takeoffPlace || '';
+  setGeoFields(log.lat, log.lng);
+
+  // プログラムからの時刻設定では change が発火しないため、明示的に再計算する
+  state.entry.durationTouched = false;
+  recalcDuration(true);
+  if (!$('#flight-duration').value && minutes) {
+    $('#flight-duration').value = minutes;
+  }
+
+  [
+    'flight-date', 'flight-takeoff-time', 'flight-landing-time', 'flight-duration',
+    'flight-takeoff-place', 'flight-lat', 'flight-lng'
+  ].forEach(function (id) { clearFieldError(id); });
+
+  var dateLabel = String(date).replace(/-/g, '/');
+  var summary = '「' + (log.fileName || 'DJI ログ') + '」を読み込みました（' +
+    dateLabel + ' ' + t1 + '–' + t2 + ' / ' + fmtMin(minutes) + '）';
   var status = $('#dji-status');
-  status.textContent = '「' + file.name + '」を解析しています…';
-  callGas('parseDjiLog', { name: file.name, size: file.size }).then(function () {
-    status.textContent = '解析しました。';
+  if (status) status.textContent = summary;
+  toast('ログを読み込みました（' + t1 + '–' + t2 + ' / ' + fmtMin(minutes) + '）', 'success');
+}
+
+/** DJI ログの取り込み（クライアント側モック） */
+function handleDjiFile(file) {
+  if (!file) return Promise.resolve();
+
+  var status = $('#dji-status');
+  if (status) status.textContent = '「' + file.name + '」を解析しています…';
+
+  return mockParseDjiLog(file).then(function (log) {
+    applyDjiLogToForm(log);
   }).catch(function (err) {
-    status.textContent = '自動解析は準備中です。離着陸時刻と飛行時間を手入力してください。';
-    toast(err.message || 'DJI ログの解析は準備中です。', 'warn');
+    var message = err && err.message ? err.message : 'ログを読み込めませんでした。';
+    if (status) status.textContent = message;
+    toast(message, 'warn');
+  }).then(function () {
+    // 同じファイルを続けて選び直せるようにリセットする
+    var input = $('#dji-file');
+    if (input) input.value = '';
   });
 }
 
@@ -4291,6 +4372,13 @@ function bindEvents() {
     drop.classList.remove('border-brand-400', 'bg-brand-50');
     var file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
     handleDjiFile(file);
+  });
+  drop.addEventListener('click', function (ev) {
+    if (!ev.target || !ev.target.closest) return;
+    // ラベル自身の既定動作と二重に開かないよう、ラベル・input は除外する
+    if (ev.target.closest('label') || ev.target.closest('input')) return;
+    var input = $('#dji-file');
+    if (input) input.click();
   });
 
   $('#btn-log-search').addEventListener('click', function () {
