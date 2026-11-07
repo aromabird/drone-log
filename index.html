@@ -207,14 +207,18 @@
         </div>
       </div>
 
-      <form id="entry-form" novalidate class="space-y-3">
+      <form id="entry-form" novalidate>
 
-        <!-- 飛行情報 -->
-        <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <div class="mb-3 flex items-center justify-between">
-            <h2 class="text-base font-bold text-slate-900">1. 飛行情報</h2>
-            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式1</span>
-          </div>
+        <!-- STEP 1: 計画と場所 -->
+        <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step1-title">
+          <header class="mb-4 border-b border-slate-200 pb-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-brand-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">STEP 1</span>
+              <h2 id="step1-title" class="text-base font-bold text-slate-900">計画と場所</h2>
+              <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式1</span>
+            </div>
+            <p class="mt-1 text-xs leading-relaxed text-slate-500">飛行日・操縦者・機体を決め、離着陸場所と座標を確定します。</p>
+          </header>
 
           <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:gap-x-6">
             <div class="field">
@@ -235,7 +239,9 @@
               <p id="drone-hint" class="mt-1 text-xs text-slate-500"></p>
               <p class="err" data-error="flight-drone"></p>
             </div>
+          </div>
 
+          <div class="mt-4 grid grid-cols-1 gap-x-4 gap-y-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:gap-x-6">
             <div class="field">
               <label for="flight-takeoff-place" class="block text-sm font-semibold text-slate-600"><i class="fas fa-map-marker-alt fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>離陸場所 <span class="text-rose-500">*</span></label>
               <div class="flex items-stretch gap-2">
@@ -252,77 +258,9 @@
               <label for="flight-landing-place" class="block text-sm font-semibold text-slate-600"><i class="fas fa-flag-checkered fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>着陸場所</label>
               <input id="flight-landing-place" type="text" placeholder="未入力なら離陸場所と同じ" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
             </div>
-
-            <div class="field">
-              <label for="flight-takeoff-time" class="block text-sm font-semibold text-slate-600"><i class="fas fa-plane-departure fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>離陸時刻 <span class="text-rose-500">*</span></label>
-              <div class="flex flex-wrap items-center gap-2">
-                <input id="flight-takeoff-time" type="time" class="quick-time-input min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
-                <button type="button" id="btn-now-takeoff" title="現在時刻（JST）を離陸時刻に入力します"
-                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-teal-200 bg-teal-50 px-3 text-sm font-semibold text-teal-700 hover:bg-teal-100 active:bg-teal-200">
-                  <i class="fas fa-plane-departure" aria-hidden="true"></i>今すぐ離陸
-                </button>
-              </div>
-              <p class="err" data-error="flight-takeoff-time"></p>
-            </div>
-
-            <div class="field">
-              <label for="flight-landing-time" class="block text-sm font-semibold text-slate-600"><i class="fas fa-plane-arrival fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>着陸時刻 <span class="text-rose-500">*</span></label>
-              <div class="flex flex-wrap items-center gap-2">
-                <input id="flight-landing-time" type="time" class="quick-time-input min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
-                <button type="button" id="btn-now-landing" title="現在時刻（JST）を着陸時刻に入力します"
-                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-700 hover:bg-amber-100 active:bg-amber-200">
-                  <i class="fas fa-plane-arrival" aria-hidden="true"></i>今すぐ着陸
-                </button>
-              </div>
-              <p class="err" data-error="flight-landing-time"></p>
-            </div>
-
-            <div class="field sm:col-span-2">
-              <label for="flight-duration" class="block text-sm font-semibold text-slate-600"><i class="fas fa-clock fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>飛行時間（分） <span class="text-rose-500">*</span></label>
-              <div class="flex items-center gap-2">
-                <input id="flight-duration" type="number" min="1" max="1440" inputmode="numeric" class="num w-32 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
-                <span class="text-xs text-slate-500">分</span>
-                <span id="duration-hint" class="text-xs text-amber-600"></span>
-              </div>
-              <p class="err" data-error="flight-duration"></p>
-            </div>
           </div>
 
-          <div class="mt-3 space-y-3">
-            <div class="field">
-              <label for="flight-purpose" class="block text-sm font-semibold text-slate-600"><i class="fas fa-bullseye fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>飛行目的</label>
-              <select id="flight-purpose" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
-              <input id="flight-purpose-other" type="text" placeholder="目的を入力"
-                     class="mt-2 hidden w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
-            </div>
-
-            <div>
-              <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-                <p class="text-xs font-semibold text-slate-600">特定飛行区分
-                  <span class="font-normal text-slate-400">（該当する項目をすべて選択）</span>
-                </p>
-                <span id="specific-status" class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700">非特定飛行</span>
-              </div>
-              <div id="specific-flags" class="space-y-2"></div>
-
-              <div class="mt-2.5 flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-                <div class="min-w-0">
-                  <p class="text-xs font-semibold text-slate-700">第三者の立入管理措置</p>
-                  <p class="mt-0.5 text-xs leading-relaxed text-slate-500">フェンス・看板・監視員などで第三者が入らないようにしている</p>
-                </div>
-                <label class="flex min-h-[44px] shrink-0 cursor-pointer items-center gap-2 py-1">
-                  <input id="clear-zone-toggle" type="checkbox" class="peer sr-only" checked>
-                  <span class="relative h-6 w-11 rounded-full bg-slate-300 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition peer-checked:bg-teal-500 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-teal-300"></span>
-                  <span id="clear-zone-label" class="w-12 text-xs font-semibold text-slate-700">講じる</span>
-                </label>
-              </div>
-
-              <div id="category-card" class="mt-3 rounded-xl border border-teal-200 bg-teal-50 p-3"></div>
-              <p class="mt-1 text-xs leading-relaxed text-slate-400">
-                判定は入力内容に基づく目安です。最終的な適用カテゴリーは申請内容・DIPS で確認してください。
-              </p>
-            </div>
-
+          <div class="mt-4 border-t border-slate-100 pt-4">
             <div>
               <div class="mb-1.5 flex items-center justify-between gap-2">
                 <p class="text-xs font-semibold text-slate-600">離着陸座標</p>
@@ -354,48 +292,62 @@
                 <span id="geo-status" class="min-w-0 flex-1 truncate text-xs text-slate-500"></span>
               </div>
             </div>
+          </div>
+        </section>
 
-            <!-- 現場環境（天候・風速 / 海抜標高 / DID） -->
-            <div class="rounded-xl border border-sky-200 bg-sky-50/60 p-3">
-              <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-sky-900">
-                <i class="fas fa-cloud-sun" aria-hidden="true"></i>現場環境チェック
-                <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-sky-700 ring-1 ring-sky-200">Open-Meteo / 国土地理院</span>
-              </p>
-              <p class="mt-0.5 text-xs leading-relaxed text-sky-900/70">
-                離着陸座標から天候・風速（突風）・海抜標高・DID 規制を取得し、飛行適性を判定します。
-              </p>
-
-              <button type="button" id="btn-env" data-busy-label="取得中…"
-                      class="mt-3 inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-sky-700 ring-1 ring-sky-200 hover:bg-sky-50 disabled:opacity-60">
-                <i class="fas fa-cloud-sun" aria-hidden="true"></i>現場環境を取得
-              </button>
-
-              <p id="env-status" class="mt-2 text-xs leading-relaxed text-slate-500"></p>
-
-              <div id="env-result" class="mt-2 hidden space-y-2">
-                <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
-                    <p class="text-xs font-semibold text-slate-500">天候・風速</p>
-                    <p id="env-weather" class="mt-0.5 text-sm font-bold text-slate-800">—</p>
-                    <p id="env-wind" class="num mt-0.5 text-xs text-slate-600">—</p>
-                    <span id="env-safety" class="mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold"></span>
-                    <p id="env-safety-label" class="mt-1 text-xs leading-relaxed text-slate-600"></p>
-                  </div>
-                  <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
-                    <p class="text-xs font-semibold text-slate-500">海抜標高</p>
-                    <p id="env-elevation" class="num mt-0.5 text-sm font-bold text-slate-800">—</p>
-                    <p id="env-limit" class="num mt-0.5 text-xs text-slate-600">—</p>
-                  </div>
-                  <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
-                    <p class="text-xs font-semibold text-slate-500">DID（人口集中地区）</p>
-                    <span id="env-did" class="mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold"></span>
-                    <p id="env-did-note" class="mt-1 text-xs leading-relaxed text-slate-600"></p>
-                  </div>
-                </div>
-                <p id="env-source" class="text-xs leading-relaxed text-slate-400"></p>
-              </div>
+        <!-- STEP 2: 現場環境の確認 -->
+        <section class="mt-8 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step2-title">
+          <header class="mb-4 border-b border-slate-200 pb-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-sky-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">STEP 2</span>
+              <h2 id="step2-title" class="text-base font-bold text-slate-900">現場環境の確認</h2>
+              <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Open-Meteo 等</span>
             </div>
+            <p class="mt-1 text-xs leading-relaxed text-slate-500">場所が決まった直後に、天候・標高・DIDと、衛星写真／現場写真のリスクを確認します。</p>
+          </header>
 
+          <!-- 現場環境（天候・風速 / 海抜標高 / DID） -->
+          <div class="rounded-xl border border-sky-200 bg-sky-50/60 p-3">
+            <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-sky-900">
+              <i class="fas fa-cloud-sun" aria-hidden="true"></i>現場環境チェック
+              <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-sky-700 ring-1 ring-sky-200">Open-Meteo / 国土地理院</span>
+            </p>
+            <p class="mt-0.5 text-xs leading-relaxed text-sky-900/70">
+              離着陸座標から天候・風速（突風）・海抜標高・DID 規制を取得し、飛行適性を判定します。
+            </p>
+
+            <button type="button" id="btn-env" data-busy-label="取得中…"
+                    class="mt-3 inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-sky-700 ring-1 ring-sky-200 hover:bg-sky-50 disabled:opacity-60">
+              <i class="fas fa-cloud-sun" aria-hidden="true"></i>現場環境を取得
+            </button>
+
+            <p id="env-status" class="mt-2 text-xs leading-relaxed text-slate-500"></p>
+
+            <div id="env-result" class="mt-2 hidden space-y-2">
+              <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
+                  <p class="text-xs font-semibold text-slate-500">天候・風速</p>
+                  <p id="env-weather" class="mt-0.5 text-sm font-bold text-slate-800">—</p>
+                  <p id="env-wind" class="num mt-0.5 text-xs text-slate-600">—</p>
+                  <span id="env-safety" class="mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold"></span>
+                  <p id="env-safety-label" class="mt-1 text-xs leading-relaxed text-slate-600"></p>
+                </div>
+                <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
+                  <p class="text-xs font-semibold text-slate-500">海抜標高</p>
+                  <p id="env-elevation" class="num mt-0.5 text-sm font-bold text-slate-800">—</p>
+                  <p id="env-limit" class="num mt-0.5 text-xs text-slate-600">—</p>
+                </div>
+                <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
+                  <p class="text-xs font-semibold text-slate-500">DID（人口集中地区）</p>
+                  <span id="env-did" class="mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold"></span>
+                  <p id="env-did-note" class="mt-1 text-xs leading-relaxed text-slate-600"></p>
+                </div>
+              </div>
+              <p id="env-source" class="text-xs leading-relaxed text-slate-400"></p>
+            </div>
+          </div>
+
+          <div class="mt-4 border-t border-slate-100 pt-4">
             <!-- AI 安全フライト診断（Gemini） -->
             <div class="rounded-xl border border-brand-200 bg-brand-50/50 p-3">
               <div class="flex items-start justify-between gap-2">
@@ -438,55 +390,67 @@
                 </button>
               </div>
             </div>
+          </div>
+        </section>
 
-            <div class="rounded-xl bg-slate-50 p-3">
-              <p class="mb-2 text-xs font-semibold text-slate-600">飛行の安全に影響のあった事項</p>
-              <div class="flex gap-2">
-                <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-3 text-base has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 has-[:checked]:text-teal-700">
-                  <input type="radio" name="safety" value="none" class="accent-teal-600" checked>なし
-                </label>
-                <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-3 text-base has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50 has-[:checked]:text-rose-700">
-                  <input type="radio" name="safety" value="event" class="accent-rose-600">あり
-                </label>
+        <!-- STEP 3: 飛行区分とリスク判定 -->
+        <section class="mt-8 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step3-title">
+          <header class="mb-4 border-b border-slate-200 pb-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">STEP 3</span>
+              <h2 id="step3-title" class="text-base font-bold text-slate-900">飛行区分とリスク判定</h2>
+              <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式1</span>
+            </div>
+            <p class="mt-1 text-xs leading-relaxed text-slate-500">現場環境を踏まえて、特定飛行区分と飛行目的を整理します。</p>
+          </header>
+
+          <div>
+            <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+              <p class="text-xs font-semibold text-slate-600">特定飛行区分
+                <span class="font-normal text-slate-400">（該当する項目をすべて選択）</span>
+              </p>
+              <span id="specific-status" class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700">非特定飛行</span>
+            </div>
+            <div id="specific-flags" class="space-y-2"></div>
+
+            <div class="mt-2.5 flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <div class="min-w-0">
+                <p class="text-xs font-semibold text-slate-700">第三者の立入管理措置</p>
+                <p class="mt-0.5 text-xs leading-relaxed text-slate-500">フェンス・看板・監視員などで第三者が入らないようにしている</p>
               </div>
-              <div id="safety-detail-wrap" class="mt-2 hidden">
-                <textarea id="safety-detail" rows="2" placeholder="例: バッテリー低下により自動帰還"
-                          class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
-                <p class="err" data-error="safety-detail"></p>
-              </div>
+              <label class="flex min-h-[44px] shrink-0 cursor-pointer items-center gap-2 py-1">
+                <input id="clear-zone-toggle" type="checkbox" class="peer sr-only" checked>
+                <span class="relative h-6 w-11 rounded-full bg-slate-300 transition after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition peer-checked:bg-teal-500 peer-checked:after:translate-x-5 peer-focus-visible:ring-2 peer-focus-visible:ring-teal-300"></span>
+                <span id="clear-zone-label" class="w-12 text-xs font-semibold text-slate-700">講じる</span>
+              </label>
             </div>
 
-            <details class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
-              <summary class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 py-1 text-sm font-semibold text-slate-600">
-                <span class="inline-flex min-w-0 items-center gap-1.5">
-                  <i class="fas fa-file-import fa-fw text-brand-600" aria-hidden="true"></i>
-                  DJI ログを取り込む
-                  <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">モック</span>
-                </span>
-                <span class="text-xs font-normal text-slate-400">タップで展開</span>
-              </summary>
-              <div id="dji-drop" class="mt-3 rounded-xl border-2 border-dashed border-slate-300 bg-white p-4 text-center transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-200">
-                <i class="fas fa-file-import mb-1 text-2xl text-slate-300" aria-hidden="true"></i>
-                <p class="text-sm font-semibold text-slate-600">DJI の飛行ログ（.txt）を選択</p>
-                <label for="dji-file"
-                       class="mt-3 inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 active:bg-slate-700">
-                  <i class="fas fa-folder-open" aria-hidden="true"></i>
-                  ファイルを選択
-                </label>
-                <input id="dji-file" type="file" accept=".txt" class="sr-only">
-                <p class="mt-2 text-xs text-slate-400">ドラッグ＆ドロップにも対応（固定データで自動転記します）</p>
-                <p id="dji-status" role="status" aria-live="polite" class="mt-1 text-xs text-slate-500"></p>
-              </div>
-            </details>
+            <div id="category-card" class="mt-3 rounded-xl border border-teal-200 bg-teal-50 p-3"></div>
+            <p class="mt-1 text-xs leading-relaxed text-slate-400">
+              判定は入力内容に基づく目安です。最終的な適用カテゴリーは申請内容・DIPS で確認してください。
+            </p>
           </div>
-        </div>
 
-        <!-- 日常点検 -->
-        <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-          <div class="mb-3 flex items-center justify-between">
-            <h2 class="text-base font-bold text-slate-900">2. 日常点検</h2>
-            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式2・13項目</span>
+          <div class="mt-4 border-t border-slate-100 pt-4">
+            <div class="field">
+              <label for="flight-purpose" class="block text-sm font-semibold text-slate-600"><i class="fas fa-bullseye fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>飛行目的</label>
+              <select id="flight-purpose" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
+              <input id="flight-purpose-other" type="text" placeholder="目的を入力"
+                     class="mt-2 hidden w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            </div>
           </div>
+        </section>
+
+        <!-- STEP 4: 日常点検 -->
+        <section class="mt-8 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step4-title">
+          <header class="mb-4 border-b border-slate-200 pb-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-teal-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">STEP 4</span>
+              <h2 id="step4-title" class="text-base font-bold text-slate-900">日常点検</h2>
+              <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式2・13項目</span>
+            </div>
+            <p class="mt-1 text-xs leading-relaxed text-slate-500">飛行前に機体・送信機・周辺状況を13項目で点検します。</p>
+          </header>
 
           <div class="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" id="inspection-type">
             <button type="button" data-type="飛行前" class="min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-semibold text-slate-500 transition sm:text-base">飛行前</button>
@@ -530,10 +494,107 @@
             <span id="inspection-result" class="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600">未入力</span>
           </div>
           <p class="mt-1 text-xs text-slate-400">NG が1件でもある場合は「異常あり」になります。</p>
-        </div>
+        </section>
 
-        <!-- 保存バー -->
-        <div class="sticky bottom-2 z-10 rounded-2xl bg-white/95 p-3 shadow-lg ring-1 ring-slate-200 backdrop-blur no-print">
+        <!-- STEP 5: フライト実績（実行） -->
+        <section class="mt-8 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step5-title">
+          <header class="mb-4 border-b border-slate-200 pb-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-indigo-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">STEP 5</span>
+              <h2 id="step5-title" class="text-base font-bold text-slate-900">フライト実績（実行）</h2>
+              <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式1</span>
+            </div>
+            <p class="mt-1 text-xs leading-relaxed text-slate-500">離着陸時刻と飛行時間を記録し、必要に応じてDJIログから自動転記します。</p>
+          </header>
+
+          <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:gap-x-6">
+            <div class="field">
+              <label for="flight-takeoff-time" class="block text-sm font-semibold text-slate-600"><i class="fas fa-plane-departure fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>離陸時刻 <span class="text-rose-500">*</span></label>
+              <div class="flex flex-wrap items-center gap-2">
+                <input id="flight-takeoff-time" type="time" class="quick-time-input min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <button type="button" id="btn-now-takeoff" title="現在時刻（JST）を離陸時刻に入力します"
+                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-teal-200 bg-teal-50 px-3 text-sm font-semibold text-teal-700 hover:bg-teal-100 active:bg-teal-200">
+                  <i class="fas fa-plane-departure" aria-hidden="true"></i>今すぐ離陸
+                </button>
+              </div>
+              <p class="err" data-error="flight-takeoff-time"></p>
+            </div>
+
+            <div class="field">
+              <label for="flight-landing-time" class="block text-sm font-semibold text-slate-600"><i class="fas fa-plane-arrival fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>着陸時刻 <span class="text-rose-500">*</span></label>
+              <div class="flex flex-wrap items-center gap-2">
+                <input id="flight-landing-time" type="time" class="quick-time-input min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <button type="button" id="btn-now-landing" title="現在時刻（JST）を着陸時刻に入力します"
+                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-700 hover:bg-amber-100 active:bg-amber-200">
+                  <i class="fas fa-plane-arrival" aria-hidden="true"></i>今すぐ着陸
+                </button>
+              </div>
+              <p class="err" data-error="flight-landing-time"></p>
+            </div>
+
+            <div class="field sm:col-span-2">
+              <label for="flight-duration" class="block text-sm font-semibold text-slate-600"><i class="fas fa-clock fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>飛行時間（分） <span class="text-rose-500">*</span></label>
+              <div class="flex items-center gap-2">
+                <input id="flight-duration" type="number" min="1" max="1440" inputmode="numeric" class="num w-32 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                <span class="text-xs text-slate-500">分</span>
+                <span id="duration-hint" class="text-xs text-amber-600"></span>
+              </div>
+              <p class="err" data-error="flight-duration"></p>
+            </div>
+          </div>
+
+          <div class="mt-4 border-t border-slate-100 pt-4">
+            <div class="rounded-xl bg-slate-50 p-3">
+              <p class="mb-2 text-xs font-semibold text-slate-600">飛行の安全に影響のあった事項</p>
+              <div class="flex gap-2">
+                <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-3 text-base has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 has-[:checked]:text-teal-700">
+                  <input type="radio" name="safety" value="none" class="accent-teal-600" checked>なし
+                </label>
+                <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-3 text-base has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50 has-[:checked]:text-rose-700">
+                  <input type="radio" name="safety" value="event" class="accent-rose-600">あり
+                </label>
+              </div>
+              <div id="safety-detail-wrap" class="mt-2 hidden">
+                <textarea id="safety-detail" rows="2" placeholder="例: バッテリー低下により自動帰還"
+                          class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+                <p class="err" data-error="safety-detail"></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 border-t border-slate-100 pt-4">
+            <details class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
+              <summary class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 py-1 text-sm font-semibold text-slate-600">
+                <span class="inline-flex min-w-0 items-center gap-1.5">
+                  <i class="fas fa-file-import fa-fw text-brand-600" aria-hidden="true"></i>
+                  DJI ログを取り込む
+                  <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">モック</span>
+                </span>
+                <span class="text-xs font-normal text-slate-400">タップで展開</span>
+              </summary>
+              <div id="dji-drop" class="mt-3 rounded-xl border-2 border-dashed border-slate-300 bg-white p-4 text-center transition focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-200">
+                <i class="fas fa-file-import mb-1 text-2xl text-slate-300" aria-hidden="true"></i>
+                <p class="text-sm font-semibold text-slate-600">DJI の飛行ログ（.txt）を選択</p>
+                <label for="dji-file"
+                       class="mt-3 inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 active:bg-slate-700">
+                  <i class="fas fa-folder-open" aria-hidden="true"></i>
+                  ファイルを選択
+                </label>
+                <input id="dji-file" type="file" accept=".txt" class="sr-only">
+                <p class="mt-2 text-xs text-slate-400">ドラッグ＆ドロップにも対応（固定データで自動転記します）</p>
+                <p id="dji-status" role="status" aria-live="polite" class="mt-1 text-xs text-slate-500"></p>
+              </div>
+            </details>
+          </div>
+        </section>
+
+        <!-- 保存 -->
+        <div class="mt-8 rounded-2xl bg-white p-3 shadow-lg ring-1 ring-slate-200 no-print">
+          <div class="mb-2 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
+            <span class="rounded-full bg-slate-900 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">SAVE</span>
+            <p class="text-sm font-bold text-slate-900">保存</p>
+            <p class="ml-auto text-xs text-slate-400">STEP 1〜5を確認して保存</p>
+          </div>
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div class="min-w-0">
               <p id="save-status" class="text-xs text-slate-500">未保存</p>
