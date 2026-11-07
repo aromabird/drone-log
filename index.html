@@ -914,6 +914,9 @@ var LS = {
 var LIMIT_MINUTES = 1200;
 var WARN_MINUTES = 960;
 
+/* DJI ログ解析 BFF（FastAPI）。環境を切り替える場合はここを変更する。 */
+const BFF_URL = 'http://127.0.0.1:8000/api/parse-log';
+
 /* =========================================================================
  * 文字サイズ（野外視認性）
  * -------------------------------------------------------------------------
@@ -4133,14 +4136,13 @@ function handleAiPhotoSelected(file) {
 }
 
 /**
- * モック: DJI ログ解析。
- * ファイル内容は読まず、UI と自動転記の動作確認用に固定値を返す。
- * 実装時は FileReader / callGas('parseDjiLog', ...) に置き換える。
+ * FastAPI BFF へ DJI ログを送信し、解析結果を取得する。
+ * ファイル内容の解析は BFF 側の責務とし、ここでは multipart で送信するだけ。
  *
  * @param {File} file 選択された .txt ファイル
  * @return {Promise<Object>} 解析結果（日付・離着陸時刻・飛行時間・座標）
  */
-function mockParseDjiLog(file) {
+function parseDjiLogViaBFF(file) {
   return new Promise(function (resolve, reject) {
     if (!file) {
       reject(new Error('ファイルが選択されていません。'));
@@ -4151,22 +4153,56 @@ function mockParseDjiLog(file) {
       return;
     }
 
-    setTimeout(function () {
-      resolve({
-        fileName: file.name,
-        date: todayISO(),
-        takeoffTime: '10:00',
-        landingTime: '10:15',
-        durationMinutes: 15,
-        lat: 35.8988,
-        lng: 140.6385,
-        takeoffPlace: '35.8988, 140.6385'
+    var formData = new FormData();
+    formData.append('file', file, file.name || 'dji-log.txt');
+
+    fetch(BFF_URL, {
+      method: 'POST',
+      body: formData
+    }).then(function (response) {
+      return response.json().catch(function () {
+        return null;
+      }).then(function (data) {
+        if (!response.ok) {
+          var detail = extractBffErrorDetail(data);
+          throw new Error(detail || ('DJI ログの解析に失敗しました（HTTP ' + response.status + '）。'));
+        }
+        if (!data) {
+          throw new Error('BFF から解析結果を取得できませんでした。');
+        }
+        return data;
       });
-    }, 400);
+    }).then(resolve).catch(function (err) {
+      if (err && err.name === 'TypeError') {
+        reject(new Error('BFF に接続できませんでした。サーバーが起動しているか確認してください。'));
+        return;
+      }
+      reject(err);
+    });
   });
 }
 
-/** モック解析結果を飛行情報フォームへ反映する */
+/** BFF のエラーレスポンス（detail / message / error）から表示用メッセージを抽出する */
+function extractBffErrorDetail(data) {
+  if (!data) return '';
+
+  var detail = data.detail;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) {
+    var messages = detail.map(function (item) {
+      if (typeof item === 'string') return item;
+      if (item && typeof item.msg === 'string') return item.msg;
+      return '';
+    }).filter(function (message) { return !!message; });
+    if (messages.length) return messages.join(' / ');
+  }
+  if (detail && typeof detail.message === 'string') return detail.message;
+  if (typeof data.message === 'string') return data.message;
+  if (typeof data.error === 'string') return data.error;
+  return '';
+}
+
+/** BFF の解析結果を飛行情報フォームへ反映する */
 function applyDjiLogToForm(log) {
   if (!log) return;
 
@@ -4201,14 +4237,14 @@ function applyDjiLogToForm(log) {
   toast('ログを読み込みました（' + t1 + '–' + t2 + ' / ' + fmtMin(minutes) + '）', 'success');
 }
 
-/** DJI ログの取り込み（クライアント側モック） */
+/** DJI ログの取り込み（FastAPI BFF へ送信） */
 function handleDjiFile(file) {
   if (!file) return Promise.resolve();
 
   var status = $('#dji-status');
   if (status) status.textContent = '「' + file.name + '」を解析しています…';
 
-  return mockParseDjiLog(file).then(function (log) {
+  return parseDjiLogViaBFF(file).then(function (log) {
     applyDjiLogToForm(log);
   }).catch(function (err) {
     var message = err && err.message ? err.message : 'ログを読み込めませんでした。';
