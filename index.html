@@ -5,6 +5,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0f172a">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <title>ドローン飛行日誌</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -30,10 +32,14 @@
     html { -webkit-text-size-adjust: 100%; }
     body { font-feature-settings: 'palt'; }
     .num { font-variant-numeric: tabular-nums; }
+    /* ラベルと入力欄をひとつのまとまりに（md/lg の間延び防止） */
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field > label { margin-bottom: 0; }
+    i.fas, i.far, i.fab { line-height: 1; }
     input[type="date"], input[type="time"] { min-height: 44px; }
     .tab-active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
     .field-error { border-color: #f43f5e !important; background: #fff1f2; }
-    .err { color: #e11d48; font-size: 11px; margin-top: 4px; display: none; }
+    .err { color: #e11d48; font-size: 12px; margin-top: 4px; display: none; }
     .err.show { display: block; }
     .item-ok { background: #0d9488 !important; color: #fff !important; border-color: #0d9488 !important; }
     .item-ng { background: #e11d48 !important; color: #fff !important; border-color: #e11d48 !important; }
@@ -47,7 +53,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 antialiased">
 
-<div class="mx-auto max-w-5xl px-3 sm:px-6 pb-28">
+<div class="mx-auto max-w-4xl px-3 pb-28 sm:px-5 lg:px-6">
 
   <!-- ヘッダー -->
   <header class="pt-4 pb-3">
@@ -64,30 +70,30 @@
           </svg>
         </div>
         <div class="min-w-0">
-          <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">ドローン飛行日誌</h1>
-          <p class="text-xs text-slate-500 truncate">飛行記録・日常点検・機体管理</p>
+          <h1 class="text-xl sm:text-2xl font-bold text-slate-900 leading-tight">ドローン飛行日誌</h1>
+          <p class="text-sm text-slate-500 truncate">飛行記録・日常点検・機体管理</p>
         </div>
       </div>
       <div class="flex flex-col items-end gap-1">
-        <div id="sync-status" class="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] text-slate-500 ring-1 ring-slate-200">
+        <div id="sync-status" class="inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs text-slate-500 ring-1 ring-slate-200">
           <span id="sync-dot" class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
           <span id="sync-text">接続中…</span>
         </div>
         <a id="sheet-link" href="#" target="_blank" rel="noopener"
-           class="hidden text-[11px] text-brand-600 hover:underline">スプレッドシートを開く</a>
+           class="hidden text-xs text-brand-600 hover:underline">スプレッドシートを開く</a>
       </div>
     </div>
   </header>
 
   <!-- タブ -->
-  <nav class="sticky top-0 z-20 -mx-3 sm:-mx-6 px-3 sm:px-6 py-2 bg-slate-100/90 backdrop-blur no-print">
+  <nav class="sticky top-0 z-20 -mx-3 sm:-mx-5 lg:-mx-6 px-3 sm:px-5 lg:px-6 py-2 bg-slate-100/90 backdrop-blur no-print">
     <div class="grid grid-cols-3 gap-1 rounded-2xl bg-slate-200/70 p-1">
-      <button type="button" class="tab-btn tab-active rounded-xl px-2 py-2.5 text-sm font-semibold transition"
-              data-tab="entry">飛行を記録</button>
-      <button type="button" class="tab-btn rounded-xl px-2 py-2.5 text-sm font-semibold text-slate-500 transition"
-              data-tab="log">日誌<span id="tab-log-count" class="ml-1 text-[11px] text-slate-400"></span></button>
-      <button type="button" class="tab-btn rounded-xl px-2 py-2.5 text-sm font-semibold text-slate-500 transition"
-              data-tab="fleet">機体管理</button>
+      <button type="button" class="tab-btn tab-active min-h-[48px] rounded-xl px-1.5 py-3 text-sm font-semibold transition sm:text-base"
+              data-tab="entry"><i class="fas fa-pen-to-square mr-1.5 hidden sm:inline" aria-hidden="true"></i>飛行を記録</button>
+      <button type="button" class="tab-btn min-h-[48px] rounded-xl px-1.5 py-3 text-sm font-semibold text-slate-500 transition sm:text-base"
+              data-tab="log"><i class="fas fa-list mr-1.5 hidden sm:inline" aria-hidden="true"></i>日誌<span id="tab-log-count" class="ml-1 text-xs text-slate-400"></span></button>
+      <button type="button" class="tab-btn min-h-[48px] rounded-xl px-1.5 py-3 text-sm font-semibold text-slate-500 transition sm:text-base"
+              data-tab="fleet"><i class="fas fa-helicopter mr-1.5 hidden sm:inline" aria-hidden="true"></i>機体管理</button>
     </div>
   </nav>
 
@@ -101,11 +107,11 @@
       <div class="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 p-4 text-white shadow-sm">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <p class="text-[11px] uppercase tracking-wider text-slate-400">Today</p>
+            <p class="text-xs uppercase tracking-wider text-slate-400">Today</p>
             <p id="entry-today" class="text-sm font-semibold">—</p>
           </div>
           <div class="text-right">
-            <p class="text-[11px] text-slate-400">今月の飛行</p>
+            <p class="text-xs text-slate-400">今月の飛行</p>
             <p class="num text-lg font-bold">
               <span id="entry-month-flights">0</span><span class="text-xs font-normal text-slate-400"> 件 / </span><span id="entry-month-hours">0</span><span class="text-xs font-normal text-slate-400"> h</span>
             </p>
@@ -118,85 +124,85 @@
         <!-- 飛行情報 -->
         <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
           <div class="mb-3 flex items-center justify-between">
-            <h2 class="text-sm font-bold text-slate-900">1. 飛行情報</h2>
-            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">様式1</span>
+            <h2 class="text-base font-bold text-slate-900">1. 飛行情報</h2>
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式1</span>
           </div>
 
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label for="flight-date" class="mb-1 block text-xs font-semibold text-slate-600">飛行年月日 <span class="text-rose-500">*</span></label>
+          <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:gap-x-6">
+            <div class="field">
+              <label for="flight-date" class="block text-sm font-semibold text-slate-600"><i class="fas fa-calendar-day fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>飛行年月日 <span class="text-rose-500">*</span></label>
               <input id="flight-date" type="date" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
               <p class="err" data-error="flight-date"></p>
             </div>
 
-            <div>
-              <label for="flight-pilot" class="mb-1 block text-xs font-semibold text-slate-600">操縦者 <span class="text-rose-500">*</span></label>
+            <div class="field">
+              <label for="flight-pilot" class="block text-sm font-semibold text-slate-600"><i class="fas fa-user fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>操縦者 <span class="text-rose-500">*</span></label>
               <select id="flight-pilot" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
               <p class="err" data-error="flight-pilot"></p>
             </div>
 
-            <div class="sm:col-span-2">
-              <label for="flight-drone" class="mb-1 block text-xs font-semibold text-slate-600">機体 <span class="text-rose-500">*</span></label>
+            <div class="field sm:col-span-2">
+              <label for="flight-drone" class="block text-sm font-semibold text-slate-600"><i class="fas fa-helicopter fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>機体 <span class="text-rose-500">*</span></label>
               <select id="flight-drone" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
-              <p id="drone-hint" class="mt-1 text-[11px] text-slate-500"></p>
+              <p id="drone-hint" class="mt-1 text-xs text-slate-500"></p>
               <p class="err" data-error="flight-drone"></p>
             </div>
 
-            <div>
-              <label for="flight-takeoff-place" class="mb-1 block text-xs font-semibold text-slate-600">離陸場所 <span class="text-rose-500">*</span></label>
+            <div class="field">
+              <label for="flight-takeoff-place" class="block text-sm font-semibold text-slate-600"><i class="fas fa-map-marker-alt fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>離陸場所 <span class="text-rose-500">*</span></label>
               <div class="flex items-stretch gap-2">
                 <input id="flight-takeoff-place" type="text" placeholder="例: 千葉県香取市小見川" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
                 <button type="button" id="btn-geocode" title="入力した住所から緯度・経度を検索します"
-                        class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-brand-200 bg-brand-50 px-3 text-xs font-semibold text-brand-700 hover:bg-brand-100 active:bg-brand-200 disabled:opacity-60">
-                  🔍 座標検索
+                        class="inline-flex min-h-[44px] shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-brand-200 bg-brand-50 px-3 text-sm font-semibold text-brand-700 hover:bg-brand-100 active:bg-brand-200 disabled:opacity-60">
+                  <i class="fas fa-magnifying-glass-location" aria-hidden="true"></i>座標検索
                 </button>
               </div>
               <p class="err" data-error="flight-takeoff-place"></p>
             </div>
 
-            <div>
-              <label for="flight-landing-place" class="mb-1 block text-xs font-semibold text-slate-600">着陸場所</label>
+            <div class="field">
+              <label for="flight-landing-place" class="block text-sm font-semibold text-slate-600"><i class="fas fa-flag-checkered fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>着陸場所</label>
               <input id="flight-landing-place" type="text" placeholder="未入力なら離陸場所と同じ" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
             </div>
 
-            <div>
-              <label for="flight-takeoff-time" class="mb-1 block text-xs font-semibold text-slate-600">離陸時刻 <span class="text-rose-500">*</span></label>
+            <div class="field">
+              <label for="flight-takeoff-time" class="block text-sm font-semibold text-slate-600"><i class="fas fa-plane-departure fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>離陸時刻 <span class="text-rose-500">*</span></label>
               <div class="flex items-center gap-2">
                 <input id="flight-takeoff-time" type="time" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
                 <button type="button" id="btn-now-takeoff" title="現在時刻（JST）を離陸時刻に入力します"
-                        class="inline-flex h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-teal-200 bg-teal-50 px-2.5 text-xs font-semibold text-teal-700 hover:bg-teal-100 active:bg-teal-200">
-                  🛫 今すぐ離陸
+                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-teal-200 bg-teal-50 px-3 text-sm font-semibold text-teal-700 hover:bg-teal-100 active:bg-teal-200">
+                  <i class="fas fa-plane-departure" aria-hidden="true"></i>今すぐ離陸
                 </button>
               </div>
               <p class="err" data-error="flight-takeoff-time"></p>
             </div>
 
-            <div>
-              <label for="flight-landing-time" class="mb-1 block text-xs font-semibold text-slate-600">着陸時刻 <span class="text-rose-500">*</span></label>
+            <div class="field">
+              <label for="flight-landing-time" class="block text-sm font-semibold text-slate-600"><i class="fas fa-plane-arrival fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>着陸時刻 <span class="text-rose-500">*</span></label>
               <div class="flex items-center gap-2">
                 <input id="flight-landing-time" type="time" class="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
                 <button type="button" id="btn-now-landing" title="現在時刻（JST）を着陸時刻に入力します"
-                        class="inline-flex h-11 shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-2.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 active:bg-amber-200">
-                  🛬 今すぐ着陸
+                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center gap-1 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-700 hover:bg-amber-100 active:bg-amber-200">
+                  <i class="fas fa-plane-arrival" aria-hidden="true"></i>今すぐ着陸
                 </button>
               </div>
               <p class="err" data-error="flight-landing-time"></p>
             </div>
 
-            <div class="sm:col-span-2">
-              <label for="flight-duration" class="mb-1 block text-xs font-semibold text-slate-600">飛行時間（分） <span class="text-rose-500">*</span></label>
+            <div class="field sm:col-span-2">
+              <label for="flight-duration" class="block text-sm font-semibold text-slate-600"><i class="fas fa-clock fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>飛行時間（分） <span class="text-rose-500">*</span></label>
               <div class="flex items-center gap-2">
                 <input id="flight-duration" type="number" min="1" max="1440" inputmode="numeric" class="num w-32 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
                 <span class="text-xs text-slate-500">分</span>
-                <span id="duration-hint" class="text-[11px] text-amber-600"></span>
+                <span id="duration-hint" class="text-xs text-amber-600"></span>
               </div>
               <p class="err" data-error="flight-duration"></p>
             </div>
           </div>
 
           <div class="mt-3 space-y-3">
-            <div>
-              <label for="flight-purpose" class="mb-1 block text-xs font-semibold text-slate-600">飛行目的</label>
+            <div class="field">
+              <label for="flight-purpose" class="block text-sm font-semibold text-slate-600"><i class="fas fa-bullseye fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>飛行目的</label>
               <select id="flight-purpose" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
               <input id="flight-purpose-other" type="text" placeholder="目的を入力"
                      class="mt-2 hidden w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
@@ -207,14 +213,14 @@
                 <p class="text-xs font-semibold text-slate-600">特定飛行区分
                   <span class="font-normal text-slate-400">（該当する項目をすべて選択）</span>
                 </p>
-                <span id="specific-status" class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700">非特定飛行</span>
+                <span id="specific-status" class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700">非特定飛行</span>
               </div>
               <div id="specific-flags" class="space-y-2"></div>
 
               <div class="mt-2.5 flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
                 <div class="min-w-0">
                   <p class="text-xs font-semibold text-slate-700">第三者の立入管理措置</p>
-                  <p class="mt-0.5 text-[11px] leading-relaxed text-slate-500">フェンス・看板・監視員などで第三者が入らないようにしている</p>
+                  <p class="mt-0.5 text-xs leading-relaxed text-slate-500">フェンス・看板・監視員などで第三者が入らないようにしている</p>
                 </div>
                 <label class="flex min-h-[44px] shrink-0 cursor-pointer items-center gap-2 py-1">
                   <input id="clear-zone-toggle" type="checkbox" class="peer sr-only" checked>
@@ -224,7 +230,7 @@
               </div>
 
               <div id="category-card" class="mt-3 rounded-xl border border-teal-200 bg-teal-50 p-3"></div>
-              <p class="mt-1 text-[10px] leading-relaxed text-slate-400">
+              <p class="mt-1 text-xs leading-relaxed text-slate-400">
                 判定は入力内容に基づく目安です。最終的な適用カテゴリーは申請内容・DIPS で確認してください。
               </p>
             </div>
@@ -233,19 +239,19 @@
               <div class="mb-1.5 flex items-center justify-between gap-2">
                 <p class="text-xs font-semibold text-slate-600">離着陸座標</p>
                 <button type="button" id="btn-gps" title="端末の現在地を取得して緯度・経度と離陸場所へ反映します"
-                        class="inline-flex h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-60">
-                  📍 現在地（GPS）
+                        class="inline-flex h-11 min-h-[44px] shrink-0 items-center gap-1 whitespace-nowrap rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-60">
+                  <i class="fas fa-location-crosshairs" aria-hidden="true"></i>現在地（GPS）
                 </button>
               </div>
-              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label for="flight-lat" class="mb-1 block text-xs font-semibold text-slate-600">緯度</label>
+              <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:gap-x-6">
+                <div class="field">
+                  <label for="flight-lat" class="block text-sm font-semibold text-slate-600"><i class="fas fa-location-crosshairs fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>緯度</label>
                   <input id="flight-lat" type="number" step="0.000001" inputmode="decimal" placeholder="35.681236"
                          class="num w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
                   <p class="err" data-error="flight-lat"></p>
                 </div>
-                <div>
-                  <label for="flight-lng" class="mb-1 block text-xs font-semibold text-slate-600">経度</label>
+                <div class="field">
+                  <label for="flight-lng" class="block text-sm font-semibold text-slate-600"><i class="fas fa-location-crosshairs fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>経度</label>
                   <input id="flight-lng" type="number" step="0.000001" inputmode="decimal" placeholder="139.767125"
                          class="num w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
                   <p class="err" data-error="flight-lng"></p>
@@ -253,54 +259,52 @@
               </div>
               <div class="mt-2 flex flex-wrap items-center gap-2">
                 <button type="button" id="btn-geo"
-                        class="inline-flex h-10 items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-200">
-                  <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"></path><circle cx="12" cy="10" r="2.5"></circle>
-                  </svg>
+                        class="inline-flex h-11 min-h-[44px] items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-200">
+                  <i class="fas fa-location-arrow" aria-hidden="true"></i>
                   座標から地名を取得
                 </button>
-                <span id="geo-status" class="min-w-0 flex-1 truncate text-[11px] text-slate-500"></span>
+                <span id="geo-status" class="min-w-0 flex-1 truncate text-xs text-slate-500"></span>
               </div>
             </div>
 
             <!-- 現場環境（天候・風速 / 海抜標高 / DID） -->
             <div class="rounded-xl border border-sky-200 bg-sky-50/60 p-3">
               <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-sky-900">
-                🌦 現場環境チェック
-                <span class="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 ring-1 ring-sky-200">Open-Meteo / 国土地理院</span>
+                <i class="fas fa-cloud-sun" aria-hidden="true"></i>現場環境チェック
+                <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-sky-700 ring-1 ring-sky-200">Open-Meteo / 国土地理院</span>
               </p>
-              <p class="mt-0.5 text-[11px] leading-relaxed text-sky-900/70">
+              <p class="mt-0.5 text-xs leading-relaxed text-sky-900/70">
                 離着陸座標から天候・風速（突風）・海抜標高・DID 規制を取得し、飛行適性を判定します。
               </p>
 
               <button type="button" id="btn-env" data-busy-label="取得中…"
-                      class="mt-2.5 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-xs font-bold text-sky-700 ring-1 ring-sky-200 hover:bg-sky-50 disabled:opacity-60">
-                🌦 現場環境を取得
+                      class="mt-3 inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-sky-700 ring-1 ring-sky-200 hover:bg-sky-50 disabled:opacity-60">
+                <i class="fas fa-cloud-sun" aria-hidden="true"></i>現場環境を取得
               </button>
 
-              <p id="env-status" class="mt-2 text-[11px] leading-relaxed text-slate-500"></p>
+              <p id="env-status" class="mt-2 text-xs leading-relaxed text-slate-500"></p>
 
               <div id="env-result" class="mt-2 hidden space-y-2">
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
-                    <p class="text-[10px] font-semibold text-slate-500">天候・風速</p>
+                    <p class="text-xs font-semibold text-slate-500">天候・風速</p>
                     <p id="env-weather" class="mt-0.5 text-sm font-bold text-slate-800">—</p>
-                    <p id="env-wind" class="num mt-0.5 text-[11px] text-slate-600">—</p>
-                    <span id="env-safety" class="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold"></span>
-                    <p id="env-safety-label" class="mt-1 text-[10px] leading-relaxed text-slate-600"></p>
+                    <p id="env-wind" class="num mt-0.5 text-xs text-slate-600">—</p>
+                    <span id="env-safety" class="mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold"></span>
+                    <p id="env-safety-label" class="mt-1 text-xs leading-relaxed text-slate-600"></p>
                   </div>
                   <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
-                    <p class="text-[10px] font-semibold text-slate-500">海抜標高</p>
+                    <p class="text-xs font-semibold text-slate-500">海抜標高</p>
                     <p id="env-elevation" class="num mt-0.5 text-sm font-bold text-slate-800">—</p>
-                    <p id="env-limit" class="num mt-0.5 text-[11px] text-slate-600">—</p>
+                    <p id="env-limit" class="num mt-0.5 text-xs text-slate-600">—</p>
                   </div>
                   <div class="rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
-                    <p class="text-[10px] font-semibold text-slate-500">DID（人口集中地区）</p>
-                    <span id="env-did" class="mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold"></span>
-                    <p id="env-did-note" class="mt-1 text-[10px] leading-relaxed text-slate-600"></p>
+                    <p class="text-xs font-semibold text-slate-500">DID（人口集中地区）</p>
+                    <span id="env-did" class="mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold"></span>
+                    <p id="env-did-note" class="mt-1 text-xs leading-relaxed text-slate-600"></p>
                   </div>
                 </div>
-                <p id="env-source" class="text-[10px] leading-relaxed text-slate-400"></p>
+                <p id="env-source" class="text-xs leading-relaxed text-slate-400"></p>
               </div>
             </div>
 
@@ -309,42 +313,39 @@
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
                   <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-brand-800">
-                    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M12 3v3m0 12v3M3 12h3m12 0h3"></path>
-                      <circle cx="12" cy="12" r="4"></circle>
-                    </svg>
+                    <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
                     AI 安全フライト診断
-                    <span class="rounded bg-white px-1.5 py-0.5 text-[10px] font-semibold text-brand-700 ring-1 ring-brand-200">Gemini</span>
+                    <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-200">Gemini</span>
                   </p>
-                  <p class="mt-0.5 text-[11px] leading-relaxed text-brand-900/70">衛星写真または現場写真から、障害物・第三者の立入りリスクと特定飛行の該当候補を推定します。</p>
+                  <p class="mt-0.5 text-xs leading-relaxed text-brand-900/70">衛星写真または現場写真から、障害物・第三者の立入りリスクと特定飛行の該当候補を推定します。</p>
                 </div>
               </div>
 
               <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button type="button" id="btn-ai-satellite" data-busy-label="解析中…"
-                        class="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-xs font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
-                  🛰 衛星写真で診断
+                        class="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
+                  <i class="fas fa-satellite" aria-hidden="true"></i>衛星写真で診断
                 </button>
                 <button type="button" id="btn-ai-photo" data-busy-label="解析中…"
-                        class="inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-xs font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
-                  📷 現場写真で診断
+                        class="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
+                  <i class="fas fa-camera" aria-hidden="true"></i>現場写真で診断
                 </button>
               </div>
               <input id="ai-photo-file" type="file" accept="image/*" capture="environment" class="hidden">
 
-              <p id="ai-status" class="mt-2 text-[11px] leading-relaxed text-slate-500"></p>
+              <p id="ai-status" class="mt-2 text-xs leading-relaxed text-slate-500"></p>
 
               <div id="ai-result" class="mt-2 hidden space-y-2">
                 <img id="ai-thumb" alt="解析に使用した衛星写真" class="hidden w-full max-w-[240px] rounded-lg ring-1 ring-slate-200">
                 <div class="flex flex-wrap items-center gap-2">
-                  <span id="ai-risk-badge" class="rounded-full px-2.5 py-1 text-[11px] font-bold"></span>
-                  <span id="ai-source" class="text-[10px] text-slate-500"></span>
+                  <span id="ai-risk-badge" class="rounded-full px-2.5 py-1 text-xs font-bold"></span>
+                  <span id="ai-source" class="text-xs text-slate-500"></span>
                 </div>
-                <p id="ai-summary" class="text-[11px] leading-relaxed text-slate-700"></p>
+                <p id="ai-summary" class="text-xs leading-relaxed text-slate-700"></p>
                 <ul id="ai-objects" class="space-y-1"></ul>
-                <ul id="ai-advice" class="list-disc space-y-0.5 pl-4 text-[11px] leading-relaxed text-slate-700"></ul>
+                <ul id="ai-advice" class="list-disc space-y-0.5 pl-4 text-xs leading-relaxed text-slate-700"></ul>
                 <button type="button" id="btn-ai-apply"
-                        class="inline-flex min-h-[40px] items-center gap-1 rounded-lg bg-white px-3 text-[11px] font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50">
+                        class="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50">
                   検出項目を特定飛行区分に反映
                 </button>
               </div>
@@ -353,35 +354,35 @@
             <div class="rounded-xl bg-slate-50 p-3">
               <p class="mb-2 text-xs font-semibold text-slate-600">飛行の安全に影響のあった事項</p>
               <div class="flex gap-2">
-                <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 has-[:checked]:text-teal-700">
+                <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-3 text-base has-[:checked]:border-teal-500 has-[:checked]:bg-teal-50 has-[:checked]:text-teal-700">
                   <input type="radio" name="safety" value="none" class="accent-teal-600" checked>なし
                 </label>
-                <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50 has-[:checked]:text-rose-700">
+                <label class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-3 text-base has-[:checked]:border-rose-500 has-[:checked]:bg-rose-50 has-[:checked]:text-rose-700">
                   <input type="radio" name="safety" value="event" class="accent-rose-600">あり
                 </label>
               </div>
               <div id="safety-detail-wrap" class="mt-2 hidden">
                 <textarea id="safety-detail" rows="2" placeholder="例: バッテリー低下により自動帰還"
-                          class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+                          class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
                 <p class="err" data-error="safety-detail"></p>
               </div>
             </div>
 
             <details class="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3">
-              <summary class="flex items-center justify-between text-xs font-semibold text-slate-600">
+              <summary class="flex items-center justify-between py-1 text-sm font-semibold text-slate-600">
                 <span class="inline-flex items-center gap-1.5">
                   <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M12 16V4m0 0L8 8m4-4 4 4"></path><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
                   </svg>
                   DJI ログを取り込む（準備中）
                 </span>
-                <span class="text-[10px] font-normal text-slate-400">タップで展開</span>
+                <span class="text-xs font-normal text-slate-400">タップで展開</span>
               </summary>
               <div id="dji-drop" class="mt-3 rounded-xl border-2 border-dashed border-slate-300 bg-white p-4 text-center">
                 <p class="text-xs text-slate-500">DJI の飛行ログ（.txt / .csv）をここにドロップ</p>
-                <p class="mt-1 text-[11px] text-slate-400">解析機能は未実装です。現在は手入力で記録してください。</p>
-                <input id="dji-file" type="file" accept=".txt,.csv" class="mt-2 block w-full text-xs text-slate-500">
-                <p id="dji-status" class="mt-2 text-[11px] text-slate-500"></p>
+                <p class="mt-1 text-xs text-slate-400">解析機能は未実装です。現在は手入力で記録してください。</p>
+                <input id="dji-file" type="file" accept=".txt,.csv" class="mt-2 block w-full text-sm text-slate-500">
+                <p id="dji-status" class="mt-2 text-xs text-slate-500"></p>
               </div>
             </details>
           </div>
@@ -390,22 +391,22 @@
         <!-- 日常点検 -->
         <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
           <div class="mb-3 flex items-center justify-between">
-            <h2 class="text-sm font-bold text-slate-900">2. 日常点検</h2>
-            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">様式2・13項目</span>
+            <h2 class="text-base font-bold text-slate-900">2. 日常点検</h2>
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式2・13項目</span>
           </div>
 
           <div class="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" id="inspection-type">
-            <button type="button" data-type="飛行前" class="rounded-lg px-2 py-2 text-sm font-semibold text-slate-500 transition">飛行前</button>
-            <button type="button" data-type="飛行後" class="rounded-lg px-2 py-2 text-sm font-semibold text-slate-500 transition">飛行後</button>
+            <button type="button" data-type="飛行前" class="min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-semibold text-slate-500 transition sm:text-base">飛行前</button>
+            <button type="button" data-type="飛行後" class="min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-semibold text-slate-500 transition sm:text-base">飛行後</button>
           </div>
 
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label for="inspection-date" class="mb-1 block text-xs font-semibold text-slate-600">点検実施日</label>
+          <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:gap-x-6">
+            <div class="field">
+              <label for="inspection-date" class="block text-sm font-semibold text-slate-600"><i class="fas fa-calendar-check fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>点検実施日</label>
               <input id="inspection-date" type="date" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
             </div>
-            <div>
-              <label for="inspection-inspector" class="mb-1 block text-xs font-semibold text-slate-600">実施者 <span class="text-rose-500">*</span></label>
+            <div class="field">
+              <label for="inspection-inspector" class="block text-sm font-semibold text-slate-600"><i class="fas fa-user-check fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>実施者 <span class="text-rose-500">*</span></label>
               <input id="inspection-inspector" type="text" placeholder="例: 普施 太郎" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
               <p class="err" data-error="inspection-inspector"></p>
             </div>
@@ -416,8 +417,8 @@
               <span id="inspection-progress" class="num font-semibold text-slate-700">0 / 13</span> 項目 入力済み
             </p>
             <button type="button" id="btn-all-ok"
-                    class="inline-flex items-center gap-1 rounded-lg bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-700 hover:bg-teal-100">
-              <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 13 4 4L19 7"></path></svg>
+                    class="inline-flex min-h-[40px] items-center gap-1 rounded-lg bg-teal-50 px-3 py-2 text-sm font-bold text-teal-700 hover:bg-teal-100">
+              <i class="fas fa-check-double" aria-hidden="true"></i>
               一括OK
             </button>
           </div>
@@ -425,37 +426,34 @@
           <div id="inspection-items" class="mt-2 divide-y divide-slate-100"></div>
           <p class="err" data-error="inspection-items"></p>
 
-          <div class="mt-3">
-            <label for="inspection-memo" class="mb-1 block text-xs font-semibold text-slate-600">点検詳細メモ</label>
+          <div class="mt-3 field">
+            <label for="inspection-memo" class="block text-sm font-semibold text-slate-600"><i class="fas fa-pen fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>点検詳細メモ</label>
             <textarea id="inspection-memo" rows="2" placeholder="気づいた点・異常の詳細など"
-                      class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+                      class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
           </div>
 
           <div class="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
             <span class="text-xs font-semibold text-slate-600">点検結果</span>
             <span id="inspection-result" class="rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600">未入力</span>
           </div>
-          <p class="mt-1 text-[11px] text-slate-400">NG が1件でもある場合は「異常あり」になります。</p>
+          <p class="mt-1 text-xs text-slate-400">NG が1件でもある場合は「異常あり」になります。</p>
         </div>
 
         <!-- 保存バー -->
         <div class="sticky bottom-2 z-10 rounded-2xl bg-white/95 p-3 shadow-lg ring-1 ring-slate-200 backdrop-blur no-print">
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div class="min-w-0">
-              <p id="save-status" class="text-[11px] text-slate-500">未保存</p>
+              <p id="save-status" class="text-xs text-slate-500">未保存</p>
               <p id="last-saved" class="truncate text-xs font-semibold text-slate-700"></p>
             </div>
             <div class="flex items-stretch gap-2">
               <button id="clear-btn" type="button" title="入力中の内容をすべてクリアします"
-                      class="inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 active:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300">
-                🗑️ 入力をクリア
+                      class="inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-300 bg-white min-h-[48px] px-3 py-3 text-base font-semibold text-slate-600 transition hover:bg-slate-100 active:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300">
+                <i class="fas fa-trash-alt" aria-hidden="true"></i>入力をクリア
               </button>
               <button id="save-btn" type="submit"
-                      class="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-5">
-                <svg viewBox="0 0 24 24" class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                  <path d="M17 21v-8H7v8M7 3v5h8"></path>
-                </svg>
+                      class="inline-flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-brand-600 min-h-[48px] px-4 py-3 text-base font-bold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-5">
+                <i class="fas fa-save" aria-hidden="true"></i>
                 保存する
               </button>
             </div>
@@ -469,55 +467,51 @@
 
       <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div class="mb-3 flex items-center justify-between">
-          <h2 class="text-sm font-bold text-slate-900">絞り込み</h2>
-          <button type="button" id="btn-log-reset" class="text-[11px] font-semibold text-slate-500 underline">条件をクリア</button>
+          <h2 class="text-base font-bold text-slate-900">絞り込み</h2>
+          <button type="button" id="btn-log-reset" class="py-1 text-sm font-semibold text-slate-500 underline">条件をクリア</button>
         </div>
-        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div>
-            <label for="log-filter-from" class="mb-1 block text-[11px] font-semibold text-slate-500">開始日</label>
-            <input id="log-filter-from" type="date" class="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+        <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          <div class="field">
+            <label for="log-filter-from" class="block text-sm font-semibold text-slate-500"><i class="fas fa-calendar-day fa-fw mr-1.5 text-slate-400" aria-hidden="true"></i>開始日</label>
+            <input id="log-filter-from" type="date" class="w-full rounded-lg border border-slate-300 px-2.5 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
           </div>
-          <div>
-            <label for="log-filter-to" class="mb-1 block text-[11px] font-semibold text-slate-500">終了日</label>
-            <input id="log-filter-to" type="date" class="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+          <div class="field">
+            <label for="log-filter-to" class="block text-sm font-semibold text-slate-500"><i class="fas fa-calendar-day fa-fw mr-1.5 text-slate-400" aria-hidden="true"></i>終了日</label>
+            <input id="log-filter-to" type="date" class="w-full rounded-lg border border-slate-300 px-2.5 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
           </div>
-          <div>
-            <label for="log-filter-drone" class="mb-1 block text-[11px] font-semibold text-slate-500">機体</label>
-            <select id="log-filter-drone" class="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
+          <div class="field">
+            <label for="log-filter-drone" class="block text-sm font-semibold text-slate-500"><i class="fas fa-helicopter fa-fw mr-1.5 text-slate-400" aria-hidden="true"></i>機体</label>
+            <select id="log-filter-drone" class="w-full rounded-lg border border-slate-300 px-2.5 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
           </div>
-          <div>
-            <label for="log-filter-q" class="mb-1 block text-[11px] font-semibold text-slate-500">キーワード</label>
-            <input id="log-filter-q" type="search" placeholder="場所・目的など" class="w-full rounded-lg border border-slate-300 px-2 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+          <div class="field">
+            <label for="log-filter-q" class="block text-sm font-semibold text-slate-500"><i class="fas fa-magnifying-glass fa-fw mr-1.5 text-slate-400" aria-hidden="true"></i>キーワード</label>
+            <input id="log-filter-q" type="search" placeholder="場所・目的など" class="w-full rounded-lg border border-slate-300 px-2.5 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
           </div>
         </div>
         <button type="button" id="btn-log-search"
-                class="mt-3 w-full rounded-xl bg-slate-900 py-2.5 text-sm font-bold text-white hover:bg-slate-800">この条件で検索</button>
+                class="mt-3 min-h-[48px] w-full rounded-xl bg-slate-900 py-3 text-base font-bold text-white hover:bg-slate-800">この条件で検索</button>
       </div>
 
       <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div class="flex items-center justify-between">
           <div>
-            <h2 class="text-sm font-bold text-slate-900">記録の出力</h2>
-            <p id="log-summary" class="num mt-0.5 text-[11px] text-slate-500">—</p>
+            <h2 class="text-base font-bold text-slate-900">記録の出力</h2>
+            <p id="log-summary" class="num mt-0.5 text-xs text-slate-500">—</p>
           </div>
         </div>
         <div class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
           <button type="button" id="btn-csv-flight"
-                  class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
-            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 3v12m0 0-4-4m4 4 4-4"></path><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"></path>
-            </svg>
+                  class="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">
+            <i class="fas fa-download" aria-hidden="true"></i>
             様式1 飛行記録 CSV
           </button>
           <button type="button" id="btn-csv-inspection"
-                  class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
-            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 11l3 3 8-8"></path><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"></path>
-            </svg>
+                  class="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">
+            <i class="fas fa-file-csv" aria-hidden="true"></i>
             様式2・3 点検記録 CSV
           </button>
         </div>
-        <p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-800">
+        <p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
           <strong>重要:</strong> DIPS 2.0 には飛行日誌の CSV インポート機能がありません。出力する CSV は
           国交省「無人航空機の飛行日誌の取扱要領」様式1〜3の記載事項に準拠した<strong>記録・保管用</strong>データです。
           DIPS への登録は画面からの入力が必要です。
@@ -532,7 +526,7 @@
       <div id="log-list" class="space-y-2"></div>
 
       <button type="button" id="log-more"
-              class="hidden w-full rounded-xl border border-slate-300 bg-white py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50">
+              class="hidden min-h-[48px] w-full rounded-xl border border-slate-300 bg-white py-3 text-sm font-bold text-slate-600 hover:bg-slate-50">
         さらに読み込む
       </button>
     </section>
@@ -540,21 +534,21 @@
     <!-- ===================== タブ3: 機体管理 ===================== -->
     <section id="panel-fleet" class="hidden space-y-3">
 
-      <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div class="grid grid-cols-2 gap-2 lg:grid-cols-4">
         <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-          <p class="text-[11px] text-slate-500">総飛行時間</p>
+          <p class="text-xs text-slate-500">総飛行時間</p>
           <p class="num mt-1 text-xl font-bold text-slate-900"><span id="fleet-stat-hours">0</span><span class="text-xs font-normal text-slate-400"> h</span></p>
         </div>
         <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-          <p class="text-[11px] text-slate-500">総飛行回数</p>
+          <p class="text-xs text-slate-500">総飛行回数</p>
           <p class="num mt-1 text-xl font-bold text-slate-900"><span id="fleet-stat-flights">0</span><span class="text-xs font-normal text-slate-400"> 回</span></p>
         </div>
         <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-          <p class="text-[11px] text-slate-500">点検アラート</p>
+          <p class="text-xs text-slate-500">点検アラート</p>
           <p class="num mt-1 text-xl font-bold text-rose-600"><span id="fleet-stat-alert">0</span><span class="text-xs font-normal text-slate-400"> 台</span></p>
         </div>
         <div class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">
-          <p class="text-[11px] text-slate-500">安全影響事象</p>
+          <p class="text-xs text-slate-500">安全影響事象</p>
           <p class="num mt-1 text-xl font-bold text-amber-600"><span id="fleet-stat-safety">0</span><span class="text-xs font-normal text-slate-400"> 件</span></p>
         </div>
       </div>
@@ -562,12 +556,12 @@
       <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div class="mb-3 flex items-center justify-between">
           <div>
-            <h2 class="text-sm font-bold text-slate-900">機体</h2>
-            <p class="text-[11px] text-slate-500">20時間（1200分）を基準に点検時期を表示</p>
+            <h2 class="text-base font-bold text-slate-900">機体</h2>
+            <p class="text-xs text-slate-500">20時間（1200分）を基準に点検時期を表示</p>
           </div>
           <button type="button" id="btn-add-drone"
-                  class="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800">
-            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>
+                  class="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-slate-900 px-3 py-2.5 text-sm font-bold text-white hover:bg-slate-800">
+            <i class="fas fa-plus" aria-hidden="true"></i>
             追加
           </button>
         </div>
@@ -576,10 +570,10 @@
 
       <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div class="mb-3 flex items-center justify-between">
-          <h2 class="text-sm font-bold text-slate-900">操縦者</h2>
+          <h2 class="text-base font-bold text-slate-900">操縦者</h2>
           <button type="button" id="btn-add-pilot"
-                  class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
-            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>
+                  class="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-slate-100 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200">
+            <i class="fas fa-plus" aria-hidden="true"></i>
             追加
           </button>
         </div>
@@ -589,12 +583,12 @@
       <div class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
         <div class="mb-3 flex items-center justify-between">
           <div>
-            <h2 class="text-sm font-bold text-slate-900">点検・整備の記録</h2>
-            <p class="text-[11px] text-slate-500">20時間定期点検・修理を記録</p>
+            <h2 class="text-base font-bold text-slate-900">点検・整備の記録</h2>
+            <p class="text-xs text-slate-500">20時間定期点検・修理を記録</p>
           </div>
           <button type="button" id="btn-add-periodic"
-                  class="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200">
-            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"></path></svg>
+                  class="inline-flex min-h-[44px] items-center gap-1 rounded-lg bg-slate-100 px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-200">
+            <i class="fas fa-plus" aria-hidden="true"></i>
             記録
           </button>
         </div>
@@ -604,7 +598,7 @@
 
   </main>
 
-  <footer class="mt-6 pb-6 text-center text-[10px] text-slate-400">
+  <footer class="mt-6 pb-6 text-center text-xs text-slate-400">
     <p>ドローン飛行日誌 v<span id="app-version">1.0.0</span> ・ 国交省 様式1〜3 準拠</p>
     <p class="mt-1">記録はスプレッドシートに保存されます。法定点検の要否は必ず原典でご確認ください。</p>
   </footer>
@@ -614,44 +608,44 @@
 <div id="modal-drone" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true">
   <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl">
     <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-      <h3 id="drone-modal-title" class="text-sm font-bold text-slate-900">機体を追加</h3>
+      <h3 id="drone-modal-title" class="text-base font-bold text-slate-900">機体を追加</h3>
       <button type="button" data-close="modal-drone" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="閉じる">
         <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"></path></svg>
       </button>
     </div>
     <form id="drone-form" class="space-y-3 p-4" novalidate>
       <input type="hidden" id="drone-id">
-      <div>
-        <label for="drone-model" class="mb-1 block text-xs font-semibold text-slate-600">機種名 <span class="text-rose-500">*</span></label>
+      <div class="field">
+        <label for="drone-model" class="block text-sm font-semibold text-slate-600"><i class="fas fa-helicopter fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>機種名 <span class="text-rose-500">*</span></label>
         <input id="drone-model" type="text" placeholder="例: DJI Mavic 3 Enterprise" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
         <p class="err" data-error="drone-model"></p>
       </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label for="drone-maker" class="mb-1 block text-xs font-semibold text-slate-600">メーカー</label>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="field">
+          <label for="drone-maker" class="block text-sm font-semibold text-slate-600"><i class="fas fa-industry fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>メーカー</label>
           <input id="drone-maker" type="text" placeholder="DJI" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
         </div>
-        <div>
-          <label for="drone-weight" class="mb-1 block text-xs font-semibold text-slate-600">重量(g)</label>
+        <div class="field">
+          <label for="drone-weight" class="block text-sm font-semibold text-slate-600"><i class="fas fa-weight-hanging fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>重量(g)</label>
           <input id="drone-weight" type="number" min="0" max="1000000" inputmode="numeric" placeholder="920" class="num w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
         </div>
       </div>
-      <div>
-        <label for="drone-reg" class="mb-1 block text-xs font-semibold text-slate-600">機体登録記号</label>
+      <div class="field">
+        <label for="drone-reg" class="block text-sm font-semibold text-slate-600"><i class="fas fa-id-card fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>機体登録記号</label>
         <input id="drone-reg" type="text" placeholder="JU1234567890" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base uppercase focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
-        <p class="mt-1 text-[11px] text-slate-400">「JU」+ 英数字10桁（未登録の場合は空欄可）</p>
+        <p class="mt-1 text-xs text-slate-400">「JU」+ 英数字10桁（未登録の場合は空欄可）</p>
       </div>
-      <div>
-        <label for="drone-serial" class="mb-1 block text-xs font-semibold text-slate-600">製造番号</label>
+      <div class="field">
+        <label for="drone-serial" class="block text-sm font-semibold text-slate-600"><i class="fas fa-barcode fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>製造番号</label>
         <input id="drone-serial" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
       </div>
-      <div>
-        <label for="drone-note" class="mb-1 block text-xs font-semibold text-slate-600">備考</label>
-        <textarea id="drone-note" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+      <div class="field">
+        <label for="drone-note" class="block text-sm font-semibold text-slate-600"><i class="fas fa-note-sticky fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>備考</label>
+        <textarea id="drone-note" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
       </div>
       <div class="flex gap-2 pt-1">
-        <button type="button" data-close="modal-drone" class="flex-1 rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-600">キャンセル</button>
-        <button type="submit" id="drone-save" class="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60">保存</button>
+        <button type="button" data-close="modal-drone" class="min-h-[48px] flex-1 rounded-xl border border-slate-300 py-3 text-base font-semibold text-slate-600">キャンセル</button>
+        <button type="submit" id="drone-save" class="min-h-[48px] flex-1 rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60"><i class="fas fa-save mr-1.5" aria-hidden="true"></i>保存</button>
       </div>
     </form>
   </div>
@@ -661,29 +655,29 @@
 <div id="modal-pilot" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true">
   <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl">
     <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-      <h3 id="pilot-modal-title" class="text-sm font-bold text-slate-900">操縦者を追加</h3>
+      <h3 id="pilot-modal-title" class="text-base font-bold text-slate-900">操縦者を追加</h3>
       <button type="button" data-close="modal-pilot" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="閉じる">
         <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"></path></svg>
       </button>
     </div>
     <form id="pilot-form" class="space-y-3 p-4" novalidate>
       <input type="hidden" id="pilot-id">
-      <div>
-        <label for="pilot-name" class="mb-1 block text-xs font-semibold text-slate-600">氏名 <span class="text-rose-500">*</span></label>
+      <div class="field">
+        <label for="pilot-name" class="block text-sm font-semibold text-slate-600"><i class="fas fa-user fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>氏名 <span class="text-rose-500">*</span></label>
         <input id="pilot-name" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
         <p class="err" data-error="pilot-name"></p>
       </div>
-      <div>
-        <label for="pilot-license" class="mb-1 block text-xs font-semibold text-slate-600">技能証明書番号</label>
+      <div class="field">
+        <label for="pilot-license" class="block text-sm font-semibold text-slate-600"><i class="fas fa-id-card fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>技能証明書番号</label>
         <input id="pilot-license" type="text" placeholder="例: JP1234567890" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base uppercase focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
       </div>
-      <div>
-        <label for="pilot-contact" class="mb-1 block text-xs font-semibold text-slate-600">連絡先</label>
+      <div class="field">
+        <label for="pilot-contact" class="block text-sm font-semibold text-slate-600"><i class="fas fa-phone fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>連絡先</label>
         <input id="pilot-contact" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
       </div>
       <div class="flex gap-2 pt-1">
-        <button type="button" data-close="modal-pilot" class="flex-1 rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-600">キャンセル</button>
-        <button type="submit" id="pilot-save" class="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60">保存</button>
+        <button type="button" data-close="modal-pilot" class="min-h-[48px] flex-1 rounded-xl border border-slate-300 py-3 text-base font-semibold text-slate-600">キャンセル</button>
+        <button type="submit" id="pilot-save" class="min-h-[48px] flex-1 rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60"><i class="fas fa-save mr-1.5" aria-hidden="true"></i>保存</button>
       </div>
     </form>
   </div>
@@ -693,54 +687,54 @@
 <div id="modal-periodic" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4" role="dialog" aria-modal="true">
   <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-xl">
     <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-      <h3 class="text-sm font-bold text-slate-900">点検・整備を記録</h3>
+      <h3 class="text-base font-bold text-slate-900">点検・整備を記録</h3>
       <button type="button" data-close="modal-periodic" class="rounded-lg p-2 text-slate-400 hover:bg-slate-100" aria-label="閉じる">
         <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"></path></svg>
       </button>
     </div>
     <form id="periodic-form" class="space-y-3 p-4" novalidate>
-      <div>
-        <label for="periodic-drone" class="mb-1 block text-xs font-semibold text-slate-600">機体 <span class="text-rose-500">*</span></label>
+      <div class="field">
+        <label for="periodic-drone" class="block text-sm font-semibold text-slate-600"><i class="fas fa-helicopter fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>機体 <span class="text-rose-500">*</span></label>
         <select id="periodic-drone" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></select>
         <p class="err" data-error="periodic-drone"></p>
       </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label for="periodic-type" class="mb-1 block text-xs font-semibold text-slate-600">種別</label>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="field">
+          <label for="periodic-type" class="block text-sm font-semibold text-slate-600"><i class="fas fa-screwdriver-wrench fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>種別</label>
           <select id="periodic-type" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
             <option value="20時間定期点検">20時間定期点検</option>
             <option value="修理">修理</option>
           </select>
         </div>
-        <div>
-          <label for="periodic-date" class="mb-1 block text-xs font-semibold text-slate-600">実施日</label>
+        <div class="field">
+          <label for="periodic-date" class="block text-sm font-semibold text-slate-600"><i class="fas fa-calendar-day fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>実施日</label>
           <input id="periodic-date" type="date" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
         </div>
       </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label for="periodic-inspector" class="mb-1 block text-xs font-semibold text-slate-600">実施者 <span class="text-rose-500">*</span></label>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="field">
+          <label for="periodic-inspector" class="block text-sm font-semibold text-slate-600"><i class="fas fa-user-check fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>実施者 <span class="text-rose-500">*</span></label>
           <input id="periodic-inspector" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
           <p class="err" data-error="periodic-inspector"></p>
         </div>
-        <div>
-          <label for="periodic-result" class="mb-1 block text-xs font-semibold text-slate-600">結果</label>
+        <div class="field">
+          <label for="periodic-result" class="block text-sm font-semibold text-slate-600"><i class="fas fa-clipboard-check fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>結果</label>
           <select id="periodic-result" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
             <option value="合格">合格</option>
             <option value="異常あり">異常あり</option>
           </select>
         </div>
       </div>
-      <div>
-        <label for="periodic-memo" class="mb-1 block text-xs font-semibold text-slate-600">内容・備考</label>
-        <textarea id="periodic-memo" rows="3" placeholder="交換部品・整備内容など" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+      <div class="field">
+        <label for="periodic-memo" class="block text-sm font-semibold text-slate-600"><i class="fas fa-note-sticky fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>内容・備考</label>
+        <textarea id="periodic-memo" rows="3" placeholder="交換部品・整備内容など" class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
       </div>
-      <p class="rounded-lg bg-sky-50 px-3 py-2 text-[11px] leading-relaxed text-sky-800">
+      <p class="rounded-lg bg-sky-50 px-3 py-2 text-xs leading-relaxed text-sky-800">
         「20時間定期点検」または「修理」を記録すると、その日以降の飛行時間を基準に点検時期を再計算します。
       </p>
       <div class="flex gap-2 pt-1">
-        <button type="button" data-close="modal-periodic" class="flex-1 rounded-xl border border-slate-300 py-2.5 text-sm font-semibold text-slate-600">キャンセル</button>
-        <button type="submit" id="periodic-save" class="flex-1 rounded-xl bg-brand-600 py-2.5 text-sm font-bold text-white hover:bg-brand-700 disabled:opacity-60">保存</button>
+        <button type="button" data-close="modal-periodic" class="min-h-[48px] flex-1 rounded-xl border border-slate-300 py-3 text-base font-semibold text-slate-600">キャンセル</button>
+        <button type="submit" id="periodic-save" class="min-h-[48px] flex-1 rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60"><i class="fas fa-save mr-1.5" aria-hidden="true"></i>保存</button>
       </div>
     </form>
   </div>
@@ -2250,14 +2244,14 @@ function renderSpecificFlagGrid_() {
         '<input type="checkbox" class="mt-0.5 h-4 w-4 shrink-0 accent-brand-600" data-flag value="' + esc(def.label) + '" data-key="' + esc(def.key) + '"' + (checked ? ' checked' : '') + '>' +
         '<span class="min-w-0">' +
           '<span data-flag-title class="block text-xs font-semibold leading-snug ' + text + '">' + esc(def.uiLabel || def.label) + '</span>' +
-          '<span class="mt-0.5 block text-[10px] leading-snug text-slate-400">' + esc(def.description || '') + '</span>' +
+          '<span class="mt-0.5 block text-xs leading-snug text-slate-400">' + esc(def.description || '') + '</span>' +
         '</span>' +
       '</label>';
     }).join('');
 
     return '<div class="rounded-xl border border-slate-200 bg-white p-2.5">' +
-      '<p class="mb-1.5 flex flex-wrap items-baseline gap-1.5 text-[11px] font-bold text-slate-500">' +
-        esc(group.label) + '<span class="text-[10px] font-normal text-slate-400">' + esc(group.hint || '') + '</span>' +
+      '<p class="mb-1.5 flex flex-wrap items-baseline gap-1.5 text-xs font-bold text-slate-500">' +
+        esc(group.label) + '<span class="text-xs font-normal text-slate-400">' + esc(group.hint || '') + '</span>' +
       '</p>' +
       '<div class="grid grid-cols-1 gap-1.5 sm:grid-cols-2">' + rows + '</div>' +
     '</div>';
@@ -2271,10 +2265,10 @@ function renderSpecificStatus() {
   var flags = (state.entry.flags || []).filter(function (f) { return f !== '非特定飛行'; });
   if (flags.length) {
     el.textContent = '特定飛行 ' + flags.length + '項目';
-    el.className = 'rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-bold text-amber-800';
+    el.className = 'rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-800';
   } else {
     el.textContent = '非特定飛行';
-    el.className = 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700';
+    el.className = 'rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700';
   }
 }
 
@@ -2350,18 +2344,18 @@ function renderCategoryCard() {
 
   var reasons = result.reasons.length
     ? '<div class="mt-2 flex flex-wrap gap-1">' + result.reasons.map(function (r) {
-        return '<span class="rounded-full px-2 py-0.5 text-[10px] font-semibold ' + theme.chip + '">' + esc(r) + '</span>';
+        return '<span class="rounded-full px-2 py-0.5 text-xs font-semibold ' + theme.chip + '">' + esc(r) + '</span>';
       }).join('') + '</div>'
-    : '<p class="mt-1.5 text-[11px] ' + theme.text + '">特定飛行の項目が未選択のため、非特定飛行として扱います。</p>';
+    : '<p class="mt-1.5 text-xs ' + theme.text + '">特定飛行の項目が未選択のため、非特定飛行として扱います。</p>';
 
   card.innerHTML =
     '<div class="flex flex-wrap items-center gap-2">' +
       '<span class="rounded-full px-2.5 py-1 text-xs font-bold ' + theme.badge + '">' + esc(result.label) + '</span>' +
-      '<span class="text-[11px] font-semibold ' + theme.text + '">' + esc(result.summary) + '</span>' +
+      '<span class="text-xs font-semibold ' + theme.text + '">' + esc(result.summary) + '</span>' +
     '</div>' +
-    '<p class="mt-2 text-[11px] leading-relaxed ' + theme.text + '">' + esc(result.procedures[0] || '') + '</p>' +
+    '<p class="mt-2 text-xs leading-relaxed ' + theme.text + '">' + esc(result.procedures[0] || '') + '</p>' +
     reasons +
-    '<p class="mt-2 text-[10px] ' + theme.text + ' opacity-80">機体重量: ' + esc(result.weightLabel) +
+    '<p class="mt-2 text-xs ' + theme.text + ' opacity-80">機体重量: ' + esc(result.weightLabel) +
       ' / 立入管理措置: ' + (result.hasClearZone ? '講じる' : '講じない') + '</p>';
 }
 
@@ -2380,14 +2374,14 @@ function renderInspectionItems() {
   var html = groups.map(function (group) {
     var rows = group.items.map(function (name) {
       return '<div class="flex items-center justify-between gap-2 py-1.5" data-item="' + esc(name) + '">' +
-        '<span class="text-[13px] text-slate-700">' + esc(name) + '</span>' +
+        '<span class="text-sm text-slate-700">' + esc(name) + '</span>' +
         '<div class="flex shrink-0 overflow-hidden rounded-lg border border-slate-200">' +
-        '<button type="button" data-item-btn="OK" class="px-3 py-1.5 text-xs font-bold text-slate-500 transition">OK</button>' +
-        '<button type="button" data-item-btn="NG" class="border-l border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-500 transition">異常</button>' +
+        '<button type="button" data-item-btn="OK" class="min-h-[40px] px-3.5 py-2 text-sm font-bold text-slate-500 transition">OK</button>' +
+        '<button type="button" data-item-btn="NG" class="min-h-[40px] border-l border-slate-200 px-3.5 py-2 text-sm font-bold text-slate-500 transition">異常</button>' +
         '</div></div>';
     }).join('');
     return '<div class="py-1">' +
-      '<p class="mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">' + esc(group.label) + '</p>' +
+      '<p class="mb-1 text-xs font-bold uppercase tracking-wider text-slate-400">' + esc(group.label) + '</p>' +
       rows + '</div>';
   }).join('');
 
@@ -2444,14 +2438,14 @@ function renderDroneHint() {
 
   if (!drone) {
     hint.textContent = '機体管理タブから機体を登録してください。';
-    hint.className = 'mt-1 text-[11px] text-rose-600';
+    hint.className = 'mt-1 text-xs text-rose-600';
     return;
   }
 
   var remain = Math.max(0, drone.limitMinutes - drone.basisMinutes);
   hint.textContent = drone.basisLabel + ' ' + fmtMin(drone.basisMinutes) +
     ' / 20時間（点検まで あと ' + fmtMin(remain) + '）';
-  hint.className = 'mt-1 text-[11px] ' +
+  hint.className = 'mt-1 text-xs ' +
     (drone.level === 'over' ? 'font-semibold text-rose-600'
       : drone.level === 'warn' ? 'font-semibold text-amber-600' : 'text-slate-500');
 }
@@ -2471,7 +2465,7 @@ function renderEntryAlerts() {
   box.classList.remove('hidden');
   box.innerHTML = '<p class="mb-1 text-xs font-bold text-rose-700">点検アラート</p>' +
     targets.map(function (d) {
-      return '<p class="text-[11px] text-rose-700">・' + esc(d.modelName) + '（' + esc(d.droneId) + '）: ' +
+      return '<p class="text-xs text-rose-700">・' + esc(d.modelName) + '（' + esc(d.droneId) + '）: ' +
         (d.level === 'over'
           ? '20時間点検の基準を超えています（' + esc(fmtHours(d.basisMinutes)) + 'h）'
           : 'まもなく20時間点検です（' + esc(fmtHours(d.basisMinutes)) + 'h）') +
@@ -2776,7 +2770,7 @@ function handleSave(ev) {
   var btn = $('#save-btn');
   if (!SAVE_BUTTON_HTML) SAVE_BUTTON_HTML = btn.innerHTML;
   btn.disabled = true;
-  btn.textContent = '保存中…';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中…';
   $('#save-status').textContent = '保存しています…';
 
   callGas('saveFlightRecord', buildPayload()).then(function (res) {
@@ -2857,32 +2851,32 @@ function flightCard(f) {
       : categoryInfo.level === 'caution' ? 'bg-sky-100 text-sky-700'
         : 'bg-teal-100 text-teal-700';
 
-  var chips = '<span class="rounded-full px-2 py-0.5 text-[10px] font-bold ' + categoryClass + '">' +
+  var chips = '<span class="rounded-full px-2 py-0.5 text-xs font-bold ' + categoryClass + '">' +
     esc(categoryInfo.label) + '</span>';
   chips += (f.specificFlags || []).filter(function (flag) {
     return flag !== '非特定飛行';
   }).map(function (flag) {
-    return '<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">' +
+    return '<span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">' +
       esc(flag) + '</span>';
   }).join('');
 
   if (f.hasSafetyEvent) {
-    chips += '<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">安全影響あり</span>';
+    chips += '<span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">安全影響あり</span>';
   }
   if (f.hasAbnormalInspection) {
-    chips += '<span class="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-bold text-rose-700">点検異常</span>';
+    chips += '<span class="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">点検異常</span>';
   }
 
   var inspections = (f.inspections || []).map(function (i) {
     var ng = Object.keys(i.items || {}).filter(function (k) { return i.items[k] === 'NG'; });
     return '<div class="flex items-start justify-between gap-2 border-t border-slate-100 py-1.5 first:border-t-0">' +
       '<div class="min-w-0">' +
-      '<p class="text-[11px] font-semibold text-slate-700">' + esc(i.type) +
+      '<p class="text-xs font-semibold text-slate-700">' + esc(i.type) +
       ' <span class="font-normal text-slate-400">' + esc(i.inspectionId) + '</span></p>' +
-      (ng.length ? '<p class="text-[11px] text-rose-600">異常: ' + esc(ng.join('、')) + '</p>' : '') +
-      (i.memo ? '<p class="truncate text-[11px] text-slate-500">' + esc(i.memo) + '</p>' : '') +
+      (ng.length ? '<p class="text-xs text-rose-600">異常: ' + esc(ng.join('、')) + '</p>' : '') +
+      (i.memo ? '<p class="truncate text-xs text-slate-500">' + esc(i.memo) + '</p>' : '') +
       '</div>' +
-      '<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ' +
+      '<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ' +
       (i.result === '異常あり' ? 'bg-rose-100 text-rose-700' : 'bg-teal-100 text-teal-700') + '">' +
       esc(i.result) + '</span>' +
       '</div>';
@@ -2897,21 +2891,21 @@ function flightCard(f) {
   return '<article class="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-slate-200">' +
     '<div class="flex items-start justify-between gap-2">' +
     '<div class="min-w-0">' +
-    '<p class="text-[11px] text-slate-500">' + esc(fmtDateJP(f.date)) +
-    ' <span class="ml-1 font-mono text-[10px] text-slate-400">' + esc(f.flightId) + '</span></p>' +
+    '<p class="text-xs text-slate-500">' + esc(fmtDateJP(f.date)) +
+    ' <span class="ml-1 font-mono text-xs text-slate-400">' + esc(f.flightId) + '</span></p>' +
     '<p class="mt-0.5 truncate text-sm font-bold text-slate-900">' + esc(f.takeoffPlace) +
     ' <span class="text-slate-400">→</span> ' + esc(f.landingPlace) + '</p>' +
-    '<p class="mt-0.5 truncate text-[11px] text-slate-500">' + esc(f.droneName) +
+    '<p class="mt-0.5 truncate text-xs text-slate-500">' + esc(f.droneName) +
     (f.registrationNo ? ' / ' + esc(f.registrationNo) : '') + ' ・ ' + esc(f.pilotName) + '</p>' +
     '</div>' +
     '<div class="shrink-0 text-right">' +
     '<p class="num text-base font-bold text-slate-900">' + esc(f.durationLabel || fmtMin(f.durationMin)) + '</p>' +
-    '<p class="num text-[11px] text-slate-500">' + esc(f.takeoffTime) + ' - ' + esc(f.landingTime) + '</p>' +
+    '<p class="num text-xs text-slate-500">' + esc(f.takeoffTime) + ' - ' + esc(f.landingTime) + '</p>' +
     '</div></div>' +
     '<div class="mt-2 flex flex-wrap items-center gap-1">' + chips + '</div>' +
     '<details class="mt-2">' +
-    '<summary class="text-[11px] font-semibold text-brand-600">詳細・点検記録を見る</summary>' +
-    '<div class="mt-2 space-y-1 rounded-xl bg-slate-50 p-2.5 text-[11px] text-slate-600">' +
+    '<summary class="text-xs font-semibold text-brand-600">詳細・点検記録を見る</summary>' +
+    '<div class="mt-2 space-y-1 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600">' +
     '<p>飛行目的: ' + esc(f.purpose || '—') + '</p>' +
     '<p>座標: ' + (hasCoords ? esc(f.lat) + ', ' + esc(f.lng) + '（' + mapLink + '）' : '未記録') + '</p>' +
     '<p>安全影響: ' + esc(f.safetyEvent || 'なし') + '</p>' +
@@ -3021,32 +3015,32 @@ function renderDroneList() {
       '<div class="flex items-start justify-between gap-2">' +
       '<div class="min-w-0">' +
       '<p class="truncate text-sm font-bold text-slate-900">' + esc(d.modelName) +
-      ' <span class="font-mono text-[10px] font-normal text-slate-400">' + esc(d.droneId) + '</span></p>' +
-      '<p class="mt-0.5 truncate text-[11px] text-slate-500">' +
+      ' <span class="font-mono text-xs font-normal text-slate-400">' + esc(d.droneId) + '</span></p>' +
+      '<p class="mt-0.5 truncate text-xs text-slate-500">' +
       (d.registrationNo ? esc(d.registrationNo) + ' ・ ' : '') +
       (d.weightG ? esc(d.weightG) + ' g ・ ' : '') +
       (d.serialNo ? 'S/N ' + esc(d.serialNo) : 'S/N 未登録') + '</p>' +
       '</div>' +
-      '<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ' + meta.cls + '">' +
+      '<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ' + meta.cls + '">' +
       esc(meta.text) + '</span>' +
       '</div>' +
 
       '<div class="mt-2.5">' +
-      '<div class="flex items-center justify-between text-[11px] text-slate-500">' +
+      '<div class="flex items-center justify-between text-xs text-slate-500">' +
       '<span>' + esc(d.basisLabel) + '</span>' +
       '<span class="num"><strong class="text-slate-800">' + esc(fmtHours(d.basisMinutes)) + '</strong> / 20.0 h</span>' +
       '</div>' +
       '<div class="mt-1 h-2 overflow-hidden rounded-full bg-slate-100">' +
       '<div class="h-2 rounded-full ' + meta.bar + '" style="width:' + Number(d.progress || 0) + '%"></div>' +
       '</div>' +
-      '<p class="mt-1 text-[11px] text-slate-500">点検まで あと ' + esc(fmtMin(d.remainingMinutes)) +
+      '<p class="mt-1 text-xs text-slate-500">点検まで あと ' + esc(fmtMin(d.remainingMinutes)) +
       ' ・ 累計 ' + esc(fmtHours(d.totalMinutes)) + ' h' +
       (d.lastInspectionDate ? ' ・ 前回点検 ' + esc(fmtDateJP(d.lastInspectionDate)) : '') + '</p>' +
       '</div>' +
 
       '<div class="mt-2 flex gap-2">' +
-      '<button type="button" data-edit-drone="' + esc(d.droneId) + '" class="flex-1 rounded-lg border border-slate-300 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">編集</button>' +
-      '<button type="button" data-periodic="' + esc(d.droneId) + '" class="flex-1 rounded-lg bg-slate-900 py-1.5 text-[11px] font-semibold text-white hover:bg-slate-800">点検を記録</button>' +
+      '<button type="button" data-edit-drone="' + esc(d.droneId) + '" class="min-h-[40px] flex-1 rounded-lg border border-slate-300 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">編集</button>' +
+      '<button type="button" data-periodic="' + esc(d.droneId) + '" class="min-h-[40px] flex-1 rounded-lg bg-slate-900 py-2 text-sm font-semibold text-white hover:bg-slate-800">点検を記録</button>' +
       '</div>' +
       '</article>';
   }).join('');
@@ -3067,12 +3061,12 @@ function renderPilotList() {
     return '<div class="flex items-center justify-between gap-2 rounded-xl border border-slate-200 p-3">' +
       '<div class="min-w-0">' +
       '<p class="truncate text-sm font-bold text-slate-900">' + esc(p.name) +
-      ' <span class="font-mono text-[10px] font-normal text-slate-400">' + esc(p.pilotId) + '</span></p>' +
-      '<p class="mt-0.5 truncate text-[11px] text-slate-500">技能証明: ' +
+      ' <span class="font-mono text-xs font-normal text-slate-400">' + esc(p.pilotId) + '</span></p>' +
+      '<p class="mt-0.5 truncate text-xs text-slate-500">技能証明: ' +
       (p.licenseNo ? esc(p.licenseNo) : '未登録') +
       ' ・ 飛行 ' + esc(p.flightCount || 0) + ' 回</p>' +
       '</div>' +
-      '<button type="button" data-edit-pilot="' + esc(p.pilotId) + '" class="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">編集</button>' +
+      '<button type="button" data-edit-pilot="' + esc(p.pilotId) + '" class="min-h-[40px] shrink-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">編集</button>' +
       '</div>';
   }).join('');
 }
@@ -3095,12 +3089,12 @@ function renderPeriodicList() {
     return '<div class="flex items-start justify-between gap-2 rounded-xl border border-slate-200 p-3">' +
       '<div class="min-w-0">' +
       '<p class="text-sm font-bold text-slate-900">' + esc(i.type) +
-      ' <span class="font-mono text-[10px] font-normal text-slate-400">' + esc(i.inspectionId) + '</span></p>' +
-      '<p class="mt-0.5 truncate text-[11px] text-slate-500">' + esc(fmtDateJP(i.inspectionDate)) +
+      ' <span class="font-mono text-xs font-normal text-slate-400">' + esc(i.inspectionId) + '</span></p>' +
+      '<p class="mt-0.5 truncate text-xs text-slate-500">' + esc(fmtDateJP(i.inspectionDate)) +
       ' ・ ' + esc(i.droneName || i.droneId) + ' ・ 実施者 ' + esc(i.inspector || '—') + '</p>' +
-      (i.memo ? '<p class="mt-0.5 text-[11px] text-slate-500">' + esc(i.memo) + '</p>' : '') +
+      (i.memo ? '<p class="mt-0.5 text-xs text-slate-500">' + esc(i.memo) + '</p>' : '') +
       '</div>' +
-      '<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ' +
+      '<span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold ' +
       (abnormal ? 'bg-rose-100 text-rose-700' : 'bg-teal-100 text-teal-700') + '">' +
       esc(i.result) + '</span>' +
       '</div>';
@@ -3205,9 +3199,9 @@ function handleDroneSubmit(ev) {
   }
 
   var btn = $('#drone-save');
-  var original = btn.textContent;
+  var original = btn.innerHTML;
   btn.disabled = true;
-  btn.textContent = '保存中…';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中…';
 
   callGas('saveDrone', {
     droneId: $('#drone-id').value,
@@ -3226,7 +3220,7 @@ function handleDroneSubmit(ev) {
     toast(err.message || '保存に失敗しました。', 'error');
   }).then(function () {
     btn.disabled = false;
-    btn.textContent = original;
+    btn.innerHTML = original;
   });
 }
 
@@ -3244,9 +3238,9 @@ function handlePilotSubmit(ev) {
   }
 
   var btn = $('#pilot-save');
-  var original = btn.textContent;
+  var original = btn.innerHTML;
   btn.disabled = true;
-  btn.textContent = '保存中…';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中…';
 
   callGas('savePilot', {
     pilotId: $('#pilot-id').value,
@@ -3262,7 +3256,7 @@ function handlePilotSubmit(ev) {
     toast(err.message || '保存に失敗しました。', 'error');
   }).then(function () {
     btn.disabled = false;
-    btn.textContent = original;
+    btn.innerHTML = original;
   });
 }
 
@@ -3281,9 +3275,9 @@ function handlePeriodicSubmit(ev) {
   }
 
   var btn = $('#periodic-save');
-  var original = btn.textContent;
+  var original = btn.innerHTML;
   btn.disabled = true;
-  btn.textContent = '保存中…';
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中…';
 
   callGas('saveInspection', {
     droneId: $('#periodic-drone').value,
@@ -3301,7 +3295,7 @@ function handlePeriodicSubmit(ev) {
     toast(err.message || '保存に失敗しました。', 'error');
   }).then(function () {
     btn.disabled = false;
-    btn.textContent = original;
+    btn.innerHTML = original;
   });
 }
 
@@ -3531,7 +3525,7 @@ function resetEnvResult() {
     var el = $(sel);
     if (!el) return;
     el.textContent = '';
-    el.className = 'mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold';
+    el.className = 'mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold';
   });
 
   envSetStatus('');
@@ -3542,7 +3536,7 @@ function envSetStatus(text, isError) {
   var el = $('#env-status');
   if (!el) return;
   el.textContent = text || '';
-  el.className = 'mt-2 text-[11px] leading-relaxed ' + (isError ? 'text-rose-600' : 'text-slate-500');
+  el.className = 'mt-2 text-xs leading-relaxed ' + (isError ? 'text-rose-600' : 'text-slate-500');
 }
 
 /**
@@ -3601,7 +3595,7 @@ function renderEnvResult(result) {
   if (safetyEl) {
     var status = weather.safetyStatus || 'CAUTION';
     safetyEl.textContent = status === 'GOOD' ? '良好' : (status === 'DANGER' ? '危険' : '注意');
-    safetyEl.className = 'mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ' +
+    safetyEl.className = 'mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-bold ' +
       (ENV_STATUS_BADGE[status] || ENV_STATUS_BADGE.CAUTION);
   }
 
@@ -3626,13 +3620,13 @@ function renderEnvResult(result) {
   if (didEl) {
     if (regulations.isDID === true) {
       didEl.textContent = 'DID 内';
-      didEl.className = 'mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold bg-amber-100 text-amber-800';
+      didEl.className = 'mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold bg-amber-100 text-amber-800';
     } else if (regulations.isDID === false) {
       didEl.textContent = 'DID 外';
-      didEl.className = 'mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold bg-emerald-100 text-emerald-700';
+      didEl.className = 'mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-700';
     } else {
       didEl.textContent = '判定できません';
-      didEl.className = 'mt-0.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-bold bg-slate-100 text-slate-600';
+      didEl.className = 'mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold bg-slate-100 text-slate-600';
     }
   }
 
@@ -3718,7 +3712,7 @@ function resetAiResult() {
   if (summary) summary.textContent = '';
   var badge = $('#ai-risk-badge');
   if (badge) {
-    badge.className = 'rounded-full px-2.5 py-1 text-[11px] font-bold';
+    badge.className = 'rounded-full px-2.5 py-1 text-xs font-bold';
     badge.textContent = '';
   }
   aiSetStatus('');
@@ -3729,7 +3723,7 @@ function aiSetStatus(text, isError) {
   var el = $('#ai-status');
   if (!el) return;
   el.textContent = text || '';
-  el.className = 'mt-2 text-[11px] leading-relaxed ' + (isError ? 'text-rose-600' : 'text-slate-500');
+  el.className = 'mt-2 text-xs leading-relaxed ' + (isError ? 'text-rose-600' : 'text-slate-500');
 }
 
 /** AI 診断の結果を描画する */
@@ -3753,7 +3747,7 @@ function renderAiResult(result) {
   var badge = $('#ai-risk-badge');
   if (badge) {
     var level = result.riskLevel || 'MEDIUM';
-    badge.className = 'rounded-full px-2.5 py-1 text-[11px] font-bold ' +
+    badge.className = 'rounded-full px-2.5 py-1 text-xs font-bold ' +
       (AI_RISK_BADGE[level] || AI_RISK_BADGE.MEDIUM);
     badge.textContent = result.riskLabel || '中リスク';
   }
@@ -3771,7 +3765,7 @@ function renderAiResult(result) {
   if (objects) {
     objects.innerHTML = (result.detectedObjects || []).map(function (o) {
       var dot = AI_RISK_DOT[o.risk] || AI_RISK_DOT.MEDIUM;
-      return '<li class="flex items-start gap-1.5 text-[11px] leading-relaxed text-slate-700">' +
+      return '<li class="flex items-start gap-1.5 text-xs leading-relaxed text-slate-700">' +
         '<span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ' + dot + '"></span>' +
         '<span><span class="font-semibold">' + esc(o.objectType) + '</span>：' + esc(o.description) + '</span></li>';
     }).join('');

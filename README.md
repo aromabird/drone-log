@@ -102,6 +102,10 @@ python3 -m http.server 8811
 - AI 安全フライト診断は、モックでは固定の解析結果（`mock-gemini`）を返します。
 - `?api=https://…/exec` を付けて開くと、モックではなく**実際の GAS API**（`doPost`）へ接続します。
   API URL が未設定のまま `http(s)` で開いた場合は、保存されない旨のトーストが表示されます。
+- 同梱のモック API サーバー（`tests/mock-api-server.js`）は**読み取り専用**です（`save*` は
+  `未定義のActionです: saveDrone` のようなエラー封筒を返します）。保存系の UI を確認するときは、
+  `?api=` を付けずに localStorage モックで動かすか、Puppeteer 等で `/api` への POST をスタブ化してください
+  （本番シートを汚さないため、実 `/exec` への書き込みは行わないでください）。
 
 ### 3.4 Gemini（AI 安全フライト診断）の準備
 
@@ -526,16 +530,23 @@ node drone-log/tests/mock-api-server.js 8811
   150m上限 162.4m・「DID 内」を表示し、`DID（人口集中地区）` が自動チェックされてカテゴリーⅡBへ再判定
 - 地方の座標（35.854 / 140.598）→「DID 外」表示・チェックは追加されない・再取得でも表示が更新されること
 - 保存後リセットで環境カードが非表示になり、ステータス・値・チェックが初期化されること
-- 「🗑️ 入力をクリア」: 入力・特定飛行・点検13項目・環境/AI の結果が揃った状態から押すと、
+- 「入力をクリア」（ゴミ箱アイコン）: 入力・特定飛行・点検13項目・環境/AI の結果が揃った状態から押すと、
   確認ダイアログ「入力中の内容をすべてクリアしますか？」→ OK で 日付が当日（JST）・目的が「空撮」・
   立入管理措置 ON・特定飛行0件・点検 0/13（未入力）・カテゴリーⅠ・環境/AI カード非表示・
   エラー表示0件（`.err.show` / `.field-error`）に戻り、トースト「入力をクリアしました」が出ること。
   操縦者・機体の選択は維持されること
 - クリアで確認ダイアログをキャンセルした場合は何も変わらないこと
 - 環境取得／AI 診断の**実行中にクリア**しても、後から届いた応答でカードが再表示されないこと（`state.entry.reqSeq` の世代管理）
-- レイアウト: 1440px / 412px ともに横スクロールなし（`scrollWidth === clientWidth`）、
-  特定飛行の行は 412px で 50px 高、AI ボタンと「現場環境を取得」は 44px 高、
-  保存バーの「🗑️ 入力をクリア」と「保存する」は 412px で同一行（125px / 231px・間隔8px・高さ46px）で重ならないこと
+- レイアウト（2026-11-07 更新 / 320・360・412・768・820・1024・1180px で計測）: 全幅で横スクロールなし
+  （`scrollWidth === clientWidth`）。コンテナは `max-w-4xl`、フォームは 1カラム（`<640px`）→ 2カラム（`>=640px`）、
+  モーダル内の2カラムも `sm:` 未満は1カラムへ折り返す。ラベルは 14px・入力欄は 16px（iOS の自動ズーム回避）、
+  主要ボタン（保存する／入力をクリア／モーダル保存／検索）は 48〜50px 高、補助ボタンは 40〜44px、タブは 48px。
+  保存バーの2ボタンは 412px で同一行（高さ 50px・間隔 8px）で重ならないこと
+- **アイコン**: Font Awesome 6.4.0 Free（CDN）を `<head>` で読み込み、ラベル・主要ボタン・タブへ付与。
+  テキストラベルは残しているため、CDN が読めない環境でも操作は可能（アイコンが表示されないだけ）
+- 保存系の UI 回帰（`/api` への POST を Puppeteer でスタブ化。本番シートへの書き込みなし）:
+  保存中は `fa-spinner` ＋ `disabled`、完了後にボタンの `fa-save` が復元され、`保存済み HH:MM` と
+  `FLT-… / 30分 / 累計 30分` が表示されること。モーダル保存も スピナー → 閉じる → アイコン復元 まで確認済み
 - **API モード（`?api=…`）**: モック API サーバー（`doPost` と同じ封筒を返す）へ接続し、初期表示
   （バッジ `GAS API`・`state.ready`・機体/操縦者の選択肢が API 応答から生成される）、`getFlights` の応答、
   未定義 action の日本語エラー（`未定義のActionです: nope`）、`args` の JSON 送信（`[{"limit":5}]`）を確認済み。
@@ -549,15 +560,17 @@ node drone-log/tests/mock-api-server.js 8811
   `getFlights` の応答、未定義 action のエラー封筒、管理系 action の拒否までを curl と実ブラウザ（別オリジン）で検証しました。
   一方 **書き込み系（`saveFlight` / `savePilot` など）は本番シートを汚さないため未検証**です。
 - `clasp` での運用は実施済みです（`npx @google/clasp push` → `create-version` → `update-deployment`）。
-  `appsscript.json` の `webapp.access` は `ANYONE_ANONYMOUS` で、デプロイ（`@8`）に反映済みです。
+  `appsscript.json` の `webapp.access` は `ANYONE_ANONYMOUS` で、デプロイ（`@9`）に反映済みです。
   **`clasp push` だけでは `/exec` に反映されない**点に注意してください（[3.6](#36-github-pages-でフロントだけを公開するgas-を-json-api-として使う)）。
-- **GitHub Pages は未有効化**です（`https://aromabird.github.io/drone-log/` は 404）。GitHub の
-  Settings → Pages で `main` / `/ (root)` を選ぶ操作はリポジトリ管理者が行ってください。
+- **GitHub Pages は有効化済み**です（`https://aromabird.github.io/drone-log/`、`main` / root）。
+  `main` へ push すると Pages に反映されます（CDN の `cache-control: max-age=600` のため最大約10分）。
 - **CORS は検証済み**です。本番 `/exec` は `Access-Control-Allow-Origin: *` を返し、別オリジン
   （`http://127.0.0.1:8813`）から配信した `index.html` で初期データ取得と `getFlights` 呼び出しが成功しました。
-  Pages 公開後も同じ経路で動作する見込みです。
+  Pages 公開後も同じ経路で動作します。
 - API は**認証なし（匿名）**で公開されます。URL を知る第三者が記録を追加できます（管理系は非公開）。
 - Tailwind CSS は CDN 版です。社内ネットワーク等で CDN が使えない場合はスタイルが崩れます。
+- アイコンは **Font Awesome 6.4.0 Free（cdnjs）** を読み込みます。CDN が使えない場合はアイコンだけが
+  表示されず、テキストラベルで操作できます（PWA のオフラインキャッシュ対象には入れていません）。
 - `parseDjiLog` はスタブ（例外を投げる）です。
 - Gemini 診断は **モックとスタブ環境（vm）でのみ検証済み**です。実際の Gemini API・StaticMap の応答は
   GAS へデプロイし、`GEMINI_API_KEY` を登録したうえでの確認が必要です（モデル名は `gemini-2.5-flash` 固定）。
