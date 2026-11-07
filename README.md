@@ -542,6 +542,13 @@ node drone-log/tests/mock-api-server.js 8811
   モーダル内の2カラムも `sm:` 未満は1カラムへ折り返す。ラベルは 14px・入力欄は 16px（iOS の自動ズーム回避）、
   主要ボタン（保存する／入力をクリア／モーダル保存／検索）は 48〜50px 高、補助ボタンは 40〜44px、タブは 48px。
   保存バーの2ボタンは 412px で同一行（高さ 50px・間隔 8px）で重ならないこと
+- **iPad（WebKit）のグリッド侵食対策（2026-11-07 追加）**: `.field` に `min-width: 0`、`.field > select` に
+  `min-width: 0; max-width: 100%`、`select` に `overflow: hidden; text-overflow: ellipsis` を指定。
+  グリッドアイテムの最小幅が内容幅（`min-width:auto`）になり、長い「操縦者」名を持つ `<select>` が
+  隣のカラム（飛行年月日）へはみ出す問題への対策。Playwright WebKit 26.5 で長い氏名を選択した状態を再現し、
+  修正前は `scrollWidth` が 768→915 / 820→941 に膨らむ（横スクロール発生）、修正後は 768 / 820 と一致することを確認。
+  `overflow: hidden` は iOS Safari の「長い option が flex 親ごと横にはみ出す」既知バグの定石回避策。
+  Chromium では 320〜1180px の全幅で横スクロール 0・`.field` の重なり 0 を再計測済み
 - **アイコン**: Font Awesome 6.4.0 Free（CDN）を `<head>` で読み込み、ラベル・主要ボタン・タブへ付与。
   テキストラベルは残しているため、CDN が読めない環境でも操作は可能（アイコンが表示されないだけ）
 - 保存系の UI 回帰（`/api` への POST を Puppeteer でスタブ化。本番シートへの書き込みなし）:

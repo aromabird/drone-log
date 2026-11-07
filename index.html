@@ -32,9 +32,18 @@
     html { -webkit-text-size-adjust: 100%; }
     body { font-feature-settings: 'palt'; }
     .num { font-variant-numeric: tabular-nums; }
-    /* ラベルと入力欄をひとつのまとまりに（md/lg の間延び防止） */
-    .field { display: flex; flex-direction: column; gap: 4px; }
+    /* ラベルと入力欄をひとつのまとまりに（md/lg の間延び防止）。
+       min-width:0 が無いと、グリッドアイテムの最小幅が min-width:auto（＝内容幅）になり、
+       iPad（WebKit）で「操縦者」「実施者」など長いテキストを持つプルダウンが列幅を超えて
+       隣のカラム（飛行年月日など）へ侵食・重複する。 */
+    .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
     .field > label { margin-bottom: 0; }
+    /* iOS/iPadOS の select は選択肢の文字幅で膨らむため、カラム幅に必ず収める */
+    .field > select, .field > input, .field > textarea { min-width: 0; max-width: 100%; }
+    /* WebKit は select の選択中テキストを要素幅でクリップせずに描画し、隣のカラムへ
+       はみ出したうえ横スクロールまで発生させる（iPad 実機の「侵食」現象）。
+       overflow:hidden で必ずカラム内にクリップする。 */
+    select { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
     i.fas, i.far, i.fab { line-height: 1; }
     input[type="date"], input[type="time"] { min-height: 44px; }
     .tab-active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
