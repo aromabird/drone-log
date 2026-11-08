@@ -581,7 +581,7 @@ node drone-log/tests/mock-api-server.js 8811
 - アイコンは **Font Awesome 6.4.0 Free（cdnjs）** を読み込みます。CDN が使えない場合はアイコンだけが
   表示されず、テキストラベルで操作できます（PWA のオフラインキャッシュ対象には入れていません）。
 - GAS サーバー側の `parseDjiLog` はスタブ（例外を投げる）です。画面の「DJI ログを取り込む」は
-  ローカル FastAPI BFF（`drone-log-bff`、既定 `http://127.0.0.1:8000/api/parse-log`）へ `.txt` を multipart POST し、
+  Tailscale 上の FastAPI BFF（`drone-log-bff`、`https://mac-mini-m4.tail95f7a2.ts.net/api/parse-log`）へ `.txt` を multipart POST し、
   返却された日付・離着陸時刻・飛行時間・座標を自動転記します。BFF が未起動の場合は接続エラーをトースト表示します。
 - Gemini 診断は **モックとスタブ環境（vm）でのみ検証済み**です。実際の Gemini API・StaticMap の応答は
   GAS へデプロイし、`GEMINI_API_KEY` を登録したうえでの確認が必要です（モデル名は `gemini-2.5-flash` 固定）。
