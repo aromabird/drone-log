@@ -42,55 +42,9 @@
       }
     };
   </script>
-  <script>
-    /* 文字サイズ（野外視認性）: 4段階。rem ベースの Tailwind を丸ごと拡縮するため
-       <html> の font-size を % で操作する（ブラウザの既定文字サイズに対する相対値）。
-       リロード直後のちらつきを防ぐため、本文の描画前に保存値を適用する。
-       UI 側の操作（ボタン・保存）は下部スクリプトの setFontScale が行う。 */
-    window.DroneLogFontSize = (function () {
-      var KEY = 'droneLogFontSize';
-      // 屋外（直射日光下）での視認性を優先し、未保存時の初期値を「特大」にする。
-      var DEFAULT_KEY = 'xl';
-      var SCALES = [
-        { key: 'sm', label: '小', percent: 90 },
-        { key: 'md', label: '標準', percent: 100 },
-        { key: 'lg', label: '大', percent: 115 },
-        { key: 'xl', label: '特大', percent: 130 }
-      ];
-      function find(key) {
-        for (var i = 0; i < SCALES.length; i++) {
-          if (SCALES[i].key === key) return SCALES[i];
-        }
-        return null;
-      }
-      /** 保存値を読む（未保存・不正値・localStorage 不可は特大） */
-      function read() {
-        var stored = null;
-        try { stored = window.localStorage.getItem(KEY); } catch (err) { stored = null; }
-        return find(stored) || find(DEFAULT_KEY) || SCALES[1];
-      }
-      function apply(key, persist) {
-        var scale = find(key) || find(DEFAULT_KEY) || SCALES[1];
-        document.documentElement.style.fontSize = scale.percent + '%';
-        // 注: ボタン側の [data-font-scale] と衝突しないよう、html 側は別名にする
-        document.documentElement.setAttribute('data-font-scale-active', scale.key);
-        if (persist) {
-          try { window.localStorage.setItem(KEY, scale.key); } catch (err) { /* 保存不可でも動作させる */ }
-        }
-        return scale;
-      }
-      /** 現在適用中の段階（html の data-font-scale-active が正） */
-      function current() {
-        return find(document.documentElement.getAttribute('data-font-scale-active')) ||
-          find(DEFAULT_KEY) || SCALES[1];
-      }
-      apply(read().key, false);
-      return { KEY: KEY, DEFAULT_KEY: DEFAULT_KEY, SCALES: SCALES,
-        find: find, read: read, apply: apply, current: current };
-    })();
-  </script>
   <style>
-    html { -webkit-text-size-adjust: 100%; }
+    /* 屋外視認性: 文字サイズ変更UIは廃止し、全体を特大（130%）に固定する。 */
+    html { -webkit-text-size-adjust: 100%; font-size: 130%; }
     body { font-feature-settings: 'palt'; overflow-wrap: anywhere; }
     .num { font-variant-numeric: tabular-nums; }
     /* ラベルと入力欄をひとつのまとまりに（md/lg の間延び防止）。
@@ -102,14 +56,14 @@
     /* iOS/iPadOS の select は選択肢の文字幅で膨らむため、カラム幅に必ず収める */
     .field > select, .field > input, .field > textarea { min-width: 0; max-width: 100%; }
     /* 屋外で片手でも押しやすいタップ領域（130%時 約62px）を主要コントロールに確保する。
-       文字サイズはボタン内の text-sm 指定より優先し、入力欄は text-base（130%時 20.8px）を維持。 */
+       主要ボタンは text-sm 指定より優先し、入力欄は text-base（130%時 20.8px）を維持。 */
     input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]):not(.sr-only),
     select,
     textarea {
       min-height: 3rem;
       padding: 0.75rem 1rem !important;
     }
-    button:not(.font-scale-btn):not(.tab-btn):not([data-close]):not(#btn-log-reset) {
+    button:not(.tab-btn):not([data-close]):not(#btn-log-reset) {
       height: auto !important;
       min-height: 3rem !important;
       padding: 0.75rem 1rem !important;
@@ -120,8 +74,8 @@
     /* WebKit は select の選択中テキストを要素幅でクリップせずに描画し、隣のカラムへ
        はみ出したうえ横スクロールまで発生させる（iPad 実機の「侵食」現象）。
        overflow:hidden で必ずカラム内にクリップする。
-       さらに WebKit のネイティブ select は padding を無視し、文字サイズを特大（130%）に
-       すると高さが約29pxへ潰れて選択値が切れる（min-height も効かない）。
+       さらに WebKit のネイティブ select は padding を無視し、特大（130%）固定では
+       高さが約29pxへ潰れて選択値が切れる（min-height も効かない）。
        appearance:none ＋ 自前の矢印にして、全ブラウザで同じ高さ・タップ領域を確保する。 */
     select {
       max-width: 100%; overflow: hidden; text-overflow: ellipsis;
@@ -140,9 +94,6 @@
     i.fas, i.far, i.fab { line-height: 1; }
     input[type="date"], input[type="time"] { min-height: 44px; }
     .tab-active { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
-    /* 文字サイズ切替（野外視認性）: 選択中はタブと同じ「白＋影」で示す */
-    .font-scale-btn[aria-pressed="true"] { background: #fff; color: #0f172a; box-shadow: 0 1px 3px rgba(15,23,42,.12); }
-    .font-scale-btn[aria-pressed="true"] i { color: #0f172a; }
     .field-error { border-color: #f43f5e !important; background: #fff1f2; }
     .err { color: #e11d48; font-size: 12px; margin-top: 4px; display: none; }
     .err.show { display: block; }
@@ -189,22 +140,6 @@
             <span class="hidden sm:inline">スプレッドシートを開く</span>
           </a>
         </div>
-      </div>
-    </div>
-
-    <!-- 文字サイズ（野外視認性）: 屋外では大きめに。rem ベースの全体スケール -->
-    <div class="mt-3 flex flex-col gap-1 no-print sm:flex-row sm:items-center sm:gap-2">
-      <span id="font-scale-label" class="shrink-0 text-sm font-semibold text-slate-500">文字サイズ</span>
-      <div class="grid min-w-0 flex-1 grid-cols-4 gap-1 rounded-xl bg-slate-200/70 p-1"
-           role="group" aria-labelledby="font-scale-label">
-        <button type="button" data-font-scale="sm" aria-pressed="false" title="文字サイズ 小（90%）"
-                class="font-scale-btn min-h-[44px] whitespace-nowrap rounded-lg px-1 py-2 text-sm font-semibold text-slate-500 transition">小</button>
-        <button type="button" data-font-scale="md" aria-pressed="false" title="文字サイズ 標準（100%）"
-                class="font-scale-btn min-h-[44px] whitespace-nowrap rounded-lg px-1 py-2 text-sm font-semibold text-slate-500 transition">標準</button>
-        <button type="button" data-font-scale="lg" aria-pressed="false" title="文字サイズ 大（115%）"
-                class="font-scale-btn min-h-[44px] whitespace-nowrap rounded-lg px-1 py-2 text-sm font-semibold text-slate-500 transition">大</button>
-        <button type="button" data-font-scale="xl" aria-pressed="false" title="文字サイズ 特大（130%）"
-                class="font-scale-btn min-h-[44px] whitespace-nowrap rounded-lg px-1 py-2 text-sm font-semibold text-slate-500 transition">特大</button>
       </div>
     </div>
   </header>
@@ -994,39 +929,6 @@ const BFF_BASE_URL = 'https://mac-mini-m4.tail95f7a2.ts.net';
 const BFF_URL = BFF_BASE_URL + '/api/parse-log';
 const BFF_EXPORT_URL = BFF_BASE_URL + '/api/export-log';
 const BFF_INFRA_URL = BFF_BASE_URL + '/api/check-infrastructure';
-
-/* =========================================================================
- * 文字サイズ（野外視認性）
- * -------------------------------------------------------------------------
- * <html> の font-size を % で操作し、rem ベースの Tailwind を丸ごと拡縮する。
- * 実際の適用と localStorage 保存は head の先行スクリプト
- * （window.DroneLogFontSize）が担い、ここでは UI の状態反映と操作を扱う。
- * ========================================================================= */
-
-/** head の先行スクリプト（読めない環境では null） */
-function fontScaleApi() {
-  return window.DroneLogFontSize || null;
-}
-
-/** 文字サイズの選択状態をボタンへ反映する */
-function renderFontScaleControls() {
-  var api = fontScaleApi();
-  if (!api) return;
-  var active = api.current().key;
-  $$('button[data-font-scale]').forEach(function (btn) {
-    var on = btn.getAttribute('data-font-scale') === active;
-    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-  });
-}
-
-/** 文字サイズを変更して保存する（'sm' | 'md' | 'lg' | 'xl'） */
-function setFontScale(key) {
-  var api = fontScaleApi();
-  if (!api) return;
-  var scale = api.apply(key, true);
-  renderFontScaleControls();
-  toast('文字サイズ: ' + scale.label + '（' + scale.percent + '%）', 'info');
-}
 
 var ITEM_NAMES = [
   '機体全般', 'プロペラ', 'フレーム',
@@ -4713,12 +4615,6 @@ function handleDelegatedClick(ev) {
     return;
   }
 
-  var fontBtn = target.closest('button[data-font-scale]');
-  if (fontBtn) {
-    setFontScale(fontBtn.getAttribute('data-font-scale'));
-    return;
-  }
-
   var closer = target.closest('[data-close]');
   if (closer) {
     closeModal(closer.getAttribute('data-close'));
@@ -4991,8 +4887,6 @@ function init() {
   bindEvents();
   updateInfraCoordinates();
   switchTab(initialTab());
-  // head で適用済みの文字サイズをボタンの選択状態へ反映する
-  renderFontScaleControls();
 
   setSync(IS_MOCK ? 'mock' : 'loading', IS_MOCK ? 'ローカル(デモ)' : '接続中…');
 
