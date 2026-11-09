@@ -1,4 +1,4 @@
-# ドローン飛行日誌 & 機体管理（GAS + Google スプレッドシート）
+# D-log（ディーログ） & 機体管理（GAS + Google スプレッドシート）
 
 飛行記録・日常点検・機体管理を1画面で行う Web アプリのプロトタイプです。
 Google Apps Script（GAS）をバックエンド、Google スプレッドシートをデータベースとして動作し、
@@ -44,6 +44,11 @@ Google Apps Script（GAS）をバックエンド、Google スプレッドシー�
 drone-log/
 ├── Code.gs                 # バックエンド（CRUD / CSV / 初期化 / doPost API / 将来拡張スタブ）
 ├── index.html              # フロントエンド（3タブ / localStorage モック内蔵 / API 接続対応）
+├── manifest.json           # PWA マニフェスト（D-log / アイコン / テーマ色）
+├── icons/
+│   ├── icon-192x192.png    # PWA アイコン（192x192）
+│   ├── icon-512x512.png    # PWA アイコン（512x512）
+│   └── apple-touch-icon.png # iOS ホーム画面用（180x180）
 ├── appsscript.json         # GAS プロジェクト設定（Asia/Tokyo, V8, 匿名アクセス）
 ├── .clasp.json.example     # clasp 連携用のひな型（scriptId を書き換えて .clasp.json に）
 ├── tests/
@@ -103,6 +108,10 @@ python3 -m http.server 8811
 - タブは URL ハッシュで直接開けます（`#entry` / `#log` / `#fleet`）
 - AI 安全フライト診断は、モックでは固定の解析結果（`mock-gemini`）を返します。
 - `?api=https://…/exec` を付けて開くと、モックではなく**実際の GAS API**（`doPost`）へ接続します。
+- `manifest.json` と `icons/` は PWA 用です。ローカルプレビューでも
+  `http://localhost:8811/manifest.json` と各アイコンが 200 で取得できます。
+  静的配信（GitHub Pages / ローカルプレビュー）向けで、GAS の Web アプリは
+  `index.html` のみを配信するため、PWA のインストールは GitHub Pages 側で行ってください。
   API URL が未設定のまま `http(s)` で開いた場合は、保存されない旨のトーストが表示されます。
 - 同梱のモック API サーバー（`tests/mock-api-server.js`）は**読み取り専用**です（`save*` は
   `未定義のActionです: saveDrone` のようなエラー封筒を返します）。保存系の UI を確認するときは、
@@ -582,8 +591,9 @@ node drone-log/tests/mock-api-server.js 8811
   Pages 公開後も同じ経路で動作します。
 - API は**認証なし（匿名）**で公開されます。URL を知る第三者が記録を追加できます（管理系は非公開）。
 - Tailwind CSS は CDN 版です。社内ネットワーク等で CDN が使えない場合はスタイルが崩れます。
-- アイコンは **Font Awesome 6.4.0 Free（cdnjs）** を読み込みます。CDN が使えない場合はアイコンだけが
+- UI アイコンは **Font Awesome 6.4.0 Free（cdnjs）** を読み込みます。CDN が使えない場合はアイコンだけが
   表示されず、テキストラベルで操作できます（PWA のオフラインキャッシュ対象には入れていません）。
+  アプリの PWA アイコンは `icons/` の PNG（`manifest.json` 参照）です。
 - GAS サーバー側の `parseDjiLog` はスタブ（例外を投げる）です。画面の「DJI ログを取り込む」は
   Tailscale 上の FastAPI BFF（`drone-log-bff`、`https://mac-mini-m4.tail95f7a2.ts.net/api/parse-log`）へ `.txt` を multipart POST し、
   返却された日付・離着陸時刻・飛行時間・座標を自動転記します。BFF が未起動の場合は接続エラーをトースト表示します。
