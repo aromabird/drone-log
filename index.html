@@ -664,7 +664,15 @@
             <i class="fas fa-file-csv" aria-hidden="true"></i>
             様式2・3 点検記録 CSV
           </button>
+          <button type="button" id="btn-export-excel"
+                  class="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-brand-600 px-3 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60 sm:col-span-2">
+            <i class="fas fa-file-excel" aria-hidden="true"></i>
+            飛行日誌を出力 (Excel)
+          </button>
         </div>
+        <p class="mt-2 text-xs leading-relaxed text-slate-500">
+          現在の入力内容（未入力の場合は一覧の最新記録）を、国交省様式1のExcelテンプレートへ書き出します。
+        </p>
         <p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
           <strong>重要:</strong> DIPS 2.0 には飛行日誌の CSV インポート機能がありません。出力する CSV は
           国交省「無人航空機の飛行日誌の取扱要領」様式1〜3の記載事項に準拠した<strong>記録・保管用</strong>データです。
@@ -914,8 +922,10 @@ var LS = {
 var LIMIT_MINUTES = 1200;
 var WARN_MINUTES = 960;
 
-/* DJI ログ解析 BFF（FastAPI）。環境を切り替える場合はここを変更する。 */
-const BFF_URL = 'https://mac-mini-m4.tail95f7a2.ts.net/api/parse-log';
+/* DJI ログ解析・飛行日誌 Excel 出力 BFF（FastAPI）。環境を切り替える場合はここを変更する。 */
+const BFF_BASE_URL = 'https://mac-mini-m4.tail95f7a2.ts.net';
+const BFF_URL = BFF_BASE_URL + '/api/parse-log';
+const BFF_EXPORT_URL = BFF_BASE_URL + '/api/export-log';
 
 /* =========================================================================
  * 文字サイズ（野外視認性）
@@ -1285,9 +1295,8 @@ function showErrors(errors, scope) {
   }
 }
 
-/** テキストをファイルとしてダウンロードする */
-function downloadText(fileName, content, mime) {
-  var blob = new Blob([content], { type: mime || 'text/csv;charset=utf-8' });
+/** Blob をファイルとしてダウンロードする */
+function downloadBlob(fileName, blob) {
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
@@ -1297,6 +1306,11 @@ function downloadText(fileName, content, mime) {
   a.click();
   document.body.removeChild(a);
   setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+}
+
+/** テキストをファイルとしてダウンロードする */
+function downloadText(fileName, content, mime) {
+  downloadBlob(fileName, new Blob([content], { type: mime || 'text/csv;charset=utf-8' }));
 }
 
 /* =========================================================================
@@ -3174,6 +3188,169 @@ function exportCsv(kind) {
   });
 }
 
+/** 現在のフォーム入力から Excel 出力用のペイロードを組み立てる */
+function buildExcelPayloadFromForm() {
+  var date = $('#flight-date').value;
+  var pilotId = $('#flight-pilot').value;
+  var droneId = $('#flight-drone').value;
+  var takeoffPlace = $('#flight-takeoff-place').value.trim();
+  var takeoffTime = $('#flight-takeoff-time').value;
+  var landingTime = $('#flight-landing-time').value;
+  var duration = $('#flight-duration').value;
+
+  if (!date || !pilotId || !droneId || !takeoffPlace || !takeoffTime ||
+      !landingTime || !duration || !(Number(duration) > 0)) {
+    return null;
+  }
+
+  var pilot = (state.data.pilots || []).filter(function (p) {
+    return p.pilotId === pilotId;
+  })[0] || {};
+  var drone = (state.data.drones || []).filter(function (d) {
+    return d.droneId === droneId;
+  })[0] || {};
+
+  var purpose = $('#flight-purpose').value;
+  if (purpose === '__other__') {
+    purpose = $('#flight-purpose-other').value.trim() || 'その他';
+  }
+
+  var safety = $('input[name="safety"]:checked');
+  var measures = [
+    state.entry.hasClearZone !== false ? '立入管理措置: 講じる' : '立入管理措置: 講じない'
+  ];
+  var inspectionLabel = state.entry.type || '点検';
+  var filled = ITEM_NAMES.filter(function (name) {
+    return !!state.entry.items[name];
+  }).length;
+  var ng = ITEM_NAMES.filter(function (name) {
+    return state.entry.items[name] === 'NG';
+  }).length;
+  if (filled === ITEM_NAMES.length && !ng) {
+    measures.push(inspectionLabel + ': 全項目OK');
+  } else if (filled) {
+    measures.push(inspectionLabel + ': ' + filled + '/' + ITEM_NAMES.length + '項目入力' +
+      (ng ? '（NG ' + ng + '件）' : ''));
+  }
+
+  var notes = [];
+  if (safety && safety.value === 'event') {
+    notes.push('安全影響: ' + ($('#safety-detail').value.trim() || 'あり'));
+  }
+  var inspectionMemo = $('#inspection-memo').value.trim();
+  if (inspectionMemo) notes.push('点検メモ: ' + inspectionMemo);
+
+  return {
+    date: date,
+    operator_name: pilot.name || pilotId,
+    registration_id: drone.registrationNo || '',
+    purpose: purpose || '',
+    location: takeoffPlace,
+    takeoff_time: takeoffTime,
+    landing_time: landingTime,
+    total_time: fmtMin(duration),
+    safety_measures: measures.join(' / '),
+    notes: notes.join(' / ')
+  };
+}
+
+/** 日誌一覧の1件から Excel 出力用のペイロードを組み立てる */
+function buildExcelPayloadFromFlight(f) {
+  if (!f) return null;
+
+  var notes = [];
+  if (f.hasSafetyEvent || (f.safetyEvent && f.safetyEvent !== 'なし')) {
+    notes.push('安全影響: ' + (f.safetyEvent || 'あり'));
+  }
+  var inspection = (f.inspections || []).filter(function (i) {
+    return !!i.memo;
+  })[0];
+  if (inspection) notes.push('点検メモ: ' + inspection.memo);
+
+  return {
+    date: f.date || '',
+    operator_name: f.pilotName || f.pilotId || '',
+    registration_id: f.registrationNo || '',
+    purpose: f.purpose || '',
+    location: f.takeoffPlace || '',
+    takeoff_time: f.takeoffTime || '',
+    landing_time: f.landingTime || '',
+    total_time: f.durationLabel || fmtMin(f.durationMin),
+    safety_measures: f.hasClearZone === false
+      ? '立入管理措置: 講じない'
+      : '立入管理措置: 講じる',
+    notes: notes.join(' / ')
+  };
+}
+
+/**
+ * Excel 出力に使うデータを決める。
+ * 現在の入力が揃っていればそれを優先し、未入力なら日誌の最新記録を使う。
+ */
+function buildExcelExportPayload() {
+  var current = buildExcelPayloadFromForm();
+  if (current) return current;
+
+  var latest = (state.log.items || [])[0];
+  return latest ? buildExcelPayloadFromFlight(latest) : null;
+}
+
+/** 飛行日誌 Excel を BFF からダウンロードする */
+function downloadExcel() {
+  var btn = $('#btn-export-excel');
+  if (!btn || btn.disabled) return;
+
+  var payload = buildExcelExportPayload();
+  if (!payload) {
+    toast('先に飛行情報を入力するか、日誌を1件以上読み込んでください。', 'warn');
+    return;
+  }
+
+  var original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> Excelを作成中…';
+
+  fetch(BFF_EXPORT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function (response) {
+    if (!response.ok) {
+      return response.json().catch(function () {
+        return null;
+      }).then(function (data) {
+        var detail = extractBffErrorDetail(data);
+        throw new Error(detail || ('Excelの出力に失敗しました（HTTP ' + response.status + '）。'));
+      });
+    }
+
+    return response.blob().then(function (blob) {
+      var disposition = response.headers.get('Content-Disposition') || '';
+      var match = disposition.match(/filename="?([^";]+)"?/i);
+      var safeDate = String(payload.date || todayISO()).replace(/[^0-9A-Za-z._-]/g, '_');
+      return {
+        blob: blob,
+        fileName: match && match[1] ? match[1] : 'flight_record_' + safeDate + '.xlsx'
+      };
+    });
+  }).then(function (result) {
+    if (!result.blob || !result.blob.size) {
+      throw new Error('Excelファイルが空です。');
+    }
+    downloadBlob(result.fileName, result.blob);
+    toast('飛行日誌を出力しました（' + result.fileName + '）', 'success');
+  }).catch(function (err) {
+    if (err && err.name === 'TypeError') {
+      toast('BFFに接続できませんでした。サーバーが起動しているか確認してください。', 'error');
+      return;
+    }
+    toast(err.message || 'Excelの出力に失敗しました。', 'error');
+  }).then(function () {
+    btn.disabled = false;
+    btn.innerHTML = original;
+  });
+}
+
 /* =========================================================================
  * タブ3: 機体管理
  * ========================================================================= */
@@ -4497,6 +4674,8 @@ function bindEvents() {
 
   $('#btn-csv-flight').addEventListener('click', function () { exportCsv('flight'); });
   $('#btn-csv-inspection').addEventListener('click', function () { exportCsv('inspection'); });
+  var exportExcelBtn = $('#btn-export-excel');
+  if (exportExcelBtn) exportExcelBtn.addEventListener('click', downloadExcel);
 
   $('#btn-add-drone').addEventListener('click', function () { openDroneModal(null); });
   $('#btn-add-pilot').addEventListener('click', function () { openPilotModal(null); });
