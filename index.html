@@ -129,17 +129,6 @@
             <p class="mt-1 text-sm font-medium leading-snug text-slate-600 sm:text-base">かんたん・安全なドローン飛行日誌 ＆ リスクアセスメント</p>
           </div>
         </div>
-        <div class="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
-          <div id="sync-status" role="status" aria-live="polite" class="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-white/80 px-2.5 py-1 text-xs text-slate-500 ring-1 ring-slate-200/80">
-            <span id="sync-dot" class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>
-            <span id="sync-text" class="sr-only sm:not-sr-only">接続中…</span>
-          </div>
-          <a id="sheet-link" href="#" target="_blank" rel="noopener" aria-label="スプレッドシートを開く" title="スプレッドシートを開く"
-             class="hidden inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1 rounded-lg px-2 text-xs text-sky-700 hover:underline sm:min-h-0 sm:min-w-0 sm:px-0">
-            <i class="fas fa-table-cells-large" aria-hidden="true"></i>
-            <span class="hidden sm:inline">スプレッドシートを開く</span>
-          </a>
-        </div>
       </div>
     </div>
   </header>
@@ -326,20 +315,20 @@
                   <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-brand-800">
                     <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
                     AI 安全フライト診断
-                    <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-200">Gemini</span>
+                    <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-200">デモ</span>
                   </p>
-                  <p class="mt-0.5 text-xs leading-relaxed text-brand-900/70">衛星写真または現場写真から、障害物・第三者の立入りリスクと特定飛行の該当候補を推定します。</p>
+                  <p class="mt-0.5 text-xs leading-relaxed text-brand-900/70">現在はデモ表示です。実際の画像解析は行わず、特定飛行区分への反映も行いません（BFF の AI 連携は未実装）。</p>
                 </div>
               </div>
 
               <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <button type="button" id="btn-ai-satellite" data-busy-label="解析中…"
                         class="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
-                  <i class="fas fa-satellite" aria-hidden="true"></i>衛星写真で診断
+                  <i class="fas fa-satellite" aria-hidden="true"></i>衛星写真でデモ診断
                 </button>
                 <button type="button" id="btn-ai-photo" data-busy-label="解析中…"
                         class="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
-                  <i class="fas fa-camera" aria-hidden="true"></i>現場写真で診断
+                  <i class="fas fa-camera" aria-hidden="true"></i>現場写真でデモ診断
                 </button>
               </div>
               <input id="ai-photo-file" type="file" accept="image/*" capture="environment" class="hidden">
@@ -355,10 +344,6 @@
                 <p id="ai-summary" class="text-sm leading-relaxed text-slate-700"></p>
                 <ul id="ai-objects" class="space-y-1"></ul>
                 <ul id="ai-advice" class="list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-slate-700"></ul>
-                <button type="button" id="btn-ai-apply"
-                        class="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50">
-                  検出項目を特定飛行区分に反映
-                </button>
               </div>
             </div>
           </div>
@@ -570,7 +555,7 @@
                 <span class="inline-flex min-w-0 items-center gap-1.5">
                   <i class="fas fa-file-import fa-fw text-brand-600" aria-hidden="true"></i>
                   DJI ログを取り込む
-                  <span class="rounded-full bg-amber-100 px-2 py-0.5 text-sm font-bold text-amber-700">モック</span>
+                  <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-sm font-bold text-emerald-700">BFF</span>
                 </span>
                 <span class="text-xs font-normal text-slate-400">タップで展開</span>
               </summary>
@@ -583,7 +568,7 @@
                   ファイルを選択
                 </label>
                 <input id="dji-file" type="file" accept=".txt" class="sr-only">
-                <p class="mt-2 text-xs text-slate-400">ドラッグ＆ドロップにも対応（固定データで自動転記します）</p>
+                <p class="mt-2 text-xs text-slate-400">ドラッグ＆ドロップにも対応（BFF が離着陸時刻・座標を解析します）</p>
                 <p id="dji-status" role="status" aria-live="polite" class="mt-1 text-xs text-slate-500"></p>
               </div>
             </details>
@@ -764,7 +749,7 @@
 
   <footer class="mt-6 pb-6 text-center text-sm text-slate-400">
     <p>D-log（ディーログ） v<span id="app-version">1.0.0</span> ・ 国交省 様式1〜3 準拠</p>
-    <p class="mt-1">記録はスプレッドシートに保存されます。法定点検の要否は必ず原典でご確認ください。</p>
+    <p class="mt-1">記録はこの端末のブラウザ内に保存されます。バックアップは CSV / Excel 出力をご利用ください。法定点検の要否は必ず原典でご確認ください。</p>
   </footer>
 </div>
 
@@ -944,7 +929,7 @@ var FALLBACK_GROUPS = [
 
 /**
  * 特定飛行10項目のフォールバック定義。
- * 通常は GAS の getCatalog_ から受け取る（サーバーが正）。
+ * カタログ未取得時の初期表示に使う。
  */
 var FALLBACK_FLAG_DEFS = [
   { key: 'did', label: 'DID（人口集中地区）', uiLabel: '人口集中地区（DID）の上空', group: 'airspace', severity: 'soft', description: '市街化区域など建物が密集している区域の上空' },
@@ -997,38 +982,12 @@ var CATALOG = FALLBACK_CATALOG;
 var SAVE_BUTTON_HTML = '';
 
 /* =========================================================================
- * バックエンド接続設定
+ * データ保存と BFF
  * -------------------------------------------------------------------------
- * GitHub Pages からは GAS の Web アプリ（doPost）を fetch で呼び出す。
- * url が空のときは GAS 直ホスティング（google.script.run）→ モックの順に
- * 自動で切り替わる。動作確認時は `?api=https://…/exec` で上書きできる。
+ * GitHub Pages で配信する静的 PWA。機体・操縦者・飛行・点検のデータは
+ * ブラウザの localStorage に保存する。
+ * DJI ログ解析・Excel 出力・周辺インフラ判定は FastAPI BFF を利用する。
  * ========================================================================= */
-
-var API_CONFIG = {
-  // GAS Web アプリ（doPost）の本番エンドポイント
-  url: 'https://script.google.com/macros/s/AKfycbzzCRwgtNBXefv9IYcpU-h84j2VDWJ2VVJ-LwMTG0nxHdQSU5aapF0Ldj8C7pSzwnYt_Q/exec',
-  // doPost の認証トークン（Code.gs の API_TOKEN と必ず一致させる）
-  // ※公開リポジトリに含まれるため、これは「簡易ゲート」であり秘匿情報ではない
-  token: 'DRONE_LOG_SECURE_TOKEN_2026',
-  // 通常の API のタイムアウト（ミリ秒）
-  timeoutMs: 30000,
-  // 画像解析・現場環境は外部 API を複数叩くため長めに取る
-  aiTimeoutMs: 90000
-};
-
-(function applyApiUrlFromQuery_() {
-  try {
-    var api = new URLSearchParams(window.location.search).get('api');
-    if (api) API_CONFIG.url = api;
-  } catch (err) {
-    // URLSearchParams が無い環境では既定値のまま
-  }
-})();
-
-/** GAS 直ホスティング（HtmlService）で動作しているか */
-var HAS_SCRIPT_RUN = !!(window.google && window.google.script && window.google.script.run);
-/** バックエンドが無く、localStorage のモックで動作するか */
-var IS_MOCK = !API_CONFIG.url && !HAS_SCRIPT_RUN;
 
 /** カテゴリーカードの配色（Ⅰ=teal / ⅡB=sky / ⅡA=amber / Ⅲ=rose） */
 var CATEGORY_THEME = {
@@ -1071,7 +1030,7 @@ var state = {
   entry: {
     type: '飛行前', items: {}, durationTouched: false, saving: false,
     purpose: '空撮', flags: [], hasClearZone: true, category: null,
-    aiResult: null, aiLoading: false,
+    aiLoading: false,
     envResult: null, envLoading: false,
     infraResult: null, infraLoading: false,
     // 座標変更時に増やす世代番号（古いインフラ判定の応答を破棄する）。
@@ -1116,8 +1075,10 @@ function lsGet(key) {
 function lsSet(key, value) {
   try {
     window.localStorage.setItem(key, value);
+    return true;
   } catch (err) {
-    // 保存できない環境でも画面は動作させる
+    // 保存できない環境でも画面は動作させる（呼び出し側で必要に応じて通知する）
+    return false;
   }
 }
 
@@ -1211,26 +1172,6 @@ function toast(message, type) {
   }, 3600);
 }
 
-/** 同期状態インジケーター */
-function setSync(mode, text) {
-  var dot = $('#sync-dot');
-  var label = $('#sync-text');
-  if (!dot || !label) return;
-  var color = 'bg-slate-300';
-  if (mode === 'gas' || mode === 'api') color = 'bg-teal-500';
-  if (mode === 'mock') color = 'bg-amber-400';
-  if (mode === 'error') color = 'bg-rose-500';
-  dot.className = 'h-1.5 w-1.5 rounded-full ' + color;
-  label.textContent = text;
-  label.title = text;
-}
-
-/** 同期バッジのモード（mock / api / gas）を返す */
-function syncMode() {
-  if (IS_MOCK) return 'mock';
-  return API_CONFIG.url ? 'api' : 'gas';
-}
-
 /** エラー表示をクリアする */
 function clearErrors(scope) {
   $$('.err', scope).forEach(function (el) {
@@ -1287,124 +1228,40 @@ function downloadText(fileName, content, mime) {
 }
 
 /* =========================================================================
- * バックエンド呼び出しラッパー
+ * ローカルデータストア呼び出しラッパー
  * -------------------------------------------------------------------------
- * 呼び出し先は次の順で決まる。
- *   1. API_CONFIG.url があれば GAS の Web アプリ（doPost）へ fetch
- *   2. google.script.run があれば GAS（HtmlService）経由
- *   3. どちらも無ければ localStorage ベースのモック
+ * 機体・操縦者・飛行・点検は localStorage に保存する。外部バックエンドへの
+ * 送信は行わない。DJI ログ解析・Excel 出力・周辺インフラ判定は BFF が担当する。
  * ========================================================================= */
 
 /**
- * バックエンドの関数を Promise で呼び出す。
- * @param {string} funcName 関数名（= doPost の action 名）
+ * ローカルデータストアの関数を Promise で呼び出す。
+ * @param {string} funcName 関数名
  * @param {...*} args 引数
  * @return {Promise<*>} 実行結果
  */
-function callGas(funcName) {
+function callLocal(funcName) {
   var args = Array.prototype.slice.call(arguments, 1);
-  if (API_CONFIG.url) return callApi(funcName, args);
-
-  var runner = window.google && window.google.script && window.google.script.run;
-  if (!runner) return mockCall(funcName, args);
-
-  return new Promise(function (resolve, reject) {
-    var chain = runner
-      .withSuccessHandler(function (result) { resolve(result); })
-      .withFailureHandler(function (err) {
-        var message = err && err.message ? err.message : String(err);
-        reject(new Error(message));
-      });
-    if (typeof chain[funcName] !== 'function') {
-      reject(new Error('サーバー関数が見つかりません: ' + funcName));
-      return;
-    }
-    chain[funcName].apply(chain, args);
-  });
-}
-
-/** 応答に時間がかかる action（タイムアウトを長めに取る） */
-var API_SLOW_ACTIONS = {
-  fetchFlightEnvironment: true,
-  analyzeRiskFromCoordinates: true,
-  analyzeRiskFromImage: true,
-  analyzeRiskWithGemini: true
-};
-
-/**
- * GAS の Web アプリ（doPost）を fetch で呼ぶ。
- *
- * Content-Type に application/json を付けるとブラウザが CORS のプリフライト
- * （OPTIONS）を送るが、GAS はこれに応答できず失敗する。そのため
- * text/plain;charset=utf-8（simple request）で送信している。
- *
- * 本文には API_CONFIG.token を必ず含める（doPost 側で照合し、
- * 一致しない場合は「認証エラー」を返す）。
- *
- * @param {string} funcName action 名
- * @param {Array} args 引数
- * @return {Promise<*>} レスポンスの data
- */
-function callApi(funcName, args) {
-  var timeoutMs = API_SLOW_ACTIONS[funcName] ? API_CONFIG.aiTimeoutMs : API_CONFIG.timeoutMs;
-  var controller = null;
-  var timer = null;
-  var options = {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action: funcName, args: args, token: API_CONFIG.token }),
-    redirect: 'follow'
-  };
-
-  if (typeof AbortController === 'function') {
-    controller = new AbortController();
-    options.signal = controller.signal;
-    timer = setTimeout(function () { controller.abort(); }, timeoutMs);
-  }
-
-  function clearTimer() {
-    if (timer) clearTimeout(timer);
-    timer = null;
-  }
-
-  return fetch(API_CONFIG.url, options)
-    .then(function (res) {
-      clearTimer();
-      if (!res.ok) throw new Error('サーバーエラー（HTTP ' + res.status + '）が返りました。');
-      return res.text();
-    })
-    .then(function (text) {
-      var json;
-      try {
-        json = JSON.parse(text);
-      } catch (err) {
-        throw new Error('サーバーの応答を解析できませんでした（JSON 以外の応答）。');
-      }
-      if (!json || json.success !== true) {
-        throw new Error((json && json.error) || 'サーバーでエラーが発生しました。');
-      }
-      return json.data;
-    })
-    .catch(function (err) {
-      clearTimer();
-      if (err && err.name === 'AbortError') {
-        throw new Error('サーバーの応答がありません（タイムアウト）。時間をおいて再試行してください。');
-      }
-      if (err && err.message && !/Failed to fetch|NetworkError|Load failed/i.test(err.message)) {
-        throw err;
-      }
-      throw new Error('サーバーに接続できません。ネットワークまたは Web アプリの公開設定'
-        + '（アクセス: 全員）を確認してください。');
-    });
+  return mockCall(funcName, args);
 }
 
 
 /* =========================================================================
- * モックバックエンド（google.script.run が無い環境用）
+ * ローカルデータストア（localStorage）
  * -------------------------------------------------------------------------
- * 本番では Code.gs が同じ形のデータを返す。ロジックの重複を避けるため、
- * モックは「画面確認に必要な最小限」に留めている。
+ * 機体・操縦者・飛行・点検をブラウザ内に保存する。外部バックエンドは使わない
+ * （FastAPI BFF は DJI ログ解析・Excel 出力・インフラ判定のみを担当する）。
  * ========================================================================= */
+
+/** デモ用のサンプルデータを投入するか（file:// または ?demo=1） */
+function isDemoMode() {
+  if (window.location.protocol === 'file:') return true;
+  try {
+    return new URLSearchParams(window.location.search).get('demo') === '1';
+  } catch (err) {
+    return false;
+  }
+}
 
 function mockLoad() {
   try {
@@ -1413,16 +1270,26 @@ function mockLoad() {
   } catch (err) {
     // 壊れたデータは作り直す
   }
-  var seed = mockSeed();
+  var seed = isDemoMode() ? mockSeed() : emptyStore();
   mockSave(seed);
   return seed;
 }
 
+/** 初回起動時の空ストア（本番はサンプルデータを入れない） */
+function emptyStore() {
+  return {
+    next: { drone: 1, pilot: 1, flight: 1, inspection: 1 },
+    drones: [],
+    pilots: [],
+    flights: [],
+    inspections: []
+  };
+}
+
 function mockSave(db) {
-  try {
-    lsSet(LS.MOCK, JSON.stringify(db));
-  } catch (err) {
-    console.warn('mock save failed', err);
+  if (!lsSet(LS.MOCK, JSON.stringify(db))) {
+    console.warn('local save failed');
+    throw new Error('ブラウザ内に保存できませんでした（容量不足またはプライベートモード）。CSV / Excel でバックアップしてください。');
   }
 }
 
@@ -1708,11 +1575,10 @@ function mockBootstrap(db) {
 
   return {
     ok: true,
-    version: '1.0.0-mock',
+    version: '1.0.0-local',
     now: mockNow(),
     today: todayISO(),
     monthPrefix: month,
-    spreadsheetUrl: '',
     drones: drones,
     pilots: db.pilots.map(function (p) {
       return {
@@ -1738,7 +1604,7 @@ function mockBootstrap(db) {
   };
 }
 
-/* ===== モック用 CSV（サーバーの csvCell_ / buildCsv_ 相当） ===== */
+/* ===== ローカル CSV（サーバーの csvCell_ / buildCsv_ 相当） ===== */
 
 function csvCell(value) {
   var s = value === null || value === undefined ? '' : String(value);
@@ -1798,7 +1664,7 @@ function mockBuildDipsCsv(db, options) {
     fileName: mockCsvName('dips_flight_log', o.from, o.to),
     mimeType: 'text/csv;charset=utf-8',
     empty: rows.length === 0,
-    note: 'モックデータの CSV です。'
+    note: 'この端末に保存されたデータの CSV です。'
   };
 }
 
@@ -1828,11 +1694,11 @@ function mockBuildInspectionCsv(db, options) {
     fileName: mockCsvName('dips_inspection_log', o.from, o.to),
     mimeType: 'text/csv;charset=utf-8',
     empty: rows.length === 0,
-    note: 'モックデータの CSV です。'
+    note: 'この端末に保存されたデータの CSV です。'
   };
 }
 
-/* ===== モックの書き込み系 ===== */
+/* ===== ローカル書き込み系 ===== */
 
 function mockNextId(db, kind, prefix) {
   var id = prefix + ('0000' + db.next[kind]).slice(-4);
@@ -2047,15 +1913,7 @@ function mockSaveInspectionRecord(payload) {
   };
 }
 
-/* ----- モック: カテゴリー判定 / AI 診断 ----- */
-
-/** モックのカテゴリー判定（Code.gs と同じ規則をローカル関数で再現） */
-function mockJudgeCategory(input) {
-  var p = input || {};
-  var result = judgeCategoryLocal(p.flags || p.specificFlags || [], p.weightG, p.hasClearZone);
-  result.ok = true;
-  return result;
-}
+/* ----- モック: AI 診断（実際の画像解析は行わないデモ） ----- */
 
 /** モックの衛星写真（SVG のダミー画像。data URI の表示経路を確認するため） */
 function mockSatelliteImageUrl() {
@@ -2075,7 +1933,7 @@ function mockRiskResult(source, lat, lng) {
   return {
     ok: true,
     source: source,
-    model: 'mock-gemini',
+    model: 'local-demo',
     lat: satellite ? Number(lat) : null,
     lng: satellite ? Number(lng) : null,
     riskLevel: 'MEDIUM',
@@ -2088,9 +1946,6 @@ function mockRiskResult(source, lat, lng) {
       { objectType: '電線', description: '画面右上に電柱と電線。進入経路の高さ約8m', risk: 'HIGH' },
       { objectType: '見物者', description: '手前側に立入りを制限する柵がなく、人が接近しやすい', risk: 'MEDIUM' }
     ],
-    suggestedFlags: satellite
-      ? { within30m: true, did: false, altitude150m: false, event: false }
-      : { within30m: true, did: true, altitude150m: false, event: false },
     summary: satellite
       ? '周辺に歩行者と車両があります。離陸地点の南東25mに第三者がいるため、立入管理措置と補助者の配置を検討してください。'
       : '電線が進入経路に近接し、第三者の立入りを制限する柵も確認できません。離陸地点の見直しが必要です。',
@@ -2109,136 +1964,17 @@ function mockRiskResult(source, lat, lng) {
   };
 }
 
-/* ===== モックのディスパッチャ ===== */
+/* ===== ローカルストアのディスパッチャ ===== */
 
 var MOCK = {
   getBootstrapData: function () { return mockBootstrap(mockLoad()); },
-  getDrones: function () { return mockDecorate(mockLoad()); },
-  getPilots: function () {
-    var db = mockLoad();
-    var bootstrap = mockBootstrap(db);
-    return bootstrap.pilots;
-  },
   getFlights: function (filter) { return mockGetFlights(mockLoad(), filter); },
-  getInspections: function (filter) { return mockGetInspections(mockLoad(), filter); },
   saveFlightRecord: function (payload) { return mockSaveFlight(payload); },
   saveInspection: function (payload) { return mockSaveInspectionRecord(payload); },
   saveDrone: function (payload) { return mockSaveDrone(payload); },
   savePilot: function (payload) { return mockSavePilot(payload); },
   buildDipsCsv: function (options) { return mockBuildDipsCsv(mockLoad(), options); },
   buildInspectionCsv: function (options) { return mockBuildInspectionCsv(mockLoad(), options); },
-  recalcDroneTotals: function () {
-    var drones = mockDecorate(mockLoad());
-    return {
-      ok: true,
-      count: drones.length,
-      totals: drones.map(function (d) { return { droneId: d.droneId, totalMinutes: d.totalMinutes }; }),
-      message: 'モックの累計を再計算しました。'
-    };
-  },
-  initSpreadsheet: function () {
-    return { ok: true, created: [], headersAdded: [], message: 'モックでは初期化は不要です。' };
-  },
-  parseDjiLog: function () {
-    throw new Error('DJI ログの自動解析は未実装です。飛行時間・離着陸時刻を手入力してください。');
-  },
-  fetchGeoFromAddress: function (address) {
-    var text = String(address == null ? '' : address).trim();
-    if (!text) throw new Error('住所を入力してください。');
-    if (text.indexOf('存在しない') !== -1) {
-      throw new Error('住所が見つかりませんでした: 「' + text + '」。');
-    }
-    return {
-      ok: true,
-      address: text,
-      lat: 35.854,
-      lng: 140.598,
-      formattedAddress: '千葉県香取市小見川',
-      partial: false,
-      status: 'OK',
-      mock: true,
-      message: 'モックの座標を返しました。'
-    };
-  },
-  fetchAddressFromGeo: function (lat, lng) {
-    var la = Number(lat);
-    var ln = Number(lng);
-    if (!isFinite(la) || !isFinite(ln)) {
-      throw new Error('緯度・経度を数値で指定してください。');
-    }
-    return {
-      ok: true,
-      address: '千葉県香取市小見川',
-      formattedAddress: '千葉県香取市小見川',
-      lat: la,
-      lng: ln,
-      status: 'OK',
-      mock: true,
-      message: 'モックの住所を返しました。'
-    };
-  },
-  fetchGeoInfo: function (lat, lng) {
-    return {
-      ok: true,
-      address: '千葉県香取市小見川',
-      isDID: null,
-      restrictions: [],
-      lat: Number(lat),
-      lng: Number(lng),
-      mock: true,
-      message: 'モックの周辺情報です。'
-    };
-  },
-  fetchFlightEnvironment: function (lat, lng) {
-    var la = Number(lat);
-    var ln = Number(lng);
-    if (!isFinite(la) || !isFinite(ln)) {
-      throw new Error('緯度・経度を数値で指定してください。');
-    }
-    if (la < -90 || la > 90 || ln < -180 || ln > 180) {
-      throw new Error('緯度・経度の範囲が不正です（緯度 -90〜90 / 経度 -180〜180）。');
-    }
-
-    // モックは東京周辺（緯度35.5〜35.9 / 経度139.5〜140.0）を DID とみなす
-    var isDID = la >= 35.5 && la <= 35.9 && ln >= 139.5 && ln <= 140.0;
-    var ground = 12.4;
-
-    return {
-      ok: true,
-      lat: la,
-      lng: ln,
-      weather: {
-        text: '薄曇り',
-        temperature: 18.5,
-        humidity: 58,
-        precipitation: 0,
-        windSpeed: 3.2,
-        windGust: 5.1,
-        weatherCode: 2,
-        safetyStatus: 'GOOD',
-        safetyLabel: '飛行適性: 良好（安全圏）',
-        observedAt: mockNow().replace(' ', 'T').slice(0, 16)
-      },
-      elevation: {
-        groundElevation: ground,
-        max150mLimit: Math.round((ground + 150) * 10) / 10,
-        note: 'モックの標高です。'
-      },
-      regulations: {
-        isDID: isDID,
-        note: isDID ? '人口集中地区（DID）内' : '人口集中地区（DID）外',
-        source: 'モック'
-      },
-      sources: {
-        weather: 'Open-Meteo（モック）',
-        elevation: '国土地理院 標高API（モック）',
-        did: '地理院タイル（モック）'
-      },
-      message: 'モックの環境情報です。',
-      fetchedAt: mockNow()
-    };
-  },
-  judgeFlightCategory: function (input) { return mockJudgeCategory(input); },
   analyzeRiskFromCoordinates: function (lat, lng) {
     var la = Number(lat);
     var ln = Number(lng);
@@ -2248,21 +1984,17 @@ var MOCK = {
     }
     return mockRiskResult('satellite', la, ln);
   },
-  analyzeRiskFromImage: function (base64, mimeType) {
+  analyzeRiskFromImage: function (base64) {
     var data = String(base64 || '');
     if (!data) throw new Error('解析する画像が空です。画像を選択し直してください。');
     if (/^data:/.test(data) && !/^data:image\//.test(data)) {
       throw new Error('画像ファイルではありません。JPEG / PNG を指定してください。');
     }
     return mockRiskResult('photo', null, null);
-  },
-  analyzeRiskWithGemini: function (base64, mimeType) {
-    return MOCK.analyzeRiskFromImage(base64, mimeType);
   }
 };
-
 /**
- * モック関数を非同期で呼ぶ（GAS の往復を模して 220ms 待つ）。
+ * モック関数を非同期で呼ぶ（ローカル処理を画面更新と馴染ませるため 220ms 待つ）。
  * @param {string} name 関数名
  * @param {Array} args 引数
  * @return {Promise<*>} 結果
@@ -2315,12 +2047,6 @@ function renderHeaderStats() {
   $('#fleet-stat-alert').textContent = s.alertDrones || 0;
   $('#fleet-stat-safety').textContent = s.safetyEventCount || 0;
   $('#app-version').textContent = d.version || '1.0.0';
-
-  var link = $('#sheet-link');
-  if (d.spreadsheetUrl) {
-    link.href = d.spreadsheetUrl;
-    link.classList.remove('hidden');
-  }
 }
 
 /**
@@ -2451,7 +2177,7 @@ function renderSpecificStatus() {
 }
 
 /**
- * 特定飛行区分からカテゴリーを判定する（Code.gs の judgeFlightCategory と同じ規則）。
+ * 特定飛行区分からカテゴリーを判定する（サーバー側の判定規則と同じ）。
  * 画面はサーバー往復なしで即時反映したいため、同じロジックをローカルにも持つ。
  */
 function judgeCategoryLocal(flags, weightG, hasClearZone) {
@@ -2662,15 +2388,13 @@ function renderEntryAlerts() {
  * @return {Promise<Object>} 取得データ
  */
 function loadBootstrap(opts) {
-  return callGas('getBootstrapData').then(function (data) {
+  return callLocal('getBootstrapData').then(function (data) {
     state.data = data;
     state.data.catalog = data.catalog || FALLBACK_CATALOG;
     state.ready = true;
-    setSync(syncMode(), IS_MOCK ? 'ローカル(デモ)' : (API_CONFIG.url ? 'GAS API' : '同期済み'));
     renderAll();
     return data;
   }).catch(function (err) {
-    setSync('error', '接続エラー');
     if (!opts || !opts.silent) {
       toast('データを取得できませんでした: ' + err.message, 'error');
     }
@@ -2954,7 +2678,7 @@ function handleSave(ev) {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中…';
   $('#save-status').textContent = '保存しています…';
 
-  callGas('saveFlightRecord', buildPayload()).then(function (res) {
+  callLocal('saveFlightRecord', buildPayload()).then(function (res) {
     lsSet(LS.INSPECTOR, $('#inspection-inspector').value.trim());
     lsSet(LS.PILOT, $('#flight-pilot').value);
     lsSet(LS.DRONE, $('#flight-drone').value);
@@ -3119,7 +2843,7 @@ function searchLog(reset) {
     offset: offset
   };
 
-  return callGas('getFlights', payload).then(function (res) {
+  return callLocal('getFlights', payload).then(function (res) {
     var incoming = res.items || [];
     state.log.items = reset ? incoming.slice() : state.log.items.concat(incoming);
     state.log.total = res.total || 0;
@@ -3146,8 +2870,8 @@ function exportCsv(kind) {
 
   var filters = readFilters();
   var request = kind === 'flight'
-    ? callGas('buildDipsCsv', filters)
-    : callGas('buildInspectionCsv', filters);
+    ? callLocal('buildDipsCsv', filters)
+    : callLocal('buildInspectionCsv', filters);
 
   return request.then(function (res) {
     if (!res.count) {
@@ -3547,7 +3271,7 @@ function handleDroneSubmit(ev) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中…';
 
-  callGas('saveDrone', {
+  callLocal('saveDrone', {
     droneId: $('#drone-id').value,
     modelName: $('#drone-model').value.trim(),
     maker: $('#drone-maker').value.trim(),
@@ -3586,7 +3310,7 @@ function handlePilotSubmit(ev) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中…';
 
-  callGas('savePilot', {
+  callLocal('savePilot', {
     pilotId: $('#pilot-id').value,
     name: $('#pilot-name').value.trim(),
     licenseNo: $('#pilot-license').value.trim(),
@@ -3623,7 +3347,7 @@ function handlePeriodicSubmit(ev) {
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中…';
 
-  callGas('saveInspection', {
+  callLocal('saveInspection', {
     droneId: $('#periodic-drone').value,
     type: $('#periodic-type').value,
     date: $('#periodic-date').value,
@@ -3673,8 +3397,8 @@ function initialTab() {
  * 現場効率化: 時刻ワンタップ・ジオコーディング
  * -------------------------------------------------------------------------
  * - 離陸/着陸ボタン: 現在時刻（JST）を入れて飛行時間を即再計算
- * - 座標検索: 住所 → 緯度経度（Code.gs の fetchGeoFromAddress）
- * - 現在地: Geolocation API → 緯度経度＋住所（Code.gs の fetchAddressFromGeo）
+ * - 座標検索: 住所 → 緯度経度（国土地理院 住所検索 API）
+ * - 現在地: Geolocation API → 緯度経度＋住所（Nominatim / 国土地理院）
  * ========================================================================= */
 
 /**
@@ -3746,6 +3470,323 @@ function geoErrorMessage(err) {
   return '現在地を取得できませんでした。緯度・経度を手入力してください。';
 }
 
+/** 数値を小数第1位へ丸める（null / 不正値は null） */
+function round1(value) {
+  var n = Number(value);
+  if (!isFinite(n)) return null;
+  return Math.round(n * 10) / 10;
+}
+
+/** タイムアウト付きで JSON を取得する */
+function fetchJsonWithTimeout(url, options, timeoutMs, label) {
+  var opts = Object.assign({}, options || {});
+  var controller = null;
+  var timer = null;
+  if (typeof AbortController === 'function') {
+    controller = new AbortController();
+    opts.signal = controller.signal;
+    timer = setTimeout(function () { controller.abort(); }, timeoutMs || 12000);
+  }
+
+  function clear() {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  }
+
+  return fetch(url, opts).then(function (res) {
+    clear();
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }).catch(function (err) {
+    clear();
+    if (err && err.name === 'AbortError') {
+      throw new Error((label || '外部API') + 'の応答がありません（タイムアウト）。');
+    }
+    throw new Error((label || '外部API') + 'に接続できませんでした。');
+  });
+}
+
+/**
+ * 住所 → 緯度経度（国土地理院 住所検索 API）。
+ * @param {string} address 住所
+ * @return {Promise<Object>} 座標
+ */
+function geocodeAddress(address) {
+  var text = String(address == null ? '' : address).trim();
+  if (!text) return Promise.reject(new Error('住所を入力してください。'));
+
+  var url = 'https://msearch.gsi.go.jp/address-search/AddressSearch?q=' + encodeURIComponent(text);
+  return fetchJsonWithTimeout(url, { headers: { Accept: 'application/json' } }, 12000, '国土地理院')
+    .then(function (list) {
+      if (!Array.isArray(list) || !list.length) {
+        throw new Error('住所が見つかりませんでした: 「' + text + '」。');
+      }
+      var first = list[0] || {};
+      var coords = first.geometry && first.geometry.coordinates;
+      var lat = coords && Number(coords[1]);
+      var lng = coords && Number(coords[0]);
+      if (!isFinite(lat) || !isFinite(lng)) {
+        throw new Error('住所の座標を取得できませんでした。住所を確認してください。');
+      }
+      return {
+        ok: true,
+        address: text,
+        lat: lat,
+        lng: lng,
+        formattedAddress: (first.properties && first.properties.title) || text,
+        partial: false,
+        status: 'OK',
+        message: '国土地理院の住所検索で座標を取得しました。'
+      };
+    });
+}
+
+/** Nominatim の連続呼び出しを 1.1 秒以上あける */
+var lastNominatimAt = 0;
+
+/**
+ * 緯度経度 → 住所（Nominatim。失敗時は国土地理院の逆ジオコーダー）。
+ * @param {number} lat 緯度
+ * @param {number} lng 経度
+ * @return {Promise<Object>} 住所
+ */
+function reverseGeocode(lat, lng) {
+  var la = Number(lat);
+  var ln = Number(lng);
+  if (!isFinite(la) || !isFinite(ln)) {
+    return Promise.reject(new Error('緯度・経度を数値で指定してください。'));
+  }
+  if (la < -90 || la > 90 || ln < -180 || ln > 180) {
+    return Promise.reject(new Error('緯度・経度の範囲が不正です（緯度 -90〜90 / 経度 -180〜180）。'));
+  }
+
+  var wait = Math.max(0, 1100 - (Date.now() - lastNominatimAt));
+  var nominatimUrl = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1'
+    + '&accept-language=ja&lat=' + la + '&lon=' + ln;
+
+  return new Promise(function (resolve) { setTimeout(resolve, wait); }).then(function () {
+    lastNominatimAt = Date.now();
+    return fetchJsonWithTimeout(nominatimUrl, { headers: { Accept: 'application/json' } },
+      12000, '住所検索サービス');
+  }).then(function (json) {
+    var address = json && json.display_name;
+    if (!address) throw new Error('住所が見つかりませんでした。');
+    return {
+      ok: true,
+      address: address,
+      formattedAddress: address,
+      lat: la,
+      lng: ln,
+      status: 'OK',
+      message: 'Nominatim で住所を取得しました。'
+    };
+  }).catch(function () {
+    var gsiUrl = 'https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat='
+      + la + '&lon=' + ln;
+    return fetchJsonWithTimeout(gsiUrl, { headers: { Accept: 'application/json' } },
+      12000, '国土地理院').then(function (json) {
+      var name = json && json.results && json.results.lv01Nm;
+      if (!name) throw new Error('住所が見つかりませんでした。');
+      return {
+        ok: true,
+        address: name,
+        formattedAddress: name,
+        lat: la,
+        lng: ln,
+        status: 'OK',
+        message: '国土地理院の逆ジオコーダーで住所を取得しました。'
+      };
+    });
+  });
+}
+
+/** WMO 天気コードを日本語へ変換する */
+function weatherText(code) {
+  var map = {
+    0: '快晴', 1: '晴れ', 2: '薄曇り', 3: '曇り',
+    45: '霧', 48: '着氷性の霧',
+    51: '弱い霧雨', 53: '霧雨', 55: '強い霧雨',
+    56: '着氷性の霧雨', 57: '強い着氷性の霧雨',
+    61: '弱い雨', 63: '雨', 65: '強い雨',
+    66: '着氷性の雨', 67: '強い着氷性の雨',
+    71: '弱い雪', 73: '雪', 75: '強い雪', 77: '雪粒',
+    80: '弱いにわか雨', 81: 'にわか雨', 82: '激しいにわか雨',
+    85: '弱いにわか雪', 86: '強いにわか雪',
+    95: '雷雨', 96: '雷雨（ひょう）', 99: '強い雷雨（ひょう）'
+  };
+  return map[Number(code)] || '不明';
+}
+
+/** 天候から飛行適性を判定する */
+function evaluateWeatherSafety(weather) {
+  var code = Number(weather.weatherCode);
+  var precip = Number(weather.precipitation) || 0;
+  var wind = Number(weather.windSpeed) || 0;
+  var gust = Number(weather.windGust) || 0;
+  var dangerCodes = [71, 73, 75, 77, 85, 86, 95, 96, 99];
+  var cautionCodes = [45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82];
+
+  if (gust >= 10 || wind >= 7 || precip >= 5 || dangerCodes.indexOf(code) !== -1) {
+    return { status: 'DANGER', label: '飛行適性: 危険（飛行を見合わせてください）' };
+  }
+  if (gust >= 7 || wind >= 5 || precip > 0 || cautionCodes.indexOf(code) !== -1) {
+    return { status: 'CAUTION', label: '飛行適性: 注意（風・雨の状況を確認）' };
+  }
+  return { status: 'GOOD', label: '飛行適性: 良好（安全圏）' };
+}
+
+/** Open-Meteo から現在の天候を取得する */
+function fetchWeather(lat, lng) {
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lng
+    + '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,'
+    + 'wind_speed_10m,wind_gusts_10m&timezone=Asia%2FTokyo';
+  return fetchJsonWithTimeout(url, { headers: { Accept: 'application/json' } }, 15000, 'Open-Meteo')
+    .then(function (json) {
+      var cur = json && json.current;
+      if (!cur) throw new Error('天候データを取得できませんでした。');
+      var weather = {
+        text: weatherText(cur.weather_code),
+        temperature: round1(cur.temperature_2m),
+        humidity: round1(cur.relative_humidity_2m),
+        precipitation: round1(cur.precipitation),
+        windSpeed: round1(Number(cur.wind_speed_10m) / 3.6),
+        windGust: round1(Number(cur.wind_gusts_10m) / 3.6),
+        weatherCode: Number(cur.weather_code),
+        observedAt: cur.time || ''
+      };
+      var safety = evaluateWeatherSafety(weather);
+      weather.safetyStatus = safety.status;
+      weather.safetyLabel = safety.label;
+      return weather;
+    });
+}
+
+/** 国土地理院 標高API から海抜を取得する */
+function fetchElevation(lat, lng) {
+  var url = 'https://cyberjapandata2.gsi.go.jp/general/dem/scripts/getelevation.php?lon='
+    + lng + '&lat=' + lat + '&outtype=JSON';
+  return fetchJsonWithTimeout(url, { headers: { Accept: 'application/json' } }, 12000, '国土地理院')
+    .then(function (json) {
+      var raw = json && json.elevation;
+      var elevation = (raw === null || raw === undefined || raw === '') ? NaN : Number(raw);
+      if (!isFinite(elevation)) {
+        return { groundElevation: null, max150mLimit: null, note: '標高を取得できませんでした。' };
+      }
+      var source = json && json.hsrc ? '（' + json.hsrc + '）' : '';
+      return {
+        groundElevation: round1(elevation),
+        max150mLimit: round1(elevation + 150),
+        note: '国土地理院の標高データ' + source
+      };
+    }).catch(function () {
+      return { groundElevation: null, max150mLimit: null, note: '標高を取得できませんでした。' };
+    });
+}
+
+/** 指定座標の DID2020 タイルを読み、そのピクセルが不透明なら DID 内と判定する */
+function fetchDid(lat, lng) {
+  var zoom = 16;
+  var n = Math.pow(2, zoom);
+  var x = (lng + 180) / 360 * n;
+  var rad = lat * Math.PI / 180;
+  var y = (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n;
+  var tileX = Math.floor(x);
+  var tileY = Math.floor(y);
+  var pixelX = Math.min(255, Math.max(0, Math.floor((x - tileX) * 256)));
+  var pixelY = Math.min(255, Math.max(0, Math.floor((y - tileY) * 256)));
+  var url = 'https://cyberjapandata.gsi.go.jp/xyz/did2020/' + zoom + '/' + tileX + '/' + tileY + '.png';
+
+  return Promise.race([
+    fetch(url, { mode: 'cors', cache: 'no-store' }).then(function (res) {
+      if (res.status === 404) return false;
+      if (!res.ok) return null;
+      return res.blob();
+    }).then(function (blob) {
+      if (blob === false || blob === null) return blob;
+      return new Promise(function (resolve) {
+        var img = new Image();
+        var objectUrl = URL.createObjectURL(blob);
+        img.onload = function () {
+          try {
+            var canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || 256;
+            canvas.height = img.naturalHeight || 256;
+            var ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            resolve(ctx.getImageData(pixelX, pixelY, 1, 1).data[3] > 0);
+          } catch (err) {
+            resolve(null);
+          } finally {
+            URL.revokeObjectURL(objectUrl);
+          }
+        };
+        img.onerror = function () {
+          URL.revokeObjectURL(objectUrl);
+          resolve(null);
+        };
+        img.src = objectUrl;
+      });
+    }).catch(function () {
+      return null;
+    }),
+    new Promise(function (resolve) {
+      setTimeout(function () { resolve(null); }, 8000);
+    })
+  ]);
+}
+
+/**
+ * 現場環境（天候・標高・DID）を公開APIから取得する。
+ * @param {number} lat 緯度
+ * @param {number} lng 経度
+ * @return {Promise<Object>} 表示用の環境情報
+ */
+function fetchEnvironment(lat, lng) {
+  var la = Number(lat);
+  var ln = Number(lng);
+  if (!isFinite(la) || !isFinite(ln)) {
+    return Promise.reject(new Error('緯度・経度を数値で指定してください。'));
+  }
+  if (la < -90 || la > 90 || ln < -180 || ln > 180) {
+    return Promise.reject(new Error('緯度・経度の範囲が不正です（緯度 -90〜90 / 経度 -180〜180）。'));
+  }
+
+  return Promise.all([
+    fetchWeather(la, ln),
+    fetchElevation(la, ln),
+    fetchDid(la, ln)
+  ]).then(function (results) {
+    var weather = results[0];
+    var elevation = results[1];
+    var isDID = results[2];
+    var didNote = isDID === true
+      ? '人口集中地区（DID）内'
+      : (isDID === false
+        ? '人口集中地区（DID）外'
+        : 'DID を判定できませんでした（DIPS で確認してください）');
+
+    return {
+      ok: true,
+      lat: la,
+      lng: ln,
+      weather: weather,
+      elevation: elevation,
+      regulations: {
+        isDID: isDID,
+        note: didNote,
+        source: '国土地理院 地理院タイル（DID2020）'
+      },
+      sources: {
+        weather: 'Open-Meteo',
+        elevation: '国土地理院 標高API',
+        did: '国土地理院 地理院タイル（DID2020）'
+      },
+      message: '現場環境を取得しました。',
+      fetchedAt: mockNow()
+    };
+  });
+}
+
 /** 住所 → 緯度経度（入力欄の「🔍 座標検索」） */
 function handleAddressGeocode() {
   var input = $('#flight-takeoff-place');
@@ -3761,7 +3802,7 @@ function handleAddressGeocode() {
   setButtonBusy(btn, true);
   if (status) status.textContent = '住所から座標を検索しています…';
 
-  callGas('fetchGeoFromAddress', address).then(function (res) {
+  geocodeAddress(address).then(function (res) {
     if (!setGeoFields(res && res.lat, res && res.lng)) {
       throw new Error('座標を取得できませんでした。住所を確認してください。');
     }
@@ -3795,7 +3836,7 @@ function handleGpsLocate() {
     setGeoFields(lat, lng);
     if (status) status.textContent = '現在地: ' + lat + ', ' + lng;
 
-    callGas('fetchAddressFromGeo', lat, lng).then(function (res) {
+    reverseGeocode(lat, lng).then(function (res) {
       var address = res && (res.address || res.formattedAddress);
       if (!address) {
         toast('現在地の座標を入力しました（住所は取得できませんでした）。', 'success');
@@ -3804,7 +3845,7 @@ function handleGpsLocate() {
       $('#flight-takeoff-place').value = address;
       clearFieldError('flight-takeoff-place');
       if (status) status.textContent = address;
-      toast('現在地の座標と住所を入力しました' + (res.mock ? '（モック）' : '') + '。', 'success');
+      toast('現在地の座標と住所を入力しました。', 'success');
     }).catch(function () {
       if (status) status.textContent = '座標のみ入力しました（住所は取得できませんでした）。';
       toast('座標は入力しましたが、住所を取得できませんでした。', 'warn');
@@ -3832,7 +3873,7 @@ function handleGeoLookup() {
   setButtonBusy(btn, true);
   if (status) status.textContent = '座標から地名を取得しています…';
 
-  callGas('fetchGeoInfo', Number(lat), Number(lng)).then(function (res) {
+  reverseGeocode(Number(lat), Number(lng)).then(function (res) {
     var address = res && res.address;
     if (status) status.textContent = address || '地名を取得できませんでした。';
     toast(address || '地名を取得できませんでした。', address ? 'success' : 'warn');
@@ -3848,7 +3889,7 @@ function handleGeoLookup() {
 /* =========================================================================
  * 現場環境（天候・風速 / 海抜標高 / DID）
  * -------------------------------------------------------------------------
- * Code.gs の fetchFlightEnvironment が返す値を表示する。
+ * 公開API（Open-Meteo / 国土地理院）から取得した値を表示する。
  * DID 内だった場合は特定飛行区分へ「追加のみ」反映してカテゴリーを再判定する。
  * ========================================================================= */
 
@@ -3906,7 +3947,7 @@ function applyEnvDidFlag(isDID) {
 /**
  * 天候・風速・標高・DID の結果を描画する。
  *
- * @param {Object} result fetchFlightEnvironment の戻り値
+ * @param {Object} result fetchEnvironment の戻り値
  */
 function renderEnvResult(result) {
   var box = $('#env-result');
@@ -4005,7 +4046,7 @@ function handleFetchEnvironment() {
   setButtonBusy(btn, true);
   envSetStatus('天候・標高・DID を取得しています…（数秒）');
 
-  callGas('fetchFlightEnvironment', Number(lat), Number(lng)).then(function (res) {
+  fetchEnvironment(Number(lat), Number(lng)).then(function (res) {
     if (seq !== state.entry.reqSeq) return; // クリア済みの応答は破棄する
     renderEnvResult(res);
     var regulations = (res && res.regulations) || {};
@@ -4233,7 +4274,6 @@ function handleCheckInfrastructure() {
 
 /** AI 診断の表示をリセットする */
 function resetAiResult() {
-  state.entry.aiResult = null;
   state.entry.aiLoading = false;
   var box = $('#ai-result');
   if (box) box.classList.add('hidden');
@@ -4268,7 +4308,6 @@ function aiSetStatus(text, isError) {
 function renderAiResult(result) {
   var box = $('#ai-result');
   if (!box || !result) return;
-  state.entry.aiResult = result;
   box.classList.remove('hidden');
 
   var thumb = $('#ai-thumb');
@@ -4293,7 +4332,7 @@ function renderAiResult(result) {
   var source = $('#ai-source');
   if (source) {
     source.textContent = (result.source === 'satellite' ? '衛星写真' : '現場写真') +
-      ' / ' + (result.model || 'gemini') + (result.mock ? '（モック）' : '');
+      ' / ' + (result.model || 'local-demo') + '（デモ）';
   }
 
   var summary = $('#ai-summary');
@@ -4315,39 +4354,6 @@ function renderAiResult(result) {
       return '<li>' + esc(a) + '</li>';
     }).join('');
   }
-}
-
-/** AI の suggestedFlags を特定飛行区分へ反映する（追加した項目を返す） */
-function applyAiSuggestions(showToast) {
-  var result = state.entry.aiResult;
-  if (!result || !result.suggestedFlags) return [];
-
-  var map = [
-    ['within30m', '人・物件から30m未満'],
-    ['did', 'DID（人口集中地区）'],
-    ['altitude150m', '150m以上'],
-    ['event', 'イベント上空']
-  ];
-  var flags = (state.entry.flags || []).filter(function (f) { return f !== '非特定飛行'; });
-  var added = [];
-
-  map.forEach(function (pair) {
-    if (result.suggestedFlags[pair[0]] !== true) return;
-    if (flags.indexOf(pair[1]) === -1) {
-      flags.push(pair[1]);
-      added.push(pair[1]);
-    }
-  });
-
-  if (!added.length) {
-    if (showToast) toast('AI の検出項目はすでに反映されています。', 'info');
-    return [];
-  }
-
-  state.entry.flags = flags;
-  renderSpecificFlags();
-  if (showToast) toast('AI 診断から「' + added.join('・') + '」を選択しました。', 'success');
-  return added;
 }
 
 /**
@@ -4426,16 +4432,13 @@ function handleAiSatellite() {
   var seq = state.entry.reqSeq;
   state.entry.aiLoading = true;
   setButtonBusy(btn, true);
-  aiSetStatus('衛星写真を取得して Gemini が解析しています…（10〜20秒）');
+  aiSetStatus('デモ結果を生成しています…');
 
-  callGas('analyzeRiskFromCoordinates', Number(lat), Number(lng)).then(function (res) {
+  callLocal('analyzeRiskFromCoordinates', Number(lat), Number(lng)).then(function (res) {
     if (seq !== state.entry.reqSeq) return; // クリア済みの応答は破棄する
     renderAiResult(res);
-    var added = applyAiSuggestions(false);
-    aiSetStatus('診断が完了しました。' +
-      (added.length ? '「' + added.join('・') + '」を特定飛行区分に反映しました。' : ''), false);
-    toast('AI 診断が完了しました（' + (res.riskLabel || '中リスク') + '）' +
-      (added.length ? '。' + added.join('・') + ' を反映' : '') + '。', 'success');
+    aiSetStatus('デモ診断が完了しました。実際の画像解析は行われていません。', false);
+    toast('デモ診断が完了しました（' + (res.riskLabel || '中リスク') + '）。', 'success');
   }).catch(function (err) {
     if (seq !== state.entry.reqSeq) return;
     aiSetStatus(err.message || 'AI 診断に失敗しました。', true);
@@ -4459,16 +4462,13 @@ function handleAiPhotoSelected(file) {
 
   compressImage(file, 1200).then(function (image) {
     if (seq !== state.entry.reqSeq) return null; // クリア済みなら送信しない
-    aiSetStatus('画像を送信して Gemini が解析しています…（10〜20秒）');
-    return callGas('analyzeRiskFromImage', image.dataUrl, image.mimeType);
+    aiSetStatus('デモ結果を生成しています…');
+    return callLocal('analyzeRiskFromImage', image.dataUrl, image.mimeType);
   }).then(function (res) {
     if (!res || seq !== state.entry.reqSeq) return;
     renderAiResult(res);
-    var added = applyAiSuggestions(false);
-    aiSetStatus('診断が完了しました。' +
-      (added.length ? '「' + added.join('・') + '」を特定飛行区分に反映しました。' : ''), false);
-    toast('AI 診断が完了しました（' + (res.riskLabel || '中リスク') + '）' +
-      (added.length ? '。' + added.join('・') + ' を反映' : '') + '。', 'success');
+    aiSetStatus('デモ診断が完了しました。実際の画像解析は行われていません。', false);
+    toast('デモ診断が完了しました（' + (res.riskLabel || '中リスク') + '）。', 'success');
   }).catch(function (err) {
     if (seq !== state.entry.reqSeq) return;
     aiSetStatus(err.message || 'AI 診断に失敗しました。', true);
@@ -4755,11 +4755,6 @@ function bindEvents() {
     });
   }
 
-  var aiApply = $('#btn-ai-apply');
-  if (aiApply) {
-    aiApply.addEventListener('click', function () { applyAiSuggestions(true); });
-  }
-
   $('#flight-purpose').addEventListener('change', function () {
     var value = this.value;
     state.entry.purpose = value === '__other__' ? 'その他' : value;
@@ -4872,9 +4867,6 @@ function bindEvents() {
 
 /** 初期化 */
 function init() {
-  HAS_SCRIPT_RUN = !!(window.google && window.google.script && window.google.script.run);
-  IS_MOCK = !API_CONFIG.url && !HAS_SCRIPT_RUN;
-
   var today = todayISO();
   $('#flight-date').value = today;
   $('#inspection-date').value = today;
@@ -4887,14 +4879,6 @@ function init() {
   bindEvents();
   updateInfraCoordinates();
   switchTab(initialTab());
-
-  setSync(IS_MOCK ? 'mock' : 'loading', IS_MOCK ? 'ローカル(デモ)' : '接続中…');
-
-  // 公開ホスティング（GitHub Pages 等）で API URL 未設定のまま開いた場合、
-  // 入力内容が保存されないことを知らせる（file:// のデモでは出さない）。
-  if (IS_MOCK && window.location.protocol !== 'file:') {
-    toast('バックエンド未設定のためデモ表示です（データは保存されません）。', 'warn');
-  }
 
   // カタログ取得前でもフォームを操作できるよう、先に選択肢を描画する
   renderCatalogControls();
