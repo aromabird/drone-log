@@ -431,6 +431,37 @@
             </p>
           </div>
 
+          <!-- 周辺インフラ（送電線・鉄塔）のリスクチェック -->
+          <div class="mt-4 border-t border-slate-100 pt-4">
+            <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+              <div class="min-w-0">
+                <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-amber-900">
+                  <i class="fas fa-bolt" aria-hidden="true"></i>
+                  周辺インフラのリスクチェック
+                  <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">OpenStreetMap / Overpass API</span>
+                </p>
+                <p class="mt-0.5 text-xs leading-relaxed text-amber-900/70">
+                  STEP 1 の緯度・経度を使い、半径300m以内の送電線・鉄塔を確認します。
+                </p>
+              </div>
+
+              <p id="infra-coords" class="num mt-2 text-xs font-semibold text-slate-600">対象座標: 未入力（STEP 1で緯度・経度を入力）</p>
+
+              <button type="button" id="btn-infra-check" data-busy-label="確認中…"
+                      class="mt-2.5 inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-50 disabled:opacity-60">
+                <i class="fas fa-tower-broadcast" aria-hidden="true"></i>周辺インフラのリスクチェック
+              </button>
+
+              <p id="infra-status" class="mt-2 text-xs leading-relaxed text-slate-500"></p>
+
+              <div id="infra-result" class="mt-2 hidden rounded-lg border p-3" role="status" aria-live="polite" aria-atomic="true">
+                <p id="infra-title" class="text-sm font-bold"></p>
+                <p id="infra-message" class="mt-1 text-xs leading-relaxed"></p>
+                <p id="infra-detail" class="num mt-1 text-xs font-semibold"></p>
+              </div>
+            </div>
+          </div>
+
           <div class="mt-4 border-t border-slate-100 pt-4">
             <div class="field">
               <label for="flight-purpose" class="block text-sm font-semibold text-slate-600"><i class="fas fa-bullseye fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>飛行目的</label>
@@ -926,6 +957,7 @@ var WARN_MINUTES = 960;
 const BFF_BASE_URL = 'https://mac-mini-m4.tail95f7a2.ts.net';
 const BFF_URL = BFF_BASE_URL + '/api/parse-log';
 const BFF_EXPORT_URL = BFF_BASE_URL + '/api/export-log';
+const BFF_INFRA_URL = BFF_BASE_URL + '/api/check-infrastructure';
 
 /* =========================================================================
  * 文字サイズ（野外視認性）
@@ -1103,6 +1135,9 @@ var state = {
     purpose: '空撮', flags: [], hasClearZone: true, category: null,
     aiResult: null, aiLoading: false,
     envResult: null, envLoading: false,
+    infraResult: null, infraLoading: false,
+    // 座標変更時に増やす世代番号（古いインフラ判定の応答を破棄する）。
+    infraSeq: 0,
     // 「入力をクリア」で増やす世代番号。古い非同期応答を破棄するために使う。
     reqSeq: 0
   },
@@ -2863,6 +2898,7 @@ function resetEntryAfterSave() {
 
   resetAiResult();
   resetEnvResult();
+  resetInfraResult();
 
   $('#inspection-inspector').value = lsGet(LS.INSPECTOR) || '';
   renderSpecificFlags();
@@ -2927,6 +2963,7 @@ function clearFlightForm() {
   // 診断・外部データ連携の表示を消す
   resetAiResult();
   resetEnvResult();
+  resetInfraResult();
   var aiFile = $('#ai-photo-file');
   if (aiFile) aiFile.value = '';
 
@@ -2934,6 +2971,7 @@ function clearFlightForm() {
   setButtonBusy($('#btn-env'), false);
   setButtonBusy($('#btn-ai-satellite'), false);
   setButtonBusy($('#btn-ai-photo'), false);
+  setButtonBusy($('#btn-infra-check'), false);
 
   // 再描画（特定飛行10項目は未チェック → カテゴリーⅠへ戻る）
   renderCatalogControls();
@@ -3748,6 +3786,7 @@ function setGeoFields(lat, lng) {
   $('#flight-lng').value = ln.toFixed(6);
   clearFieldError('flight-lat');
   clearFieldError('flight-lng');
+  handleInfraCoordinateChange();
   return true;
 }
 
@@ -4053,6 +4092,199 @@ function handleFetchEnvironment() {
   }).then(function () {
     if (seq !== state.entry.reqSeq) return; // クリア後にボタン状態を触らない
     state.entry.envLoading = false;
+    setButtonBusy(btn, false);
+  });
+}
+
+/* =========================================================================
+ * 周辺インフラ（送電線・鉄塔）のリスクチェック
+ * ========================================================================= */
+
+/** 周辺インフラのステータス文言を更新する */
+function infraSetStatus(text, isError) {
+  var el = $('#infra-status');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'mt-2 text-xs leading-relaxed ' + (isError ? 'text-rose-600' : 'text-slate-500');
+}
+
+/** 現在の緯度・経度を対象座標として表示する */
+function updateInfraCoordinates() {
+  var el = $('#infra-coords');
+  if (!el) return;
+
+  var lat = $('#flight-lat').value;
+  var lng = $('#flight-lng').value;
+  if (lat === '' || lng === '') {
+    el.textContent = '対象座標: 未入力（STEP 1で緯度・経度を入力）';
+    return;
+  }
+
+  var la = Number(lat);
+  var ln = Number(lng);
+  if (!isFinite(la) || !isFinite(ln) || la < -90 || la > 90 || ln < -180 || ln > 180) {
+    el.textContent = '対象座標: 入力値を確認してください';
+    return;
+  }
+  el.textContent = '対象座標: ' + la.toFixed(6) + ', ' + ln.toFixed(6) + '（半径300m）';
+}
+
+/** 結果カードだけを非表示にする（再チェック・失敗時に使う） */
+function clearInfraResultDisplay() {
+  state.entry.infraResult = null;
+
+  var box = $('#infra-result');
+  if (box) box.classList.add('hidden');
+
+  ['#infra-title', '#infra-message', '#infra-detail'].forEach(function (sel) {
+    var el = $(sel);
+    if (el) el.textContent = '';
+  });
+}
+
+/** 周辺インフラの判定結果をリセットする */
+function resetInfraResult() {
+  state.entry.infraLoading = false;
+  state.entry.infraSeq = (state.entry.infraSeq || 0) + 1;
+
+  clearInfraResultDisplay();
+  infraSetStatus('');
+  setButtonBusy($('#btn-infra-check'), false);
+  updateInfraCoordinates();
+}
+
+/** 座標が変わったら古い判定を消し、対象座標の表示を更新する */
+function handleInfraCoordinateChange() {
+  if (state.entry.infraResult || state.entry.infraLoading) {
+    resetInfraResult();
+    return;
+  }
+  updateInfraCoordinates();
+}
+
+/** 周辺インフラの判定結果を赤（警告）／緑（安全）で描画する */
+function renderInfraResult(result) {
+  var box = $('#infra-result');
+  if (!box || !result) return;
+
+  state.entry.infraResult = result;
+  var detected = result.power_risk_detected === true;
+
+  box.classList.remove('hidden');
+  box.className = 'mt-2 rounded-lg border p-3 ' + (detected
+    ? 'border-rose-300 bg-rose-50 text-rose-900'
+    : 'border-emerald-300 bg-emerald-50 text-emerald-900');
+  box.setAttribute('role', detected ? 'alert' : 'status');
+
+  var title = $('#infra-title');
+  if (title) {
+    title.textContent = detected ? '⚠️ 送電線・鉄塔を検知しました' : '✅ 周辺インフラの異常なし';
+  }
+
+  var message = $('#infra-message');
+  if (message) {
+    message.textContent = result.message || (detected
+      ? '周辺に送電線・鉄塔があります。飛行前の確認事項を反映してください。'
+      : '周辺インフラ（送電線・鉄塔）の異常なし');
+  }
+
+  var detail = $('#infra-detail');
+  if (detail) {
+    detail.textContent = '鉄塔 ' + (Number(result.towers_count) || 0) + ' 基 / ' +
+      '送電線 ' + (Number(result.lines_count) || 0) + ' 件（半径300m）';
+  }
+}
+
+/** 周辺インフラのリスクを BFF 経由で確認する */
+function handleCheckInfrastructure() {
+  if (state.entry.infraLoading) return;
+
+  var lat = $('#flight-lat').value;
+  var lng = $('#flight-lng').value;
+  if (lat === '' || lng === '') {
+    toast('先に緯度・経度を入力するか「📍 現在地（GPS）」で取得してください。', 'warn');
+    $('#flight-lat').focus();
+    return;
+  }
+
+  var la = Number(lat);
+  var ln = Number(lng);
+  if (!isFinite(la) || !isFinite(ln) || la < -90 || la > 90 || ln < -180 || ln > 180) {
+    toast('緯度・経度の範囲が不正です（緯度 -90〜90 / 経度 -180〜180）。', 'warn');
+    $('#flight-lat').focus();
+    return;
+  }
+
+  var btn = $('#btn-infra-check');
+  var seq = state.entry.infraSeq;
+  var requestLat = la.toFixed(6);
+  var requestLng = ln.toFixed(6);
+
+  state.entry.infraLoading = true;
+  clearInfraResultDisplay();
+  setButtonBusy(btn, true);
+  updateInfraCoordinates();
+  infraSetStatus('周辺インフラを確認しています…（最大45秒）');
+
+  var url = BFF_INFRA_URL +
+    '?lat=' + encodeURIComponent(requestLat) +
+    '&lon=' + encodeURIComponent(requestLng) +
+    '&radius=300';
+
+  var controller = null;
+  var timer = null;
+  var options = { method: 'GET', headers: { Accept: 'application/json' } };
+  if (typeof AbortController === 'function') {
+    controller = new AbortController();
+    options.signal = controller.signal;
+    timer = setTimeout(function () { controller.abort(); }, 50000);
+  }
+
+  function clearTimer() {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  }
+
+  fetch(url, options).then(function (response) {
+    clearTimer();
+    return response.json().catch(function () {
+      return null;
+    }).then(function (data) {
+      if (!response.ok) {
+        var detail = extractBffErrorDetail(data);
+        throw new Error(detail || ('周辺インフラの確認に失敗しました（HTTP ' + response.status + '）。'));
+      }
+      if (!data || typeof data.power_risk_detected !== 'boolean') {
+        throw new Error('周辺インフラの判定結果を取得できませんでした。');
+      }
+      return data;
+    });
+  }).then(function (res) {
+    if (seq !== state.entry.infraSeq) return; // 座標変更・クリア後の応答は破棄する
+    renderInfraResult(res);
+    infraSetStatus(res.power_risk_detected
+      ? '送電線・鉄塔を検知しました。飛行前の確認事項を反映してください。'
+      : 'チェックが完了しました。', false);
+    toast(res.message || (res.power_risk_detected
+      ? '送電線・鉄塔を検知しました。'
+      : '周辺インフラ（送電線・鉄塔）の異常なし'), res.power_risk_detected ? 'warn' : 'success');
+  }).catch(function (err) {
+    clearTimer();
+    if (seq !== state.entry.infraSeq) return;
+    var message;
+    if (err && err.name === 'AbortError') {
+      message = '周辺インフラの確認がタイムアウトしました。時間をおいて再試行してください。';
+    } else if (err && err.name === 'TypeError') {
+      message = 'BFF に接続できませんでした。サーバーが起動しているか確認してください。';
+    } else {
+      message = (err && err.message) || '周辺インフラを確認できませんでした。';
+    }
+    clearInfraResultDisplay();
+    infraSetStatus(message, true);
+    toast(message, 'error');
+  }).then(function () {
+    if (seq !== state.entry.infraSeq) return;
+    state.entry.infraLoading = false;
     setButtonBusy(btn, false);
   });
 }
@@ -4618,6 +4850,14 @@ function bindEvents() {
   $('#btn-geocode').addEventListener('click', handleAddressGeocode);
   $('#btn-gps').addEventListener('click', handleGpsLocate);
   $('#btn-env').addEventListener('click', handleFetchEnvironment);
+
+  var infraBtn = $('#btn-infra-check');
+  if (infraBtn) infraBtn.addEventListener('click', handleCheckInfrastructure);
+
+  ['#flight-lat', '#flight-lng'].forEach(function (selector) {
+    var input = $(selector);
+    if (input) input.addEventListener('input', handleInfraCoordinateChange);
+  });
   $('#btn-now-takeoff').addEventListener('click', function () {
     stampNowTime('#flight-takeoff-time', '離陸');
   });
@@ -4713,6 +4953,7 @@ function init() {
   SAVE_BUTTON_HTML = $('#save-btn').innerHTML;
 
   bindEvents();
+  updateInfraCoordinates();
   switchTab(initialTab());
   // head で適用済みの文字サイズをボタンの選択状態へ反映する
   renderFontScaleControls();
