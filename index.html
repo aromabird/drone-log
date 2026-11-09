@@ -3480,9 +3480,9 @@ function renderDroneList() {
       (d.lastInspectionDate ? ' ・ 前回点検 ' + esc(fmtDateJP(d.lastInspectionDate)) : '') + '</p>' +
       '</div>' +
 
-      '<div class="mt-2 flex gap-2">' +
-      '<button type="button" data-edit-drone="' + esc(d.droneId) + '" class="min-h-[40px] flex-1 rounded-lg border border-slate-300 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50">編集</button>' +
-      '<button type="button" data-periodic="' + esc(d.droneId) + '" class="min-h-[40px] flex-1 rounded-lg bg-slate-900 py-2 text-sm font-semibold text-white hover:bg-slate-800">点検を記録</button>' +
+      '<div class="mt-2 flex flex-col gap-2 sm:flex-row">' +
+      '<button type="button" data-edit-drone="' + esc(d.droneId) + '" class="w-full min-h-[40px] rounded-lg border border-slate-300 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 sm:flex-1">編集</button>' +
+      '<button type="button" data-periodic="' + esc(d.droneId) + '" class="w-full min-h-[40px] rounded-lg bg-slate-900 py-2 text-sm font-semibold text-white hover:bg-slate-800 sm:flex-1">点検を記録</button>' +
       '</div>' +
       '</article>';
   }).join('');
