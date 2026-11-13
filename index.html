@@ -887,6 +887,17 @@
         </p>
       </div>
 
+      <!-- BFF 接続のヒント -->
+      <div class="rounded-2xl bg-sky-50 p-4 ring-1 ring-sky-200">
+        <p class="flex items-start gap-2 text-base font-bold leading-snug text-sky-900 sm:text-lg">
+          <i class="fas fa-circle-info mt-0.5 shrink-0" aria-hidden="true"></i>
+          BFF 接続のヒント（Chrome）
+        </p>
+        <p class="mt-2 text-base leading-relaxed text-sky-900/90">
+          初回接続時に「ローカル ネットワークへのアクセス」を求められた場合は「許可」を選んでください。許可しないと、CORS の設定が正しくても接続テストが失敗します。Safari やローカルプレビュー（<code class="rounded bg-white/70 px-1">python3 -m http.server</code>）では不要です。
+        </p>
+      </div>
+
     </section>
 
     <!-- ===================== タブ5: 設定 ===================== -->
@@ -933,6 +944,10 @@
           <p class="rounded-xl bg-amber-50 p-3 text-sm leading-relaxed text-amber-900 ring-1 ring-amber-200">
             <i class="fas fa-triangle-exclamation mr-1.5" aria-hidden="true"></i>
             HTTPS のページから <code class="rounded bg-white/70 px-1">http://</code> の BFF は、ブラウザの混在コンテンツ制限で遮断されます。本番は <code class="rounded bg-white/70 px-1">https://…ts.net</code> を指定してください。
+          </p>
+          <p class="rounded-xl bg-sky-50 p-3 text-sm leading-relaxed text-sky-900 ring-1 ring-sky-200">
+            <i class="fas fa-circle-info mr-1.5" aria-hidden="true"></i>
+            Chrome で初回接続時に「ローカル ネットワークへのアクセス」を求められた場合は「許可」を選んでください。許可しないと接続テストが失敗します（Safari やローカルプレビューでは不要です）。
           </p>
           <p class="text-sm text-slate-600">
             現在の接続先: <span id="settings-bff-current" class="break-all font-mono text-sm font-semibold text-slate-900"></span>
@@ -2727,7 +2742,7 @@ function testBffConnection() {
     var message = err && err.name === 'AbortError'
       ? 'タイムアウトしました（8秒）'
       : (err && err.message) || '接続できませんでした';
-    setBffStatus('接続できませんでした: ' + message + '。BFFの起動、Tailscale接続、接続先URL、CORS設定を確認してください。', 'error');
+    setBffStatus('接続できませんでした: ' + message + '。BFFの起動、Tailscale接続、接続先URL、CORS設定、Chromeの「ローカル ネットワークへのアクセス」の許可を確認してください。', 'error');
   }).then(function () {
     if (timer) clearTimeout(timer);
     if (btn) {

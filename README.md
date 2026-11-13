@@ -136,6 +136,7 @@ cd drone-log-bff
 - ヘルスチェック: `http://127.0.0.1:8000/api/health`
 - PWA からの接続先は **設定タブ** で変更します（既定: `https://mac-mini-m4.tail95f7a2.ts.net`）。
 - HTTPS の PWA から `http://100.x.x.x:8000` は混在コンテンツで遮断されるため、本番は HTTPS の MagicDNS を指定してください。
+- **Chrome の Local Network Access (LNA)**: Chrome 142 以降、GitHub Pages などの公開 HTTPS ページから Tailscale の `100.64.0.0/10` へ接続すると、初回に「ローカル ネットワークへのアクセス」の許可を求められます。**「許可」を選んでください**。許可しないと、CORS の設定が正しくても `Failed to fetch` になります。Safari や `http://localhost` のローカルプレビューでは不要です。
 - BFF はステートレスです。DJI ログや画像をディスクへ保存しません。
 
 ---
