@@ -908,12 +908,12 @@
         <div class="flex flex-wrap items-center gap-2">
           <span class="rounded-full bg-white/15 px-3 py-1 text-sm font-bold tracking-wide ring-1 ring-white/25">D-log SETTINGS</span>
           <span class="rounded-full bg-sky-400/20 px-3 py-1 text-sm font-bold text-sky-100 ring-1 ring-sky-300/30">
-            <i class="fas fa-sliders mr-1.5" aria-hidden="true"></i>CONNECTION &amp; LICENSE
+            <i class="fas fa-sliders mr-1.5" aria-hidden="true"></i>CONNECTION / LICENSE / BACKUP
           </span>
         </div>
         <h2 class="mt-4 text-3xl font-black leading-tight tracking-tight sm:text-4xl">設定</h2>
         <p class="mt-3 text-base leading-relaxed text-sky-100/90 sm:text-lg">
-          この端末の BFF 接続先と、操縦者の技能証明（資格区分・有効期限・限定解除）を管理します。
+          この端末の BFF 接続先、操縦者の技能証明、データのバックアップを管理します。
         </p>
       </div>
 
@@ -1057,12 +1057,49 @@
         </form>
       </div>
 
+      <!-- データの手動同期（バックアップ） -->
+      <div class="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
+        <div class="flex items-center gap-3 border-b border-slate-200 pb-4">
+          <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-indigo-600 text-lg text-white">
+            <i class="fas fa-cloud-arrow-up" aria-hidden="true"></i>
+          </span>
+          <div>
+            <p class="text-sm font-bold uppercase tracking-wider text-indigo-700">Backup &amp; restore</p>
+            <h2 class="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">データの手動同期</h2>
+          </div>
+        </div>
+
+        <p class="mt-4 text-base leading-relaxed text-slate-600">
+          この端末の <code class="rounded bg-slate-100 px-1">drone-log:</code> データ（飛行記録・機体・操縦者・点検・設定）を、BFF の <code class="rounded bg-slate-100 px-1">data/backup.json</code> に保存します。
+        </p>
+
+        <div class="mt-3 rounded-xl bg-amber-50 p-3 text-sm leading-relaxed text-amber-900 ring-1 ring-amber-200">
+          <i class="fas fa-triangle-exclamation mr-1.5" aria-hidden="true"></i>
+          復元は、この端末のデータをBFFのバックアップで<strong>上書き</strong>し、画面を再読み込みします。必要に応じて先にCSV / Excelを出力してください。
+        </div>
+
+        <div class="mt-4 flex flex-col gap-2 sm:flex-row">
+          <button type="button" id="btn-backup-save" class="w-full min-h-[48px] rounded-xl bg-indigo-600 px-4 py-3 text-base font-bold text-white hover:bg-indigo-700 disabled:opacity-60 sm:flex-1">
+            <i class="fas fa-cloud-arrow-up mr-1.5" aria-hidden="true"></i>BFFへデータを保存
+          </button>
+          <button type="button" id="btn-backup-restore" class="w-full min-h-[48px] rounded-xl border border-rose-300 bg-white px-4 py-3 text-base font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-60 sm:flex-1">
+            <i class="fas fa-rotate-left mr-1.5" aria-hidden="true"></i>BFFからデータを復元
+          </button>
+        </div>
+
+        <p id="backup-status" role="status" aria-live="polite" class="hidden mt-3 rounded-xl p-3 text-sm font-semibold leading-relaxed"></p>
+
+        <p class="mt-3 text-sm leading-relaxed text-slate-500">
+          バックアップには個人情報とBFF接続先が含まれます。復元すると接続先も保存時の値に戻ります。BFFの <code class="rounded bg-slate-100 px-1">data/backup.json</code> は端末外（Tailscale内のサーバー）に保存されるため、取扱に注意してください。
+        </p>
+      </div>
+
     </section>
 
   </main>
 
   <footer class="mt-6 pb-6 text-center text-sm text-slate-400">
-    <p>D-log（ディーログ） v<span id="app-version">1.1.0</span> ・ 国交省 様式1〜3 準拠</p>
+    <p>D-log（ディーログ） v<span id="app-version">1.2.0</span> ・ 国交省 様式1〜3 準拠</p>
     <p class="mt-1">記録はこの端末のブラウザ内に保存されます。バックアップは CSV / Excel 出力をご利用ください。法定点検の要否は必ず原典でご確認ください。</p>
   </footer>
 </div>
@@ -2082,7 +2119,7 @@ function mockBootstrap(db) {
 
   return {
     ok: true,
-    version: '1.1.0-local',
+    version: '1.2.0-local',
     now: mockNow(),
     today: todayISO(),
     monthPrefix: month,
@@ -2791,6 +2828,148 @@ function handleSettingsLicenseSubmit(ev) {
       btn.disabled = false;
       btn.innerHTML = original;
     }
+  });
+}
+
+/* =========================================================================
+ * データの手動同期（バックアップ / リストア）
+ * ========================================================================= */
+
+var DRONE_LOG_STORAGE_PREFIX = 'drone-log:';
+
+/** localStorage の drone-log: キーを {key: value} にまとめる */
+function collectDroneLogStorage() {
+  var data = {};
+  try {
+    for (var i = 0; i < window.localStorage.length; i++) {
+      var key = window.localStorage.key(i);
+      if (key && key.indexOf(DRONE_LOG_STORAGE_PREFIX) === 0) {
+        data[key] = window.localStorage.getItem(key);
+      }
+    }
+  } catch (err) {
+    throw new Error('localStorageを読み取れませんでした。');
+  }
+  return data;
+}
+
+function setBackupStatus(message, type) {
+  var el = $('#backup-status');
+  if (!el) return;
+  var tone = type === 'success'
+    ? 'bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200'
+    : type === 'error'
+      ? 'bg-rose-50 text-rose-900 ring-1 ring-rose-200'
+      : type === 'warn'
+        ? 'bg-amber-50 text-amber-900 ring-1 ring-amber-200'
+        : 'bg-slate-50 text-slate-700 ring-1 ring-slate-200';
+  el.className = 'mt-3 rounded-xl p-3 text-sm font-semibold leading-relaxed ' + tone;
+  el.textContent = message;
+}
+
+function setBackupBusy(busy) {
+  ['#btn-backup-save', '#btn-backup-restore'].forEach(function (selector) {
+    var btn = $(selector);
+    if (btn) btn.disabled = !!busy;
+  });
+}
+
+/** 現在の localStorage を BFF の /api/backup へ保存する */
+function saveBackupToBff() {
+  var payload;
+  try {
+    payload = collectDroneLogStorage();
+  } catch (err) {
+    setBackupStatus(err.message, 'error');
+    return;
+  }
+
+  var count = Object.keys(payload).length;
+  if (!count) {
+    setBackupStatus('保存するデータがありません。先に機体や操縦者を登録してください。', 'warn');
+    return;
+  }
+
+  setBackupBusy(true);
+  setBackupStatus('BFFへ保存しています…', 'info');
+
+  fetch(bffApiUrl('/api/backup'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(function (response) {
+    return response.json().catch(function () { return null; }).then(function (data) {
+      if (!response.ok) {
+        throw new Error(extractBffErrorDetail(data) || ('HTTP ' + response.status));
+      }
+      return data || {};
+    });
+  }).then(function (data) {
+    var savedAt = data.savedAt ? '（' + data.savedAt + '）' : '';
+    setBackupStatus('保存しました' + savedAt + '。' + count + '件のデータをBFFに保存しました。', 'success');
+    toast('BFFへバックアップを保存しました。', 'success');
+  }).catch(function (err) {
+    var message = err && err.message ? err.message : '通信に失敗しました';
+    setBackupStatus('保存できませんでした: ' + message + '。BFFの起動・接続先・Chromeのローカルネットワーク許可を確認してください。', 'error');
+  }).then(function () {
+    setBackupBusy(false);
+  });
+}
+
+/** BFF の /api/backup から localStorage を復元する */
+function restoreBackupFromBff() {
+  if (!window.confirm('BFFのバックアップで、この端末の飛行記録・機体・操縦者・設定を上書きします。\n復元後は画面を再読み込みします。よろしいですか？')) {
+    return;
+  }
+
+  setBackupBusy(true);
+  setBackupStatus('BFFからバックアップを取得しています…', 'info');
+
+  fetch(bffApiUrl('/api/backup'), {
+    headers: { Accept: 'application/json' },
+    cache: 'no-store'
+  }).then(function (response) {
+    return response.json().catch(function () { return null; }).then(function (data) {
+      if (!response.ok) {
+        throw new Error(extractBffErrorDetail(data) || ('HTTP ' + response.status));
+      }
+      return data;
+    });
+  }).then(function (data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('バックアップの形式が不正です。');
+    }
+
+    var entries = Object.keys(data).filter(function (key) {
+      return key.indexOf(DRONE_LOG_STORAGE_PREFIX) === 0 && typeof data[key] === 'string';
+    });
+    if (!entries.length) {
+      throw new Error('BFFにバックアップがありません。先に「BFFへデータを保存」を実行してください。');
+    }
+
+    try {
+      var existing = [];
+      for (var i = 0; i < window.localStorage.length; i++) {
+        var key = window.localStorage.key(i);
+        if (key && key.indexOf(DRONE_LOG_STORAGE_PREFIX) === 0) existing.push(key);
+      }
+      existing.forEach(function (key) {
+        if (entries.indexOf(key) === -1) window.localStorage.removeItem(key);
+      });
+      entries.forEach(function (key) {
+        window.localStorage.setItem(key, data[key]);
+      });
+    } catch (err) {
+      throw new Error('localStorageへ書き込めませんでした（容量不足などの可能性）。');
+    }
+
+    setBackupStatus('復元しました。画面を更新します…', 'success');
+    toast('バックアップを復元しました。', 'success');
+    setTimeout(function () { window.location.reload(); }, 900);
+  }).catch(function (err) {
+    var message = err && err.message ? err.message : '通信に失敗しました';
+    setBackupStatus('復元できませんでした: ' + message, 'error');
+    setBackupBusy(false);
   });
 }
 
@@ -5588,6 +5767,11 @@ function bindEvents() {
   if (testBffBtn) testBffBtn.addEventListener('click', testBffConnection);
   var resetBffBtn = $('#btn-reset-bff-url');
   if (resetBffBtn) resetBffBtn.addEventListener('click', resetBffBaseUrl);
+
+  var backupSaveBtn = $('#btn-backup-save');
+  if (backupSaveBtn) backupSaveBtn.addEventListener('click', saveBackupToBff);
+  var backupRestoreBtn = $('#btn-backup-restore');
+  if (backupRestoreBtn) backupRestoreBtn.addEventListener('click', restoreBackupFromBff);
 
   MODAL_IDS.forEach(function (id) {
     var el = document.getElementById(id);
