@@ -5273,6 +5273,8 @@ function renderInfraResult(result) {
     if (result.source) {
       var sourceLabel = result.source === 'osm-api' ? 'OSM API'
         : (result.source === 'overpass' ? 'Overpass API' : '取得できませんでした');
+      // BFF は同じエリア（約100m単位）の再チェックをキャッシュから返す。
+      if (result.cached === true) sourceLabel += '（キャッシュ）';
       detailText += ' ／ 出典: ' + sourceLabel;
     }
     if (unknown) detailText += ' ／ DID: 判定不能';
