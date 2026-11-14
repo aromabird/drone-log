@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <title>D-log - ドローン飛行日誌</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" crossorigin="anonymous"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -311,6 +312,38 @@
             </div>
           </div>
 
+          <!-- 周辺マップ（地理院タイル）。AI診断ではこの領域を画像化して送る -->
+          <div id="env-map-card" class="mt-3 hidden rounded-xl border border-slate-200 bg-white p-3">
+            <div class="flex flex-wrap items-center gap-1.5">
+              <p class="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                <i class="fas fa-map-location-dot" aria-hidden="true"></i>周辺マップ
+              </p>
+              <span class="rounded bg-slate-100 px-1.5 py-0.5 text-xs font-semibold text-slate-600 ring-1 ring-slate-200">国土地理院</span>
+              <div class="ml-auto flex gap-1" role="group" aria-label="地図の種類">
+                <button type="button" id="env-map-photo" data-layer="photo" aria-pressed="true"
+                        class="min-h-[36px] rounded-md px-2 text-xs font-bold ring-1 ring-slate-200">空中写真</button>
+                <button type="button" id="env-map-pale" data-layer="pale" aria-pressed="false"
+                        class="min-h-[36px] rounded-md px-2 text-xs font-bold ring-1 ring-slate-200">淡色地図</button>
+              </div>
+            </div>
+            <div id="env-map" class="relative mt-2 overflow-hidden rounded-lg bg-slate-200" style="height: 220px"
+                 role="img" aria-label="離陸地点周辺の地図">
+              <div id="env-map-tiles" class="absolute inset-0"></div>
+              <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
+                <span class="relative block h-8 w-8">
+                  <span class="absolute left-1/2 top-0 h-8 w-0.5 -translate-x-1/2 bg-rose-600/90"></span>
+                  <span class="absolute left-0 top-1/2 h-0.5 w-8 -translate-y-1/2 bg-rose-600/90"></span>
+                  <span class="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-rose-600 ring-2 ring-white"></span>
+                </span>
+              </div>
+              <span id="env-map-label" class="pointer-events-none absolute left-1 top-1 rounded bg-white/85 px-1.5 py-0.5 text-xs font-semibold text-slate-600"></span>
+              <span class="pointer-events-none absolute bottom-1 right-1 rounded bg-white/85 px-1.5 py-0.5 text-xs text-slate-500">地理院タイル</span>
+            </div>
+            <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
+              この地図を画像としてAIに送り、地形・道路・建物・鉄塔/送電線などの見え方を診断に反映します。
+            </p>
+          </div>
+
           <div class="mt-4 border-t border-slate-100 pt-4">
             <!-- AI 安全フライト診断（BFF + Gemini） -->
             <div class="rounded-xl border border-brand-200 bg-brand-50/50 p-3">
@@ -322,27 +355,31 @@
                     <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-200">Gemini</span>
                   </p>
                   <p class="mt-0.5 text-xs leading-relaxed text-brand-900/70">
-                    気象・周辺インフラ・機体情報（現場写真は画像も）を BFF 経由で Gemini に送り、飛行前のリスクと実施事項を診断します。
+                    気象・周辺インフラ・機体情報に加え、周辺マップや現場写真の画像を BFF 経由で Gemini に送り、飛行前のリスクと実施事項を診断します。
                   </p>
                 </div>
               </div>
 
               <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button type="button" id="btn-ai-satellite" data-busy-label="<i class='fas fa-spinner fa-spin' aria-hidden='true'></i> 診断中…"
+                <button type="button" id="btn-ai-map" data-busy-label="<i class='fas fa-spinner fa-spin' aria-hidden='true'></i> 解析中…"
                         class="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
-                  <i class="fas fa-clipboard-check" aria-hidden="true"></i>周辺情報でAI診断
+                  <i class="fas fa-map-location-dot" aria-hidden="true"></i>地図でAI診断
                 </button>
                 <button type="button" id="btn-ai-photo" data-busy-label="<i class='fas fa-spinner fa-spin' aria-hidden='true'></i> 診断中…"
                         class="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
                   <i class="fas fa-camera" aria-hidden="true"></i>現場写真でAI診断
                 </button>
               </div>
+              <button type="button" id="btn-ai-conditions" data-busy-label="診断中…"
+                      class="mt-2 inline-flex min-h-[36px] items-center gap-1 text-sm font-semibold text-brand-700 underline underline-offset-2 disabled:opacity-60">
+                周辺情報のみでAI診断（地図・写真なし）
+              </button>
               <input id="ai-photo-file" type="file" accept="image/*" capture="environment" class="hidden">
 
               <p id="ai-status" class="mt-2 text-sm leading-relaxed text-slate-500"></p>
 
               <div id="ai-result" class="mt-2 hidden space-y-2">
-                <img id="ai-thumb" alt="診断に使用した現場写真" class="hidden w-full max-w-[240px] rounded-lg ring-1 ring-slate-200">
+                <img id="ai-thumb" alt="診断に使用した画像" class="hidden w-full max-w-[240px] rounded-lg ring-1 ring-slate-200">
                 <p id="ai-source" class="text-sm text-slate-500"></p>
                 <p id="ai-summary" class="whitespace-pre-line text-sm leading-relaxed text-slate-700"></p>
               </div>
@@ -1558,6 +1595,8 @@ var state = {
     type: '飛行前', items: {}, durationTouched: false, saving: false,
     purpose: '空撮', flags: [], hasClearZone: true, category: null,
     aiLoading: false,
+    // 周辺マップ（地理院タイル）の描画状態。mapKey が一致する間は再取得しない。
+    mapLayer: 'photo', mapKey: '', mapReady: false,
     envResult: null, envLoading: false,
     infraResult: null, infraLoading: false,
     // 座標変更時に増やす世代番号（古いインフラ判定の応答を破棄する）。
@@ -3346,6 +3385,7 @@ function resetEntryAfterSave() {
   $('#flight-lng').value = '';
   $('#safety-detail').value = '';
   $('#inspection-memo').value = '';
+  refreshEnvMap();
 
   var none = $('input[name="safety"][value="none"]');
   if (none) none.checked = true;
@@ -3429,12 +3469,14 @@ function clearFlightForm() {
   resetAiResult();
   resetEnvResult();
   resetInfraResult();
+  refreshEnvMap();
   var aiFile = $('#ai-photo-file');
   if (aiFile) aiFile.value = '';
 
   // 進行中だったボタンの表示を戻す
   setButtonBusy($('#btn-env'), false);
-  setButtonBusy($('#btn-ai-satellite'), false);
+  setButtonBusy($('#btn-ai-map'), false);
+  setButtonBusy($('#btn-ai-conditions'), false);
   setButtonBusy($('#btn-ai-photo'), false);
   setButtonBusy($('#btn-infra-check'), false);
 
@@ -4274,6 +4316,7 @@ function setGeoFields(lat, lng) {
   clearFieldError('flight-lat');
   clearFieldError('flight-lng');
   handleInfraCoordinateChange();
+  refreshEnvMap();
   return true;
 }
 
@@ -4851,6 +4894,9 @@ function renderEnvResult(result) {
     sourceEl.textContent = (list.length ? '出典: ' + list.join(' / ') : '') +
       (result.fetchedAt ? '（取得 ' + result.fetchedAt + '）' : '');
   }
+
+  // 座標が揃っていれば周辺マップも更新する（AI 診断のキャプチャ対象）。
+  refreshEnvMap();
 }
 
 /** 離着陸座標から現場環境を取得する（「🌦 現場環境を取得」） */
@@ -5107,6 +5153,214 @@ function handleCheckInfrastructure() {
 }
 
 /* =========================================================================
+ * 周辺マップ（国土地理院タイル）
+ * -------------------------------------------------------------------------
+ * 離陸地点の周辺をタイル画像で表示し、AI 診断時に html2canvas で画像化する。
+ * 地理院タイルは CORS を許可している（Access-Control-Allow-Origin: *）ため
+ * canvas へ描画しても汚染されず、JPEG の data URI を作れる。
+ * ========================================================================= */
+
+var ENV_MAP_ZOOM = 16;
+var ENV_MAP_TILE_SIZE = 256;
+var ENV_MAP_LAYERS = {
+  photo: {
+    label: '空中写真',
+    url: 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg'
+  },
+  pale: {
+    label: '淡色地図',
+    url: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png'
+  }
+};
+
+/** 緯度経度をタイル座標（小数）へ変換する */
+function envMapLngLatToPoint(lat, lng, zoom) {
+  var n = Math.pow(2, zoom);
+  var latRad = lat * Math.PI / 180;
+  return {
+    x: (lng + 180) / 360 * n,
+    y: (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n
+  };
+}
+
+/** 再描画が不要かを判定するためのキー */
+function envMapKey(lat, lng, layerKey) {
+  return [Number(lat).toFixed(6), Number(lng).toFixed(6), ENV_MAP_ZOOM, layerKey].join('|');
+}
+
+/** 地図レイヤーの選択状態を見た目へ反映する */
+function renderEnvMapLayerButtons() {
+  [['#env-map-photo', 'photo'], ['#env-map-pale', 'pale']].forEach(function (pair) {
+    var btn = $(pair[0]);
+    if (!btn) return;
+    var selected = state.entry.mapLayer === pair[1];
+    btn.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    btn.className = 'min-h-[36px] rounded-md px-2 text-xs font-bold ring-1 ' +
+      (selected ? 'bg-slate-700 text-white ring-slate-700' : 'bg-white text-slate-600 ring-slate-200');
+  });
+}
+
+/**
+ * 地図タイルを描画し、全タイルの読み込み完了（またはタイムアウト）で解決する。
+ *
+ * @param {number} lat 緯度
+ * @param {number} lng 経度
+ * @param {string} layerKey 'photo'（空中写真）または 'pale'（淡色地図）
+ * @return {Promise<boolean>} 描画できたら true
+ */
+function renderEnvMap(lat, lng, layerKey) {
+  var card = $('#env-map-card');
+  var wrap = $('#env-map');
+  var grid = $('#env-map-tiles');
+  if (!card || !wrap || !grid) return Promise.resolve(false);
+
+  card.classList.remove('hidden');
+
+  var key = envMapKey(lat, lng, layerKey);
+  state.entry.mapKey = key;
+  state.entry.mapReady = false;
+
+  var layer = ENV_MAP_LAYERS[layerKey] || ENV_MAP_LAYERS.photo;
+  var width = Math.max(160, Math.round(wrap.clientWidth || 360));
+  var height = Math.max(120, Math.round(wrap.clientHeight || 220));
+  var point = envMapLngLatToPoint(lat, lng, ENV_MAP_ZOOM);
+  var left = point.x * ENV_MAP_TILE_SIZE - width / 2;
+  var top = point.y * ENV_MAP_TILE_SIZE - height / 2;
+  var minX = Math.floor(left / ENV_MAP_TILE_SIZE);
+  var maxX = Math.floor((left + width) / ENV_MAP_TILE_SIZE);
+  var minY = Math.floor(top / ENV_MAP_TILE_SIZE);
+  var maxY = Math.floor((top + height) / ENV_MAP_TILE_SIZE);
+
+  var tiles = [];
+  for (var tx = minX; tx <= maxX; tx += 1) {
+    for (var ty = minY; ty <= maxY; ty += 1) {
+      tiles.push({
+        x: tx,
+        y: ty,
+        left: tx * ENV_MAP_TILE_SIZE - left,
+        top: ty * ENV_MAP_TILE_SIZE - top
+      });
+    }
+  }
+
+  var label = $('#env-map-label');
+  if (label) label.textContent = layer.label + ' / z' + ENV_MAP_ZOOM;
+
+  grid.innerHTML = '';
+  var board = document.createElement('div');
+  board.className = 'absolute inset-0';
+  grid.appendChild(board);
+
+  return new Promise(function (resolve) {
+    var total = tiles.length;
+    var settledCount = 0;
+    var done = false;
+    var settle = function () {
+      settledCount += 1;
+      if (done || settledCount < total) return;
+      done = true;
+      state.entry.mapReady = state.entry.mapKey === key;
+      resolve(state.entry.mapReady);
+    };
+    // タイルサーバーが遅い場合でも診断を止めない（読めた分だけで解析する）。
+    setTimeout(settle, 10000);
+
+    tiles.forEach(function (tile) {
+      var img = document.createElement('img');
+      img.alt = '';
+      img.crossOrigin = 'anonymous';
+      img.referrerPolicy = 'no-referrer';
+      img.className = 'absolute select-none';
+      img.style.width = ENV_MAP_TILE_SIZE + 'px';
+      img.style.height = ENV_MAP_TILE_SIZE + 'px';
+      img.style.left = tile.left + 'px';
+      img.style.top = tile.top + 'px';
+      img.onload = settle;
+      img.onerror = settle;
+      img.src = layer.url
+        .replace('{z}', ENV_MAP_ZOOM)
+        .replace('{x}', tile.x)
+        .replace('{y}', tile.y);
+      board.appendChild(img);
+    });
+    if (total === 0) settle();
+  });
+}
+
+/** 同じ座標・レイヤーで描画済みなら再利用し、違えば描き直す */
+function ensureEnvMap(lat, lng, layerKey) {
+  var key = envMapKey(lat, lng, layerKey);
+  if (state.entry.mapKey === key && state.entry.mapReady) return Promise.resolve(true);
+  return renderEnvMap(lat, lng, layerKey);
+}
+
+/** 入力欄の緯度経度を検証して返す（不正なら null） */
+function readEnvMapCoords() {
+  var lat = aiNumberOrNull($('#flight-lat').value);
+  var lng = aiNumberOrNull($('#flight-lng').value);
+  if (lat === null || lng === null) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return { lat: lat, lng: lng };
+}
+
+/** 入力座標に合わせて周辺マップを更新する（座標が無ければ非表示） */
+function refreshEnvMap() {
+  var card = $('#env-map-card');
+  var coords = readEnvMapCoords();
+  if (!coords) {
+    if (card) card.classList.add('hidden');
+    var grid = $('#env-map-tiles');
+    if (grid) grid.innerHTML = '';
+    state.entry.mapKey = '';
+    state.entry.mapReady = false;
+    return Promise.resolve(false);
+  }
+  return ensureEnvMap(coords.lat, coords.lng, state.entry.mapLayer);
+}
+
+/** 地図レイヤー（空中写真 / 淡色地図）を切り替えて描き直す */
+function setEnvMapLayer(layerKey) {
+  if (!ENV_MAP_LAYERS[layerKey] || state.entry.mapLayer === layerKey) return;
+  state.entry.mapLayer = layerKey;
+  renderEnvMapLayerButtons();
+  state.entry.mapKey = '';
+  refreshEnvMap();
+}
+
+/**
+ * 地図領域を画像（JPEG）へ変換する。AI 診断の入力として BFF へ送る。
+ *
+ * @return {Promise<{dataUrl: string, base64: string, mimeType: string}>} 地図画像
+ */
+function captureEnvMapImage() {
+  if (typeof window.html2canvas !== 'function') {
+    return Promise.reject(new Error('地図画像の生成機能を読み込めませんでした。通信環境を確認して再試行してください。'));
+  }
+  var wrap = $('#env-map');
+  if (!wrap) return Promise.reject(new Error('周辺マップが表示されていません。'));
+
+  return window.html2canvas(wrap, {
+    backgroundColor: '#ffffff',
+    useCORS: true,
+    scale: 2,
+    logging: false,
+    imageTimeout: 15000,
+    removeContainer: true
+  }).then(function (canvas) {
+    var dataUrl;
+    try {
+      dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    } catch (err) {
+      throw new Error('地図画像を生成できませんでした。地図を再読み込みして再試行してください。');
+    }
+    var base64 = dataUrl.split(',')[1] || '';
+    if (!base64) throw new Error('地図画像を生成できませんでした。');
+    if (base64.length > 8 * 1024 * 1024) throw new Error('地図画像が大きすぎます。');
+    return { dataUrl: dataUrl, base64: base64, mimeType: 'image/jpeg' };
+  });
+}
+
+/* =========================================================================
  * AI 安全フライト診断
  * ========================================================================= */
 
@@ -5120,8 +5374,9 @@ function aiSetStatus(text, isError) {
 
 /** AI 診断ボタンの「診断中」表示を切り替える */
 function setAiButtonsBusy(busy) {
-  setButtonBusy($('#btn-ai-satellite'), busy);
+  setButtonBusy($('#btn-ai-map'), busy);
   setButtonBusy($('#btn-ai-photo'), busy);
+  setButtonBusy($('#btn-ai-conditions'), busy);
 }
 
 /** AI 診断の表示をリセットする */
@@ -5161,8 +5416,10 @@ function renderAiResult(result, image) {
 
   var source = $('#ai-source');
   if (source) {
-    source.textContent = 'AI診断: ' + (result.model || 'Gemini') +
-      (result.source === 'photo' ? ' / 現場写真あり' : ' / 周辺情報');
+    var sourceLabel = result.source === 'photo'
+      ? '現場写真あり'
+      : (result.source === 'map' ? '周辺マップあり' : '周辺情報のみ');
+    source.textContent = 'AI診断: ' + (result.model || 'Gemini') + ' / ' + sourceLabel;
   }
 
   var summary = $('#ai-summary');
@@ -5388,6 +5645,48 @@ function compressImage(file, maxEdge) {
       img.src = reader.result;
     };
     reader.readAsDataURL(file);
+  });
+}
+
+/** 周辺マップを画像化して AI 診断する（地形・道路・構造物を Vision で解析） */
+function handleAiMap() {
+  if (state.entry.aiLoading) return;
+
+  var coords = readEnvMapCoords();
+  if (!coords) {
+    toast('先に緯度・経度を入力するか「📍 現在地（GPS）」で取得してください。', 'warn');
+    $('#flight-lat').focus();
+    return;
+  }
+
+  var seq = state.entry.reqSeq;
+  state.entry.aiLoading = true;
+  setAiButtonsBusy(true);
+  aiSetStatus('周辺マップを準備しています…');
+
+  ensureEnvMap(coords.lat, coords.lng, state.entry.mapLayer).then(function () {
+    if (seq !== state.entry.reqSeq) return null; // クリア済みなら送信しない
+    aiSetStatus('地図を解析中…（AIが地形・障害物を確認しています）');
+    return captureEnvMapImage();
+  }).then(function (image) {
+    if (!image || seq !== state.entry.reqSeq) return null;
+    aiSetStatus('地図を解析中…（最大30秒）');
+    return requestAiDiagnosis('map', image).then(function (res) {
+      return { result: res, image: image };
+    });
+  }).then(function (out) {
+    if (!out || seq !== state.entry.reqSeq) return;
+    renderAiResult(out.result, out.image);
+    aiSetStatus('AI診断が完了しました（周辺マップを含む）。', false);
+    toast('AI診断が完了しました。', 'success');
+  }).catch(function (err) {
+    if (seq !== state.entry.reqSeq) return;
+    aiSetStatus(err.message || 'AI 診断に失敗しました。', true);
+    toast(err.message || 'AI 診断に失敗しました。', 'error');
+  }).then(function () {
+    if (seq !== state.entry.reqSeq) return;
+    state.entry.aiLoading = false;
+    setAiButtonsBusy(false);
   });
 }
 
@@ -5715,8 +6014,11 @@ function bindEvents() {
     });
   }
 
-  var aiSatellite = $('#btn-ai-satellite');
-  if (aiSatellite) aiSatellite.addEventListener('click', handleAiSatellite);
+  var aiMap = $('#btn-ai-map');
+  if (aiMap) aiMap.addEventListener('click', handleAiMap);
+
+  var aiConditions = $('#btn-ai-conditions');
+  if (aiConditions) aiConditions.addEventListener('click', handleAiSatellite);
 
   var aiPhoto = $('#btn-ai-photo');
   if (aiPhoto) {
@@ -5755,6 +6057,32 @@ function bindEvents() {
   $('#btn-geocode').addEventListener('click', handleAddressGeocode);
   $('#btn-gps').addEventListener('click', handleGpsLocate);
   $('#btn-env').addEventListener('click', handleFetchEnvironment);
+
+  // 周辺マップ: 座標変更・レイヤー切替・画面回転に追随して描き直す。
+  ['#flight-lat', '#flight-lng'].forEach(function (sel) {
+    var el = $(sel);
+    if (el) el.addEventListener('change', refreshEnvMap);
+  });
+
+  var mapPhotoLayer = $('#env-map-photo');
+  if (mapPhotoLayer) {
+    mapPhotoLayer.addEventListener('click', function () { setEnvMapLayer('photo'); });
+  }
+  var mapPaleLayer = $('#env-map-pale');
+  if (mapPaleLayer) {
+    mapPaleLayer.addEventListener('click', function () { setEnvMapLayer('pale'); });
+  }
+  renderEnvMapLayerButtons();
+
+  var mapResizeTimer = null;
+  window.addEventListener('resize', function () {
+    if (!state.entry.mapKey) return;
+    if (mapResizeTimer) clearTimeout(mapResizeTimer);
+    mapResizeTimer = setTimeout(function () {
+      state.entry.mapKey = '';
+      refreshEnvMap();
+    }, 300);
+  });
 
   var infraBtn = $('#btn-infra-check');
   if (infraBtn) infraBtn.addEventListener('click', handleCheckInfrastructure);
