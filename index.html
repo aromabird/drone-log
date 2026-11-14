@@ -398,7 +398,7 @@
                 <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-amber-900">
                   <i class="fas fa-bolt" aria-hidden="true"></i>
                   周辺インフラのリスクチェック
-                  <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">OpenStreetMap / Overpass API</span>
+                  <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">OpenStreetMap / OSM API</span>
                 </p>
                 <p class="mt-0.5 text-xs leading-relaxed text-amber-900/70">
                   STEP 1 の緯度・経度を使い、半径300m以内の送電線・鉄塔を確認します。
@@ -788,12 +788,12 @@
               <h3 class="text-xl font-black leading-snug text-slate-900 sm:text-2xl">周辺インフラのリスクチェック</h3>
             </div>
             <p class="mt-3 text-base leading-relaxed text-slate-700 sm:text-lg">
-              入力された座標（半径300m）周辺の送電線・鉄塔をOpenStreetMap（Overpass API）から自動検知し、衝突リスクを事前評価します。
+              入力された座標（半径300m）周辺の送電線・鉄塔をOpenStreetMap（OSM API / Overpass API）から自動検知し、衝突リスクを事前評価します。
             </p>
             <div class="mt-3 flex flex-wrap gap-2">
               <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">半径300m</span>
               <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">送電線・鉄塔</span>
-              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">Overpass API</span>
+              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">OSM API</span>
             </div>
           </article>
 
@@ -4370,7 +4370,7 @@ function geoErrorMessage(err) {
   var code = err && err.code;
   if (code === 1) return '位置情報の利用が許可されていません。ブラウザの設定を確認してください。';
   if (code === 2) return '現在地を取得できませんでした。空の見える場所で再試行してください。';
-  if (code === 3) return '現在地の取得がタイムアウトしました。再試行してください。';
+  if (code === 3) return '現在地の取得がタイムアウトしました。屋外で再試行するか、緯度・経度を手入力してください。';
   return '現在地を取得できませんでした。緯度・経度を手入力してください。';
 }
 
@@ -4760,7 +4760,7 @@ function handleGpsLocate() {
     if (status) status.textContent = '';
     setButtonBusy(btn, false);
     toast(geoErrorMessage(err), 'warn');
-  }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
+  }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 }
 
 /** 座標 → 地名（「座標から地名を取得」） */
@@ -5073,8 +5073,16 @@ function renderInfraResult(result) {
 
   var detail = $('#infra-detail');
   if (detail) {
-    detail.textContent = '鉄塔 ' + (Number(result.towers_count) || 0) + ' 基 / ' +
+    var detailText = '鉄塔 ' + (Number(result.towers_count) || 0) + ' 基 / ' +
       '送電線 ' + (Number(result.lines_count) || 0) + ' 件（半径300m）';
+    if (result.source) {
+      var sourceLabel = result.source === 'osm-api' ? 'OSM API' : 'Overpass API';
+      detailText += ' ／ 出典: ' + sourceLabel;
+    }
+    if (isFinite(Number(result.elapsed_ms)) && Number(result.elapsed_ms) > 0) {
+      detailText += '（' + (Number(result.elapsed_ms) / 1000).toFixed(1) + '秒）';
+    }
+    detail.textContent = detailText;
   }
 }
 
@@ -5107,7 +5115,7 @@ function handleCheckInfrastructure() {
   clearInfraResultDisplay();
   setButtonBusy(btn, true);
   updateInfraCoordinates();
-  infraSetStatus('周辺インフラを確認しています…（最大45秒）');
+  infraSetStatus('周辺インフラを確認しています…（最大15秒程度）');
 
   var url = bffApiUrl('/api/check-infrastructure') +
     '?lat=' + encodeURIComponent(requestLat) +
@@ -5120,7 +5128,8 @@ function handleCheckInfrastructure() {
   if (typeof AbortController === 'function') {
     controller = new AbortController();
     options.signal = controller.signal;
-    timer = setTimeout(function () { controller.abort(); }, 50000);
+    // BFF 側の総処理時間は最大15秒。20秒で打ち切って失敗を早く知らせる。
+    timer = setTimeout(function () { controller.abort(); }, 20000);
   }
 
   function clearTimer() {
@@ -5166,9 +5175,13 @@ function handleCheckInfrastructure() {
     infraSetStatus(message, true);
     toast(message, 'error');
   }).then(function () {
-    if (seq !== state.entry.infraSeq) return;
-    state.entry.infraLoading = false;
-    setButtonBusy(btn, false);
+    if (seq === state.entry.infraSeq) {
+      state.entry.infraLoading = false;
+      setButtonBusy(btn, false);
+    } else if (!state.entry.infraLoading) {
+      // 座標変更で破棄された古い応答。新しい要求が無ければボタンだけ戻す。
+      setButtonBusy(btn, false);
+    }
   });
 }
 
