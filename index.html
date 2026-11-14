@@ -5165,9 +5165,11 @@ function renderInfraResult(result) {
 
   state.entry.infraResult = result;
   var detected = result.power_risk_detected === true;
-  var legalFlags = Array.isArray(result.legal_flags) ? result.legal_flags : [];
+  var supportsAirspace = Array.isArray(result.legal_flags);
+  var legalFlags = supportsAirspace ? result.legal_flags : [];
   var legalHit = legalFlags.length > 0;
-  var unknown = result.legal_unknown === true || result.is_did === null;
+  var unknown = supportsAirspace &&
+    (result.legal_unknown === true || result.is_did === null);
   var basis = result.specific_flight_basis || 'none';
 
   var palette = {
@@ -5200,7 +5202,9 @@ function renderInfraResult(result) {
   var legalEl = $('#infra-legal');
   if (legalEl) {
     var legalText;
-    if (legalHit) {
+    if (!supportsAirspace) {
+      legalText = '空域（DID・空港）の判定はこの BFF では未対応です。BFF を更新してください。';
+    } else if (legalHit) {
       legalText = '特定飛行: ' + legalFlags.map(function (flag) {
         return (flag.label || flag.key) + (flag.detail ? '（' + flag.detail + '）' : '');
       }).join(' ／ ');
@@ -5219,7 +5223,11 @@ function renderInfraResult(result) {
     var categoryLabel = result.category_label || 'カテゴリーⅠ';
     var categoryText;
     var categoryTone;
-    if (basis === 'legal') {
+    if (!supportsAirspace) {
+      categoryText = 'カテゴリー: 空域の判定未対応';
+      categoryTone = 'bg-white text-slate-600 ring-1 ring-slate-300';
+      categoryLabel = '';
+    } else if (basis === 'legal') {
       categoryText = '空域の下限: ' + categoryLabel + '以上';
       categoryTone = 'bg-amber-200 text-amber-900';
     } else if (basis === 'safety') {
