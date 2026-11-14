@@ -453,6 +453,8 @@
               <div id="infra-result" class="mt-2 hidden rounded-lg border p-3" role="status" aria-live="polite" aria-atomic="true">
                 <p id="infra-title" class="text-base font-bold"></p>
                 <p id="infra-message" class="mt-1 text-sm leading-relaxed"></p>
+                <p id="infra-legal" class="mt-1 text-sm font-semibold"></p>
+                <p id="infra-category" class="mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold"></p>
                 <p id="infra-detail" class="num mt-1 text-sm font-semibold"></p>
               </div>
             </div>
@@ -4908,15 +4910,46 @@ function envSetStatus(text, isError) {
  */
 function applyEnvDidFlag(isDID) {
   if (isDID !== true) return false;
+  return addSpecificFlagByKey_('did');
+}
 
-  var label = 'DID（人口集中地区）';
+/**
+ * 特定飛行のチェック項目（data-key）を1つ追加する（追加のみ・解除はしない）。
+ *
+ * @param {string} key フラグのキー（did / airport など）
+ * @return {boolean} 追加したか
+ */
+function addSpecificFlagByKey_(key) {
+  var defs = CATALOG.specificFlagDefs || FALLBACK_FLAG_DEFS;
+  var def = defs.filter(function (d) { return d.key === key; })[0];
+  if (!def) return false;
+
   var flags = (state.entry.flags || []).filter(function (f) { return f !== '非特定飛行'; });
-  if (flags.indexOf(label) !== -1) return false;
+  if (flags.indexOf(def.label) !== -1) return false;
 
-  flags.push(label);
+  flags.push(def.label);
   state.entry.flags = flags;
   renderSpecificFlags();
   return true;
+}
+
+/**
+ * BFF の空域判定（法定フラグ）を特定飛行区分へ反映する。
+ *
+ * 送電線・鉄塔（安全上の要確認）は法令上の特定飛行ではないため、
+ * `legal_flags` だけを対象にする。
+ *
+ * @param {Object} result /api/check-infrastructure の応答
+ * @return {Array<string>} 追加した項目のラベル
+ */
+function applyInfraLegalFlags(result) {
+  var flags = (result && Array.isArray(result.legal_flags)) ? result.legal_flags : [];
+  var added = [];
+  flags.forEach(function (flag) {
+    if (!flag || !flag.key) return;
+    if (addSpecificFlagByKey_(flag.key)) added.push(flag.label || flag.key);
+  });
+  return added;
 }
 
 /**
@@ -5093,10 +5126,16 @@ function clearInfraResultDisplay() {
   var box = $('#infra-result');
   if (box) box.classList.add('hidden');
 
-  ['#infra-title', '#infra-message', '#infra-detail'].forEach(function (sel) {
+  ['#infra-title', '#infra-message', '#infra-legal', '#infra-detail'].forEach(function (sel) {
     var el = $(sel);
     if (el) el.textContent = '';
   });
+
+  var category = $('#infra-category');
+  if (category) {
+    category.textContent = '';
+    category.className = 'mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold';
+  }
 }
 
 /** 周辺インフラの判定結果をリセットする */
@@ -5119,30 +5158,82 @@ function handleInfraCoordinateChange() {
   updateInfraCoordinates();
 }
 
-/** 周辺インフラの判定結果を赤（警告）／緑（安全）で描画する */
+/** 周辺インフラと空域（DID・空港）の判定結果を描画する */
 function renderInfraResult(result) {
   var box = $('#infra-result');
   if (!box || !result) return;
 
   state.entry.infraResult = result;
   var detected = result.power_risk_detected === true;
+  var legalFlags = Array.isArray(result.legal_flags) ? result.legal_flags : [];
+  var legalHit = legalFlags.length > 0;
+  var unknown = result.legal_unknown === true || result.is_did === null;
+  var basis = result.specific_flight_basis || 'none';
+
+  var palette = {
+    rose: 'border-rose-300 bg-rose-50 text-rose-900',
+    amber: 'border-amber-300 bg-amber-50 text-amber-900',
+    emerald: 'border-emerald-300 bg-emerald-50 text-emerald-900'
+  };
+  var tone = detected ? 'rose' : (legalHit ? 'amber' : 'emerald');
 
   box.classList.remove('hidden');
-  box.className = 'mt-2 rounded-lg border p-3 ' + (detected
-    ? 'border-rose-300 bg-rose-50 text-rose-900'
-    : 'border-emerald-300 bg-emerald-50 text-emerald-900');
-  box.setAttribute('role', detected ? 'alert' : 'status');
+  box.className = 'mt-2 rounded-lg border p-3 ' + palette[tone];
+  box.setAttribute('role', detected || legalHit ? 'alert' : 'status');
 
   var title = $('#infra-title');
   if (title) {
-    title.textContent = detected ? '⚠️ 送電線・鉄塔を検知しました' : '✅ 周辺インフラの異常なし';
+    title.textContent = detected
+      ? '⚠️ 送電線・鉄塔を検知しました'
+      : (legalHit ? '⚠️ 特定飛行に該当する空域です' : '✅ 周辺インフラの異常なし');
   }
 
   var message = $('#infra-message');
   if (message) {
     message.textContent = result.message || (detected
       ? '周辺に送電線・鉄塔があります。飛行前の確認事項を反映してください。'
-      : '周辺インフラ（送電線・鉄塔）の異常なし');
+      : (legalHit
+        ? '空域の判定結果を特定飛行区分へ反映しました。'
+        : '周辺インフラ（送電線・鉄塔）の異常なし'));
+  }
+
+  var legalEl = $('#infra-legal');
+  if (legalEl) {
+    var legalText;
+    if (legalHit) {
+      legalText = '特定飛行: ' + legalFlags.map(function (flag) {
+        return (flag.label || flag.key) + (flag.detail ? '（' + flag.detail + '）' : '');
+      }).join(' ／ ');
+    } else if (unknown) {
+      legalText = 'DID を判定できませんでした。DIPS（飛行計画の通報システム）で確認してください。';
+    } else {
+      legalText = 'DID・空港等の周辺には該当しません（カテゴリーⅠの空域）';
+    }
+    legalEl.textContent = legalText;
+    legalEl.className = 'mt-1 text-sm font-semibold ' + (tone === 'emerald'
+      ? 'text-emerald-800' : (tone === 'rose' ? 'text-rose-800' : 'text-amber-800'));
+  }
+
+  var categoryEl = $('#infra-category');
+  if (categoryEl) {
+    var categoryLabel = result.category_label || 'カテゴリーⅠ';
+    var categoryText;
+    var categoryTone;
+    if (basis === 'legal') {
+      categoryText = '空域の下限: ' + categoryLabel + '以上';
+      categoryTone = 'bg-amber-200 text-amber-900';
+    } else if (basis === 'safety') {
+      categoryText = '安全上の要確認: ' + categoryLabel + '相当';
+      categoryTone = 'bg-amber-100 text-amber-800';
+    } else if (unknown) {
+      categoryText = 'カテゴリー: 判定不能（DIPS で確認）';
+      categoryTone = 'bg-white text-slate-600 ring-1 ring-slate-300';
+    } else {
+      categoryText = '空域の下限: ' + categoryLabel;
+      categoryTone = 'bg-emerald-100 text-emerald-700';
+    }
+    categoryEl.textContent = categoryText;
+    categoryEl.className = 'mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold ' + categoryTone;
   }
 
   var detail = $('#infra-detail');
@@ -5153,6 +5244,7 @@ function renderInfraResult(result) {
       var sourceLabel = result.source === 'osm-api' ? 'OSM API' : 'Overpass API';
       detailText += ' ／ 出典: ' + sourceLabel;
     }
+    if (unknown) detailText += ' ／ DID: 判定不能';
     if (isFinite(Number(result.elapsed_ms)) && Number(result.elapsed_ms) > 0) {
       detailText += '（' + (Number(result.elapsed_ms) / 1000).toFixed(1) + '秒）';
     }
@@ -5272,12 +5364,25 @@ function handleCheckInfrastructure() {
   }).then(function (res) {
     if (seq !== state.entry.infraSeq) return; // 座標変更・クリア後の応答は破棄する
     renderInfraResult(res);
-    infraSetStatus(res.power_risk_detected
-      ? '送電線・鉄塔を検知しました。飛行前の確認事項を反映してください。'
-      : 'チェックが完了しました。', false);
-    toast(res.message || (res.power_risk_detected
-      ? '送電線・鉄塔を検知しました。'
-      : '周辺インフラ（送電線・鉄塔）の異常なし'), res.power_risk_detected ? 'warn' : 'success');
+
+    // 法定の特定飛行（DID・空港周辺）だけをチェックへ反映する。
+    // 送電線・鉄塔は安全上の要確認であり、法令上の特定飛行ではない。
+    var addedFlags = applyInfraLegalFlags(res);
+    var legalHit = Array.isArray(res.legal_flags) && res.legal_flags.length > 0;
+
+    var notes = [];
+    if (res.power_risk_detected) {
+      notes.push('送電線・鉄塔を検知しました。飛行前の確認事項を反映してください。');
+    }
+    if (legalHit) notes.push('空域の判定を特定飛行区分に反映しました。');
+    if (addedFlags.length) notes.push('追加: ' + addedFlags.join('・'));
+    if (!notes.length) {
+      notes.push(res.legal_unknown
+        ? 'DID を判定できませんでした。DIPS で確認してください。'
+        : 'チェックが完了しました。');
+    }
+    infraSetStatus(notes.join(' '), false);
+    toast(res.message || notes[0], (res.power_risk_detected || legalHit) ? 'warn' : 'success');
   }).catch(function (err) {
     if (seq !== state.entry.infraSeq) return;
     var elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
@@ -5661,7 +5766,13 @@ function buildAiDiagnosisPayload(source, image) {
       towers_count: Number(infra.towers_count) || 0,
       lines_count: Number(infra.lines_count) || 0,
       message: infra.message || '',
-      source: infra.source || ''
+      source: infra.source || '',
+      is_did: infra.is_did === true ? true : (infra.is_did === false ? false : null),
+      is_airport_vicinity: infra.is_airport_vicinity === true,
+      airport_name: (infra.airport && infra.airport.name) || '',
+      airport_distance_m: aiNumberOrNull(infra.airport && infra.airport.distance_m),
+      is_specific_flight: infra.is_specific_flight === true,
+      category_min: infra.category_min || ''
     } : null,
     drone: drone ? {
       model_name: drone.modelName || '',
