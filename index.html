@@ -401,6 +401,42 @@
           </header>
 
           <div>
+            <!-- 現場環境チェック（GPS）: 空域と周辺インフラの自動判定 -->
+            <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+              <div class="min-w-0">
+                <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-amber-900">
+                  <i class="fas fa-location-crosshairs" aria-hidden="true"></i>
+                  現場環境チェック（GPS）
+                  <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">OSM / 地理院 DID・空港データ</span>
+                </p>
+                <p class="mt-0.5 text-xs leading-relaxed text-amber-900/70">
+                  STEP 1 の緯度・経度から、半径300m以内の送電線・鉄塔と、DID・空港周辺（特定飛行の空域）をまとめて確認します。
+                </p>
+              </div>
+
+              <p id="infra-coords" class="num mt-2 text-sm font-semibold text-slate-600">対象座標: 未入力（STEP 1で緯度・経度を入力）</p>
+
+              <button type="button" id="btn-infra-check" data-busy-label="確認中…"
+                      class="mt-2.5 inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-50 disabled:opacity-60">
+                <i class="fas fa-tower-broadcast" aria-hidden="true"></i>現場環境をチェック
+              </button>
+
+              <p id="infra-status" class="mt-2 text-sm leading-relaxed text-slate-500"></p>
+
+              <div id="infra-result" class="mt-2 hidden rounded-lg border p-3" role="status" aria-live="polite" aria-atomic="true">
+                <p id="infra-title" class="text-base font-bold"></p>
+                <p id="infra-message" class="mt-1 text-sm leading-relaxed"></p>
+                <p id="infra-legal" class="mt-1 text-sm font-semibold"></p>
+                <p id="infra-category" class="mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold"></p>
+                <p id="infra-detail" class="num mt-1 text-sm font-semibold"></p>
+              </div>
+            </div>
+            <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
+              判定結果は下の「特定飛行区分」へ自動反映されます。送電線・鉄塔は安全上の確認事項で、法令上の特定飛行には該当しません。
+            </p>
+          </div>
+
+          <div class="mt-4 border-t border-slate-100 pt-4">
             <div class="mb-1.5 flex flex-wrap items-center justify-between gap-2">
               <p class="text-xs font-semibold text-slate-600">特定飛行区分
                 <span class="font-normal text-slate-400">（該当する項目をすべて選択）</span>
@@ -425,39 +461,6 @@
             <p class="mt-1 text-xs leading-relaxed text-slate-400">
               判定は入力内容に基づく目安です。最終的な適用カテゴリーは申請内容・DIPS で確認してください。
             </p>
-          </div>
-
-          <!-- 周辺インフラ（送電線・鉄塔）のリスクチェック -->
-          <div class="mt-4 border-t border-slate-100 pt-4">
-            <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
-              <div class="min-w-0">
-                <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-amber-900">
-                  <i class="fas fa-bolt" aria-hidden="true"></i>
-                  周辺インフラのリスクチェック
-                  <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-200">OpenStreetMap / OSM API</span>
-                </p>
-                <p class="mt-0.5 text-xs leading-relaxed text-amber-900/70">
-                  STEP 1 の緯度・経度を使い、半径300m以内の送電線・鉄塔を確認します。
-                </p>
-              </div>
-
-              <p id="infra-coords" class="num mt-2 text-sm font-semibold text-slate-600">対象座標: 未入力（STEP 1で緯度・経度を入力）</p>
-
-              <button type="button" id="btn-infra-check" data-busy-label="確認中…"
-                      class="mt-2.5 inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-50 disabled:opacity-60">
-                <i class="fas fa-tower-broadcast" aria-hidden="true"></i>周辺インフラのリスクチェック
-              </button>
-
-              <p id="infra-status" class="mt-2 text-sm leading-relaxed text-slate-500"></p>
-
-              <div id="infra-result" class="mt-2 hidden rounded-lg border p-3" role="status" aria-live="polite" aria-atomic="true">
-                <p id="infra-title" class="text-base font-bold"></p>
-                <p id="infra-message" class="mt-1 text-sm leading-relaxed"></p>
-                <p id="infra-legal" class="mt-1 text-sm font-semibold"></p>
-                <p id="infra-category" class="mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold"></p>
-                <p id="infra-detail" class="num mt-1 text-sm font-semibold"></p>
-              </div>
-            </div>
           </div>
 
           <div class="mt-4 border-t border-slate-100 pt-4">
@@ -5087,7 +5090,11 @@ function handleFetchEnvironment() {
 }
 
 /* =========================================================================
- * 周辺インフラ（送電線・鉄塔）のリスクチェック
+ * 現場環境チェック（空域・周辺インフラ）
+ * -------------------------------------------------------------------------
+ * STEP 1 の座標から BFF の /api/check-infrastructure を呼び、DID・空港周辺
+ * （特定飛行の空域）と送電線・鉄塔をまとめて確認する。UI は「特定飛行区分」
+ * の直上に置き、判定結果でチェックボックスを自動的に埋める。
  * ========================================================================= */
 
 /** 周辺インフラのステータス文言を更新する */
@@ -5165,6 +5172,8 @@ function renderInfraResult(result) {
 
   state.entry.infraResult = result;
   var detected = result.power_risk_detected === true;
+  // 時間切れなどで鉄塔・送電線の有無が分からない状態（0件と区別する）。
+  var powerUnknown = result.power_unknown === true;
   var supportsAirspace = Array.isArray(result.legal_flags);
   var legalFlags = supportsAirspace ? result.legal_flags : [];
   var legalHit = legalFlags.length > 0;
@@ -5175,9 +5184,11 @@ function renderInfraResult(result) {
   var palette = {
     rose: 'border-rose-300 bg-rose-50 text-rose-900',
     amber: 'border-amber-300 bg-amber-50 text-amber-900',
-    emerald: 'border-emerald-300 bg-emerald-50 text-emerald-900'
+    emerald: 'border-emerald-300 bg-emerald-50 text-emerald-900',
+    slate: 'border-slate-300 bg-slate-50 text-slate-700'
   };
-  var tone = detected ? 'rose' : (legalHit ? 'amber' : 'emerald');
+  var tone = detected ? 'rose'
+    : (legalHit ? 'amber' : (powerUnknown ? 'slate' : 'emerald'));
 
   box.classList.remove('hidden');
   box.className = 'mt-2 rounded-lg border p-3 ' + palette[tone];
@@ -5187,7 +5198,10 @@ function renderInfraResult(result) {
   if (title) {
     title.textContent = detected
       ? '⚠️ 送電線・鉄塔を検知しました'
-      : (legalHit ? '⚠️ 特定飛行に該当する空域です' : '✅ 周辺インフラの異常なし');
+      : (legalHit ? '⚠️ 特定飛行に該当する空域です'
+        : (powerUnknown
+          ? '⚠️ 周辺インフラを判定できませんでした'
+          : '✅ 周辺インフラの異常なし'));
   }
 
   var message = $('#infra-message');
@@ -5196,7 +5210,9 @@ function renderInfraResult(result) {
       ? '周辺に送電線・鉄塔があります。飛行前の確認事項を反映してください。'
       : (legalHit
         ? '空域の判定結果を特定飛行区分へ反映しました。'
-        : '周辺インフラ（送電線・鉄塔）の異常なし'));
+        : (powerUnknown
+          ? '時間内に判定できませんでした。DIPS と現地確認で判断してください。'
+          : '周辺インフラ（送電線・鉄塔）の異常なし')));
   }
 
   var legalEl = $('#infra-legal');
@@ -5208,6 +5224,8 @@ function renderInfraResult(result) {
       legalText = '特定飛行: ' + legalFlags.map(function (flag) {
         return (flag.label || flag.key) + (flag.detail ? '（' + flag.detail + '）' : '');
       }).join(' ／ ');
+    } else if (powerUnknown) {
+      legalText = '空域と周辺インフラの判定が時間内に完了しませんでした。DIPS と現地確認で判断してください。';
     } else if (unknown) {
       legalText = 'DID を判定できませんでした。DIPS（飛行計画の通報システム）で確認してください。';
     } else {
@@ -5215,7 +5233,9 @@ function renderInfraResult(result) {
     }
     legalEl.textContent = legalText;
     legalEl.className = 'mt-1 text-sm font-semibold ' + (tone === 'emerald'
-      ? 'text-emerald-800' : (tone === 'rose' ? 'text-rose-800' : 'text-amber-800'));
+      ? 'text-emerald-800'
+      : (tone === 'rose' ? 'text-rose-800'
+        : (tone === 'slate' ? 'text-slate-700' : 'text-amber-800')));
   }
 
   var categoryEl = $('#infra-category');
@@ -5246,10 +5266,13 @@ function renderInfraResult(result) {
 
   var detail = $('#infra-detail');
   if (detail) {
-    var detailText = '鉄塔 ' + (Number(result.towers_count) || 0) + ' 基 / ' +
-      '送電線 ' + (Number(result.lines_count) || 0) + ' 件（半径300m）';
+    var towersText = powerUnknown ? '–' : String(Number(result.towers_count) || 0);
+    var linesText = powerUnknown ? '–' : String(Number(result.lines_count) || 0);
+    var detailText = '鉄塔 ' + towersText + ' 基 / ' +
+      '送電線 ' + linesText + ' 件（半径300m）';
     if (result.source) {
-      var sourceLabel = result.source === 'osm-api' ? 'OSM API' : 'Overpass API';
+      var sourceLabel = result.source === 'osm-api' ? 'OSM API'
+        : (result.source === 'overpass' ? 'Overpass API' : '取得できませんでした');
       detailText += ' ／ 出典: ' + sourceLabel;
     }
     if (unknown) detailText += ' ／ DID: 判定不能';
@@ -5260,10 +5283,16 @@ function renderInfraResult(result) {
   }
 }
 
-/** 周辺インフラの取得タイムアウト（1回目） */
+/**
+ * 現場環境チェックの取得タイムアウト（1回目）。
+ *
+ * BFF 側は OSM 取得と DID 判定を並列化し、全体を 5 秒で打ち切る（時間切れでも
+ * 「判定不能」を返す）。実機の 5G / Tailscale 経由では接続確立に数秒かかる
+ * ことがあるため、10 秒を下回らない余裕を持たせる。
+ */
 var INFRA_TIMEOUT_MS = 12000;
 /** 無応答時の再試行タイムアウト（2回目） */
-var INFRA_RETRY_TIMEOUT_MS = 8000;
+var INFRA_RETRY_TIMEOUT_MS = 10000;
 /** 再試行までの待ち時間 */
 var INFRA_RETRY_DELAY_MS = 400;
 
@@ -5346,7 +5375,7 @@ function handleCheckInfrastructure() {
   clearInfraResultDisplay();
   setButtonBusy(btn, true);
   updateInfraCoordinates();
-  infraSetStatus('周辺インフラを確認しています…（最大12秒程度）');
+  infraSetStatus('現場環境（空域・周辺インフラ）を確認しています…（通常2〜3秒）');
 
   var startedAt = Date.now();
   var url = bffApiUrl('/api/check-infrastructure') +
@@ -5383,6 +5412,7 @@ function handleCheckInfrastructure() {
       notes.push('送電線・鉄塔を検知しました。飛行前の確認事項を反映してください。');
     }
     if (legalHit) notes.push('空域の判定を特定飛行区分に反映しました。');
+    if (res.power_unknown) notes.push('送電線・鉄塔は判定できませんでした。');
     if (addedFlags.length) notes.push('追加: ' + addedFlags.join('・'));
     if (!notes.length) {
       notes.push(res.legal_unknown
@@ -5390,7 +5420,8 @@ function handleCheckInfrastructure() {
         : 'チェックが完了しました。');
     }
     infraSetStatus(notes.join(' '), false);
-    toast(res.message || notes[0], (res.power_risk_detected || legalHit) ? 'warn' : 'success');
+    toast(res.message || notes[0],
+      (res.power_risk_detected || legalHit || res.power_unknown) ? 'warn' : 'success');
   }).catch(function (err) {
     if (seq !== state.entry.infraSeq) return;
     var elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
@@ -5771,6 +5802,7 @@ function buildAiDiagnosisPayload(source, image) {
     } : null,
     infrastructure: infra ? {
       power_risk_detected: infra.power_risk_detected === true,
+      power_unknown: infra.power_unknown === true,
       towers_count: Number(infra.towers_count) || 0,
       lines_count: Number(infra.lines_count) || 0,
       message: infra.message || '',
