@@ -18,7 +18,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <title>D-log - ドローン飛行日誌</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" crossorigin="anonymous" defer></script>
   <script>
     tailwind.config = {
       theme: {
@@ -5160,6 +5160,63 @@ function renderInfraResult(result) {
   }
 }
 
+/** 周辺インフラの取得タイムアウト（1回目） */
+var INFRA_TIMEOUT_MS = 12000;
+/** 無応答時の再試行タイムアウト（2回目） */
+var INFRA_RETRY_TIMEOUT_MS = 8000;
+/** 再試行までの待ち時間 */
+var INFRA_RETRY_DELAY_MS = 400;
+
+/**
+ * 周辺インフラの判定を BFF へ問い合わせる。
+ *
+ * タイムアウト（AbortError）と接続失敗（TypeError）はそのまま返し、
+ * 再試行するかどうかは呼び出し側で決める。
+ *
+ * @param {string} url エンドポイント
+ * @param {number} timeoutMs 打ち切りまでの時間
+ * @return {Promise<Object>} 判定結果
+ */
+function requestInfraResult(url, timeoutMs) {
+  var controller = null;
+  var timer = null;
+  var options = { method: 'GET', headers: { Accept: 'application/json' } };
+  if (typeof AbortController === 'function') {
+    controller = new AbortController();
+    options.signal = controller.signal;
+    timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+  }
+
+  function clear() {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  }
+
+  return fetch(url, options).then(function (response) {
+    clear();
+    return response.json().catch(function () {
+      return null;
+    }).then(function (data) {
+      if (!response.ok) {
+        var detail = extractBffErrorDetail(data);
+        throw new Error(detail || ('周辺インフラの確認に失敗しました（HTTP ' + response.status + '）。'));
+      }
+      if (!data || typeof data.power_risk_detected !== 'boolean') {
+        throw new Error('周辺インフラの判定結果を取得できませんでした。');
+      }
+      return data;
+    });
+  }).catch(function (err) {
+    clear();
+    throw err;
+  });
+}
+
+/** 通信断・無応答（再試行する価値がある失敗）か */
+function isRetryableInfraError(err) {
+  return !!err && (err.name === 'AbortError' || err.name === 'TypeError');
+}
+
 /** 周辺インフラのリスクを BFF 経由で確認する */
 function handleCheckInfrastructure() {
   if (state.entry.infraLoading) return;
@@ -5167,7 +5224,7 @@ function handleCheckInfrastructure() {
   var lat = $('#flight-lat').value;
   var lng = $('#flight-lng').value;
   if (lat === '' || lng === '') {
-    toast('先に緯度・経度を入力するか「📍 現在地（GPS）」で取得してください。', 'warn');
+    toast('先に緯度・経度を入力するか「📍 現在地から住所を取得 (GPS)」で取得してください。', 'warn');
     $('#flight-lat').focus();
     return;
   }
@@ -5189,41 +5246,28 @@ function handleCheckInfrastructure() {
   clearInfraResultDisplay();
   setButtonBusy(btn, true);
   updateInfraCoordinates();
-  infraSetStatus('周辺インフラを確認しています…（最大15秒程度）');
+  infraSetStatus('周辺インフラを確認しています…（最大12秒程度）');
 
+  var startedAt = Date.now();
   var url = bffApiUrl('/api/check-infrastructure') +
     '?lat=' + encodeURIComponent(requestLat) +
     '&lon=' + encodeURIComponent(requestLng) +
     '&radius=300';
 
-  var controller = null;
-  var timer = null;
-  var options = { method: 'GET', headers: { Accept: 'application/json' } };
-  if (typeof AbortController === 'function') {
-    controller = new AbortController();
-    options.signal = controller.signal;
-    // BFF 側の総処理時間は最大15秒。20秒で打ち切って失敗を早く知らせる。
-    timer = setTimeout(function () { controller.abort(); }, 20000);
+  function attempt(timeoutMs) {
+    return requestInfraResult(url, timeoutMs);
   }
 
-  function clearTimer() {
-    if (timer) clearTimeout(timer);
-    timer = null;
-  }
-
-  fetch(url, options).then(function (response) {
-    clearTimer();
-    return response.json().catch(function () {
-      return null;
-    }).then(function (data) {
-      if (!response.ok) {
-        var detail = extractBffErrorDetail(data);
-        throw new Error(detail || ('周辺インフラの確認に失敗しました（HTTP ' + response.status + '）。'));
-      }
-      if (!data || typeof data.power_risk_detected !== 'boolean') {
-        throw new Error('周辺インフラの判定結果を取得できませんでした。');
-      }
-      return data;
+  attempt(INFRA_TIMEOUT_MS).catch(function (err) {
+    if (!isRetryableInfraError(err) || seq !== state.entry.infraSeq) throw err;
+    // Tailscale / ローカルネットワークの一時的な切断で無応答になることがある。
+    // 1回だけ短いタイムアウトで再試行し、復帰直後の取りこぼしを防ぐ。
+    infraSetStatus('BFF の応答がありません。接続を確認して再試行しています…');
+    return new Promise(function (resolve) {
+      setTimeout(resolve, INFRA_RETRY_DELAY_MS);
+    }).then(function () {
+      if (seq !== state.entry.infraSeq) throw err;
+      return attempt(INFRA_RETRY_TIMEOUT_MS);
     });
   }).then(function (res) {
     if (seq !== state.entry.infraSeq) return; // 座標変更・クリア後の応答は破棄する
@@ -5235,13 +5279,15 @@ function handleCheckInfrastructure() {
       ? '送電線・鉄塔を検知しました。'
       : '周辺インフラ（送電線・鉄塔）の異常なし'), res.power_risk_detected ? 'warn' : 'success');
   }).catch(function (err) {
-    clearTimer();
     if (seq !== state.entry.infraSeq) return;
+    var elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
     var message;
     if (err && err.name === 'AbortError') {
-      message = '周辺インフラの確認がタイムアウトしました。時間をおいて再試行してください。';
+      message = '周辺インフラの確認がタイムアウトしました（' + elapsed + '秒）。'
+        + '時間をおいて再試行してください。';
     } else if (err && err.name === 'TypeError') {
-      message = 'BFF に接続できませんでした。サーバーが起動しているか確認してください。';
+      message = 'BFF に接続できませんでした。BFFの起動・Tailscale・'
+        + 'Chromeのローカルネットワーク許可を確認してください。';
     } else {
       message = (err && err.message) || '周辺インフラを確認できませんでした。';
     }
