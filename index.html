@@ -267,7 +267,7 @@
               <h2 id="step2-title" class="text-lg font-bold text-slate-900">現場環境の確認</h2>
               <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Open-Meteo 等</span>
             </div>
-            <p class="mt-1 text-sm leading-relaxed text-slate-500">場所が決まった直後に、天候・標高・DIDと、衛星写真／現場写真のリスクを確認します。</p>
+            <p class="mt-1 text-sm leading-relaxed text-slate-500">場所が決まった直後に、天候・標高・DIDと、周辺情報／現場写真のリスクをAIが診断します。</p>
           </header>
 
           <!-- 現場環境（天候・風速 / 海抜標高 / DID） -->
@@ -312,27 +312,29 @@
           </div>
 
           <div class="mt-4 border-t border-slate-100 pt-4">
-            <!-- AI 安全フライト診断（Gemini） -->
+            <!-- AI 安全フライト診断（BFF + Gemini） -->
             <div class="rounded-xl border border-brand-200 bg-brand-50/50 p-3">
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
                   <p class="flex flex-wrap items-center gap-1.5 text-xs font-bold text-brand-800">
                     <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
                     AI 安全フライト診断
-                    <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-200">デモ</span>
+                    <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-200">Gemini</span>
                   </p>
-                  <p class="mt-0.5 text-xs leading-relaxed text-brand-900/70">現在はデモ表示です。実際の画像解析は行わず、特定飛行区分への反映も行いません（BFF の AI 連携は未実装）。</p>
+                  <p class="mt-0.5 text-xs leading-relaxed text-brand-900/70">
+                    気象・周辺インフラ・機体情報（現場写真は画像も）を BFF 経由で Gemini に送り、飛行前のリスクと実施事項を診断します。
+                  </p>
                 </div>
               </div>
 
               <div class="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <button type="button" id="btn-ai-satellite" data-busy-label="解析中…"
+                <button type="button" id="btn-ai-satellite" data-busy-label="<i class='fas fa-spinner fa-spin' aria-hidden='true'></i> 診断中…"
                         class="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
-                  <i class="fas fa-satellite" aria-hidden="true"></i>衛星写真でデモ診断
+                  <i class="fas fa-clipboard-check" aria-hidden="true"></i>周辺情報でAI診断
                 </button>
-                <button type="button" id="btn-ai-photo" data-busy-label="解析中…"
+                <button type="button" id="btn-ai-photo" data-busy-label="<i class='fas fa-spinner fa-spin' aria-hidden='true'></i> 診断中…"
                         class="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
-                  <i class="fas fa-camera" aria-hidden="true"></i>現場写真でデモ診断
+                  <i class="fas fa-camera" aria-hidden="true"></i>現場写真でAI診断
                 </button>
               </div>
               <input id="ai-photo-file" type="file" accept="image/*" capture="environment" class="hidden">
@@ -340,14 +342,9 @@
               <p id="ai-status" class="mt-2 text-sm leading-relaxed text-slate-500"></p>
 
               <div id="ai-result" class="mt-2 hidden space-y-2">
-                <img id="ai-thumb" alt="解析に使用した衛星写真" class="hidden w-full max-w-[240px] rounded-lg ring-1 ring-slate-200">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span id="ai-risk-badge" class="rounded-full px-2.5 py-1 text-sm font-bold"></span>
-                  <span id="ai-source" class="text-sm text-slate-500"></span>
-                </div>
-                <p id="ai-summary" class="text-sm leading-relaxed text-slate-700"></p>
-                <ul id="ai-objects" class="space-y-1"></ul>
-                <ul id="ai-advice" class="list-disc space-y-0.5 pl-4 text-sm leading-relaxed text-slate-700"></ul>
+                <img id="ai-thumb" alt="診断に使用した現場写真" class="hidden w-full max-w-[240px] rounded-lg ring-1 ring-slate-200">
+                <p id="ai-source" class="text-sm text-slate-500"></p>
+                <p id="ai-summary" class="whitespace-pre-line text-sm leading-relaxed text-slate-700"></p>
               </div>
             </div>
           </div>
@@ -1535,14 +1532,6 @@ var CATEGORY_THEME = {
   III: { card: 'border-rose-200 bg-rose-50', badge: 'bg-rose-600 text-white', text: 'text-rose-900', chip: 'bg-white/70 text-rose-800' }
 };
 
-/** AI 診断のリスク配色 */
-var AI_RISK_BADGE = {
-  LOW: 'bg-emerald-100 text-emerald-700',
-  MEDIUM: 'bg-amber-100 text-amber-800',
-  HIGH: 'bg-rose-100 text-rose-700'
-};
-var AI_RISK_DOT = { LOW: 'bg-emerald-500', MEDIUM: 'bg-amber-500', HIGH: 'bg-rose-500' };
-
 /** 現場環境の飛行適性バッジ（バックエンドの safetyStatus に対応） */
 var ENV_STATUS_BADGE = {
   GOOD: 'bg-emerald-100 text-emerald-700',
@@ -2467,57 +2456,6 @@ function mockSaveInspectionRecord(payload) {
   };
 }
 
-/* ----- モック: AI 診断（実際の画像解析は行わないデモ） ----- */
-
-/** モックの衛星写真（SVG のダミー画像。data URI の表示経路を確認するため） */
-function mockSatelliteImageUrl() {
-  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240">' +
-    '<rect width="240" height="240" fill="#1f2937"/>' +
-    '<path d="M0 168h240M60 0v240M156 0v240" stroke="#4b5563" stroke-width="10"/>' +
-    '<rect x="72" y="72" width="60" height="52" fill="#6b7280"/>' +
-    '<rect x="168" y="24" width="56" height="72" fill="#4b5563"/>' +
-    '<text x="120" y="226" font-size="12" fill="#9ca3af" text-anchor="middle">MOCK SATELLITE z19</text>' +
-    '</svg>';
-  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
-}
-
-/** モックのリスク診断結果を組み立てる */
-function mockRiskResult(source, lat, lng) {
-  var satellite = source === 'satellite';
-  return {
-    ok: true,
-    source: source,
-    model: 'local-demo',
-    lat: satellite ? Number(lat) : null,
-    lng: satellite ? Number(lng) : null,
-    riskLevel: 'MEDIUM',
-    riskLabel: '中リスク',
-    detectedObjects: satellite ? [
-      { objectType: '歩行者', description: '南東の道路に2名。離陸地点から約25m', risk: 'MEDIUM' },
-      { objectType: '車両', description: '東側駐車場に3台。離陸地点から約35m', risk: 'LOW' },
-      { objectType: '倉庫', description: '北側の建物。屋根が約20mまで近接', risk: 'MEDIUM' }
-    ] : [
-      { objectType: '電線', description: '画面右上に電柱と電線。進入経路の高さ約8m', risk: 'HIGH' },
-      { objectType: '見物者', description: '手前側に立入りを制限する柵がなく、人が接近しやすい', risk: 'MEDIUM' }
-    ],
-    summary: satellite
-      ? '周辺に歩行者と車両があります。離陸地点の南東25mに第三者がいるため、立入管理措置と補助者の配置を検討してください。'
-      : '電線が進入経路に近接し、第三者の立入りを制限する柵も確認できません。離陸地点の見直しが必要です。',
-    actionableAdvice: satellite ? [
-      '南東25mの歩行者が離れるまで離陸を待つ',
-      '東側駐車場の車両が動かないことを確認する',
-      '北側の倉庫は見通しが悪いため、飛行経路を南側へ寄せる'
-    ] : [
-      '電線の高さと距離を現地で実測し、飛行高度の上限を決める',
-      '柵または監視員で第三者の立入りを制限する',
-      '補助者を配置し、離陸・着陸時の周囲確認を分担する'
-    ],
-    satelliteImageUrl: satellite ? mockSatelliteImageUrl() : null,
-    analyzedAt: new Date().toISOString(),
-    mock: true
-  };
-}
-
 /* ===== ローカルストアのディスパッチャ ===== */
 
 var MOCK = {
@@ -2528,24 +2466,7 @@ var MOCK = {
   saveDrone: function (payload) { return mockSaveDrone(payload); },
   savePilot: function (payload) { return mockSavePilot(payload); },
   buildDipsCsv: function (options) { return mockBuildDipsCsv(mockLoad(), options); },
-  buildInspectionCsv: function (options) { return mockBuildInspectionCsv(mockLoad(), options); },
-  analyzeRiskFromCoordinates: function (lat, lng) {
-    var la = Number(lat);
-    var ln = Number(lng);
-    if (!isFinite(la) || !isFinite(ln)) throw new Error('緯度・経度を数値で指定してください。');
-    if (la < -90 || la > 90 || ln < -180 || ln > 180) {
-      throw new Error('緯度・経度の範囲が不正です（緯度 -90〜90 / 経度 -180〜180）。');
-    }
-    return mockRiskResult('satellite', la, ln);
-  },
-  analyzeRiskFromImage: function (base64) {
-    var data = String(base64 || '');
-    if (!data) throw new Error('解析する画像が空です。画像を選択し直してください。');
-    if (/^data:/.test(data) && !/^data:image\//.test(data)) {
-      throw new Error('画像ファイルではありません。JPEG / PNG を指定してください。');
-    }
-    return mockRiskResult('photo', null, null);
-  }
+  buildInspectionCsv: function (options) { return mockBuildInspectionCsv(mockLoad(), options); }
 };
 /**
  * モック関数を非同期で呼ぶ（ローカル処理を画面更新と馴染ませるため 220ms 待つ）。
@@ -5189,6 +5110,20 @@ function handleCheckInfrastructure() {
  * AI 安全フライト診断
  * ========================================================================= */
 
+/** AI 診断のステータス文言を更新する */
+function aiSetStatus(text, isError) {
+  var el = $('#ai-status');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'mt-2 text-sm leading-relaxed ' + (isError ? 'text-rose-600' : 'text-slate-500');
+}
+
+/** AI 診断ボタンの「診断中」表示を切り替える */
+function setAiButtonsBusy(busy) {
+  setButtonBusy($('#btn-ai-satellite'), busy);
+  setButtonBusy($('#btn-ai-photo'), busy);
+}
+
 /** AI 診断の表示をリセットする */
 function resetAiResult() {
   state.entry.aiLoading = false;
@@ -5199,38 +5134,24 @@ function resetAiResult() {
     thumb.removeAttribute('src');
     thumb.classList.add('hidden');
   }
-  ['#ai-objects', '#ai-advice'].forEach(function (sel) {
-    var el = $(sel);
-    if (el) el.innerHTML = '';
-  });
   var summary = $('#ai-summary');
   if (summary) summary.textContent = '';
-  var badge = $('#ai-risk-badge');
-  if (badge) {
-    badge.className = 'rounded-full px-2.5 py-1 text-sm font-bold';
-    badge.textContent = '';
-  }
+  var source = $('#ai-source');
+  if (source) source.textContent = '';
   aiSetStatus('');
+  setAiButtonsBusy(false);
 }
 
-/** AI 診断のステータス文言を更新する */
-function aiSetStatus(text, isError) {
-  var el = $('#ai-status');
-  if (!el) return;
-  el.textContent = text || '';
-  el.className = 'mt-2 text-sm leading-relaxed ' + (isError ? 'text-rose-600' : 'text-slate-500');
-}
-
-/** AI 診断の結果を描画する */
-function renderAiResult(result) {
+/** AI 診断の結果を描画する（診断文はプレーンテキストとして扱う） */
+function renderAiResult(result, image) {
   var box = $('#ai-result');
   if (!box || !result) return;
   box.classList.remove('hidden');
 
   var thumb = $('#ai-thumb');
   if (thumb) {
-    if (result.satelliteImageUrl) {
-      thumb.src = result.satelliteImageUrl;
+    if (image && image.dataUrl) {
+      thumb.src = image.dataUrl;
       thumb.classList.remove('hidden');
     } else {
       thumb.removeAttribute('src');
@@ -5238,39 +5159,176 @@ function renderAiResult(result) {
     }
   }
 
-  var badge = $('#ai-risk-badge');
-  if (badge) {
-    var level = result.riskLevel || 'MEDIUM';
-    badge.className = 'rounded-full px-2.5 py-1 text-sm font-bold ' +
-      (AI_RISK_BADGE[level] || AI_RISK_BADGE.MEDIUM);
-    badge.textContent = result.riskLabel || '中リスク';
-  }
-
   var source = $('#ai-source');
   if (source) {
-    source.textContent = (result.source === 'satellite' ? '衛星写真' : '現場写真') +
-      ' / ' + (result.model || 'local-demo') + '（デモ）';
+    source.textContent = 'AI診断: ' + (result.model || 'Gemini') +
+      (result.source === 'photo' ? ' / 現場写真あり' : ' / 周辺情報');
   }
 
   var summary = $('#ai-summary');
-  if (summary) summary.textContent = result.summary || '';
+  if (summary) summary.textContent = result.diagnosis || '';
+}
 
-  var objects = $('#ai-objects');
-  if (objects) {
-    objects.innerHTML = (result.detectedObjects || []).map(function (o) {
-      var dot = AI_RISK_DOT[o.risk] || AI_RISK_DOT.MEDIUM;
-      return '<li class="flex items-start gap-1.5 text-sm leading-relaxed text-slate-700">' +
-        '<span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ' + dot + '"></span>' +
-        '<span><span class="font-semibold">' + esc(o.objectType) + '</span>：' + esc(o.description) + '</span></li>';
-    }).join('');
-  }
+/** 入力値を数値または null に変換する（空文字は null） */
+function aiNumberOrNull(value) {
+  var text = String(value === undefined || value === null ? '' : value).trim();
+  if (text === '') return null;
+  var num = Number(text);
+  return isFinite(num) ? num : null;
+}
 
-  var advice = $('#ai-advice');
-  if (advice) {
-    advice.innerHTML = (result.actionableAdvice || []).map(function (a) {
-      return '<li>' + esc(a) + '</li>';
-    }).join('');
+/** マスタ配列から key が id と一致する 1 件を取り出す */
+function aiFindById(list, key, id) {
+  var found = null;
+  (list || []).forEach(function (item) {
+    if (!found && item && item[key] === id) found = item;
+  });
+  return found;
+}
+
+/**
+ * AI 診断 API へ送るペイロードを組み立てる。
+ *
+ * 操縦者の氏名・連絡先は送らない（資格区分と限定解除のみ）。BFF 側の
+ * Pydantic モデルに合わせて snake_case で送る。
+ *
+ * @param {string} source 'conditions'（周辺情報のみ）または 'photo'（現場写真あり）
+ * @param {{base64: string, mimeType: string}|null} image 圧縮済みの現場写真
+ * @return {Object} POST /api/diagnose のリクエスト
+ */
+function buildAiDiagnosisPayload(source, image) {
+  var env = state.entry.envResult || null;
+  var infra = state.entry.infraResult || null;
+  var drone = aiFindById(state.data.drones, 'droneId', $('#flight-drone').value);
+  var pilot = aiFindById(state.data.pilots, 'pilotId', $('#flight-pilot').value);
+  var purpose = $('#flight-purpose').value;
+  if (purpose === '__other__') purpose = $('#flight-purpose-other').value.trim();
+
+  var weather = env && env.weather ? env.weather : null;
+  var elevation = env && env.elevation ? env.elevation : null;
+  var regulations = env && env.regulations ? env.regulations : null;
+
+  var payload = {
+    source: source,
+    flight: {
+      date: $('#flight-date').value || '',
+      takeoff_place: $('#flight-takeoff-place').value.trim(),
+      landing_place: $('#flight-landing-place').value.trim(),
+      lat: aiNumberOrNull($('#flight-lat').value),
+      lng: aiNumberOrNull($('#flight-lng').value),
+      takeoff_time: $('#flight-takeoff-time').value || '',
+      landing_time: $('#flight-landing-time').value || '',
+      duration_min: (function () {
+        var value = aiNumberOrNull($('#flight-duration').value);
+        return value === null ? null : Math.round(value);
+      })(),
+      purpose: purpose || '',
+      specific_flags: (state.entry.flags || []).slice(),
+      has_clear_zone: state.entry.hasClearZone !== false
+    },
+    weather: weather ? {
+      text: weather.text || '',
+      temperature: aiNumberOrNull(weather.temperature),
+      humidity: aiNumberOrNull(weather.humidity),
+      precipitation: aiNumberOrNull(weather.precipitation),
+      wind_speed: aiNumberOrNull(weather.windSpeed),
+      wind_gust: aiNumberOrNull(weather.windGust),
+      safety_status: weather.safetyStatus || '',
+      safety_label: weather.safetyLabel || ''
+    } : null,
+    elevation: elevation ? {
+      ground_elevation: aiNumberOrNull(elevation.groundElevation),
+      max_150m_limit: aiNumberOrNull(elevation.max150mLimit),
+      note: elevation.note || ''
+    } : null,
+    regulations: regulations ? {
+      is_did: regulations.isDID === true ? true : (regulations.isDID === false ? false : null),
+      note: regulations.note || '',
+      source: regulations.source || ''
+    } : null,
+    infrastructure: infra ? {
+      power_risk_detected: infra.power_risk_detected === true,
+      towers_count: Number(infra.towers_count) || 0,
+      lines_count: Number(infra.lines_count) || 0,
+      message: infra.message || '',
+      source: infra.source || ''
+    } : null,
+    drone: drone ? {
+      model_name: drone.modelName || '',
+      maker: drone.maker || '',
+      weight_g: (function () {
+        var value = aiNumberOrNull(drone.weightG);
+        return value === null ? null : Math.round(value);
+      })(),
+      registration_no: drone.registrationNo || ''
+    } : null,
+    pilot: pilot ? {
+      license_type: pilot.licenseType || '',
+      license_endorsements: (pilot.licenseEndorsements || []).slice()
+    } : null
+  };
+
+  if (image && image.base64) {
+    payload.image_base64 = image.base64;
+    payload.image_mime_type = image.mimeType || 'image/jpeg';
   }
+  return payload;
+}
+
+/**
+ * BFF の AI 診断 API を呼ぶ。60秒で打ち切り、呼び出し側で reqSeq を照合する。
+ *
+ * @param {string} source 'conditions' または 'photo'
+ * @param {{base64: string, mimeType: string}|null} image 圧縮済みの現場写真
+ * @return {Promise<Object>} { ok, diagnosis, model, source, generatedAt }
+ */
+function requestAiDiagnosis(source, image) {
+  return new Promise(function (resolve, reject) {
+    var options = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(buildAiDiagnosisPayload(source, image))
+    };
+    var controller = null;
+    var timer = null;
+    if (typeof AbortController === 'function') {
+      controller = new AbortController();
+      options.signal = controller.signal;
+      timer = setTimeout(function () { controller.abort(); }, 60000);
+    }
+
+    fetch(bffApiUrl('/api/diagnose'), options).then(function (response) {
+      return response.json().catch(function () { return null; }).then(function (data) {
+        if (!response.ok) {
+          var message = extractBffErrorDetail(data) ||
+            'AI 診断に失敗しました（HTTP ' + response.status + '）。';
+          var error = new Error(message);
+          error.status = response.status;
+          error.code = data && data.detail && data.detail.code;
+          throw error;
+        }
+        return data || {};
+      });
+    }).then(function (data) {
+      if (timer) clearTimeout(timer);
+      if (!data.diagnosis) {
+        reject(new Error('AI から診断結果が返りませんでした。'));
+        return;
+      }
+      resolve(data);
+    }).catch(function (err) {
+      if (timer) clearTimeout(timer);
+      if (err && err.name === 'AbortError') {
+        reject(new Error('AI 診断がタイムアウトしました。時間をおいて再試行してください。'));
+        return;
+      }
+      if (err && err.name === 'TypeError') {
+        reject(new Error('BFF に接続できませんでした。サーバーが起動しているか確認してください。'));
+        return;
+      }
+      reject(err);
+    });
+  });
 }
 
 /**
@@ -5333,7 +5391,7 @@ function compressImage(file, maxEdge) {
   });
 }
 
-/** 衛星写真での AI 診断 */
+/** 周辺情報（気象・標高・DID・インフラ）での AI 診断 */
 function handleAiSatellite() {
   if (state.entry.aiLoading) return;
 
@@ -5345,17 +5403,19 @@ function handleAiSatellite() {
     return;
   }
 
-  var btn = $('#btn-ai-satellite');
   var seq = state.entry.reqSeq;
+  var hasContext = !!(state.entry.envResult || state.entry.infraResult);
   state.entry.aiLoading = true;
-  setButtonBusy(btn, true);
-  aiSetStatus('デモ結果を生成しています…');
+  setAiButtonsBusy(true);
+  aiSetStatus(hasContext
+    ? 'AIが診断中です…（最大30秒）'
+    : '現場環境が未取得です。入力情報のみでAIが診断します…');
 
-  callLocal('analyzeRiskFromCoordinates', Number(lat), Number(lng)).then(function (res) {
+  requestAiDiagnosis('conditions', null).then(function (res) {
     if (seq !== state.entry.reqSeq) return; // クリア済みの応答は破棄する
-    renderAiResult(res);
-    aiSetStatus('デモ診断が完了しました。実際の画像解析は行われていません。', false);
-    toast('デモ診断が完了しました（' + (res.riskLabel || '中リスク') + '）。', 'success');
+    renderAiResult(res, null);
+    aiSetStatus('AI診断が完了しました。', false);
+    toast('AI診断が完了しました。', 'success');
   }).catch(function (err) {
     if (seq !== state.entry.reqSeq) return;
     aiSetStatus(err.message || 'AI 診断に失敗しました。', true);
@@ -5363,7 +5423,7 @@ function handleAiSatellite() {
   }).then(function () {
     if (seq !== state.entry.reqSeq) return;
     state.entry.aiLoading = false;
-    setButtonBusy(btn, false);
+    setAiButtonsBusy(false);
   });
 }
 
@@ -5371,21 +5431,22 @@ function handleAiSatellite() {
 function handleAiPhotoSelected(file) {
   if (!file || state.entry.aiLoading) return;
 
-  var btn = $('#btn-ai-photo');
   var seq = state.entry.reqSeq;
   state.entry.aiLoading = true;
-  setButtonBusy(btn, true);
+  setAiButtonsBusy(true);
   aiSetStatus('写真を読み込んでいます…');
 
   compressImage(file, 1200).then(function (image) {
     if (seq !== state.entry.reqSeq) return null; // クリア済みなら送信しない
-    aiSetStatus('デモ結果を生成しています…');
-    return callLocal('analyzeRiskFromImage', image.dataUrl, image.mimeType);
-  }).then(function (res) {
-    if (!res || seq !== state.entry.reqSeq) return;
-    renderAiResult(res);
-    aiSetStatus('デモ診断が完了しました。実際の画像解析は行われていません。', false);
-    toast('デモ診断が完了しました（' + (res.riskLabel || '中リスク') + '）。', 'success');
+    aiSetStatus('AIが診断中です…（最大30秒）');
+    return requestAiDiagnosis('photo', image).then(function (res) {
+      return { result: res, image: image };
+    });
+  }).then(function (out) {
+    if (!out || seq !== state.entry.reqSeq) return;
+    renderAiResult(out.result, out.image);
+    aiSetStatus('AI診断が完了しました（現場写真を含む）。', false);
+    toast('AI診断が完了しました。', 'success');
   }).catch(function (err) {
     if (seq !== state.entry.reqSeq) return;
     aiSetStatus(err.message || 'AI 診断に失敗しました。', true);
@@ -5395,7 +5456,7 @@ function handleAiPhotoSelected(file) {
     if (input) input.value = '';
     if (seq !== state.entry.reqSeq) return;
     state.entry.aiLoading = false;
-    setButtonBusy(btn, false);
+    setAiButtonsBusy(false);
   });
 }
 
