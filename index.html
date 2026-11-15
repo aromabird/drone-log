@@ -1580,7 +1580,8 @@ var CATEGORY_THEME = {
 var ENV_STATUS_BADGE = {
   GOOD: 'bg-emerald-100 text-emerald-700',
   CAUTION: 'bg-amber-100 text-amber-800',
-  DANGER: 'bg-rose-100 text-rose-700'
+  DANGER: 'bg-rose-100 text-rose-700',
+  UNKNOWN: 'bg-slate-100 text-slate-600'
 };
 
 var state = {
@@ -4548,15 +4549,23 @@ function weatherText(code) {
 
 /** 天候から飛行適性を判定する */
 function evaluateWeatherSafety(weather) {
-  var code = Number(weather.weatherCode);
+  var code = (weather.weatherCode === null || weather.weatherCode === undefined)
+    ? -1 : Number(weather.weatherCode);
   var precip = Number(weather.precipitation) || 0;
-  var wind = Number(weather.windSpeed) || 0;
   var gust = Number(weather.windGust) || 0;
+  var windValue = (weather.windSpeed === null || weather.windSpeed === undefined)
+    ? NaN : Number(weather.windSpeed);
+  var hasWind = isFinite(windValue);
+  var wind = hasWind ? windValue : 0;
   var dangerCodes = [71, 73, 75, 77, 85, 86, 95, 96, 99];
   var cautionCodes = [45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82];
 
-  if (gust >= 10 || wind >= 7 || precip >= 5 || dangerCodes.indexOf(code) !== -1) {
+  if (precip >= 5 || dangerCodes.indexOf(code) !== -1 || (hasWind && (gust >= 10 || wind >= 7))) {
     return { status: 'DANGER', label: '飛行適性: 危険（飛行を見合わせてください）' };
+  }
+  // 雨量計のみの観測所などで風速が取れない場合、「良好」とは断定しない。
+  if (!hasWind) {
+    return { status: 'UNKNOWN', label: '飛行適性: 判定できません（風速の観測値がありません）' };
   }
   if (gust >= 7 || wind >= 5 || precip > 0 || cautionCodes.indexOf(code) !== -1) {
     return { status: 'CAUTION', label: '飛行適性: 注意（風・雨の状況を確認）' };
@@ -4564,30 +4573,194 @@ function evaluateWeatherSafety(weather) {
   return { status: 'GOOD', label: '飛行適性: 良好（安全圏）' };
 }
 
-/** Open-Meteo から現在の天候を取得する */
-function fetchWeather(lat, lng) {
+/** BFF の気象値（数値 or null）を小数第1位へ丸める */
+function weatherNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  var number = Number(value);
+  return isFinite(number) ? round1(number) : null;
+}
+
+/** 風向（度）を16方位の日本語へ変換する（Open-Meteo 直接取得で使用） */
+function windDirectionLabel(degrees) {
+  var value = Number(degrees);
+  if (!isFinite(value)) return '';
+  var labels = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東',
+    '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
+  var normalized = ((value % 360) + 360) % 360;
+  return labels[Math.round(normalized / 22.5) % 16];
+}
+
+/**
+ * BFF `/api/weather` の応答を画面用の天候オブジェクトへそろえる。
+ *
+ * @param {Object} payload BFF のレスポンス
+ * @return {Object} 天候
+ */
+function normalizeWeatherFromBff(payload) {
+  var current = (payload && payload.weather) || {};
+  var code = (current.code === null || current.code === undefined) ? null : Number(current.code);
+  var weather = {
+    text: current.text || '不明',
+    temperature: weatherNumber(current.temperature),
+    humidity: weatherNumber(current.humidity),
+    precipitation: weatherNumber(current.precipitation),
+    windSpeed: weatherNumber(current.wind_speed),
+    windGust: weatherNumber(current.wind_gust),
+    windDirection: current.wind_direction || '',
+    weatherCode: (code === null || !isFinite(code)) ? null : code,
+    observedAt: current.observed_at || '',
+    source: payload.source || '',
+    sourceLabel: payload.source_label || '',
+    station: (function () {
+      var source = payload && payload.station;
+      if (!source || !source.name) return null;
+      return {
+        id: source.id || '',
+        name: source.name,
+        distanceKm: weatherNumber(source.distance_km)
+      };
+    })(),
+    notes: (payload.notes || []).slice(),
+    cached: payload.cached === true,
+    stale: payload.stale === true,
+    unavailable: false
+  };
+  var safety = evaluateWeatherSafety(weather);
+  weather.safetyStatus = safety.status;
+  weather.safetyLabel = safety.label;
+  return weather;
+}
+
+/**
+ * 天候を取得できなかったときの表示用オブジェクト（画面を壊さず理由を示す）。
+ *
+ * @param {string} reason 失敗理由
+ * @return {Object} 天候（unavailable=true）
+ */
+function unavailableWeather(reason) {
+  return {
+    text: '取得できません',
+    temperature: null,
+    humidity: null,
+    precipitation: null,
+    windSpeed: null,
+    windGust: null,
+    windDirection: '',
+    weatherCode: null,
+    observedAt: '',
+    source: '',
+    sourceLabel: '',
+    station: null,
+    notes: reason ? [reason] : [],
+    cached: false,
+    stale: false,
+    unavailable: true,
+    safetyStatus: 'UNKNOWN',
+    safetyLabel: '飛行適性: 判定できません（風を現地で確認してください）'
+  };
+}
+
+/**
+ * BFF の気象 API（気象庁アメダス優先）から天候を取得する。
+ *
+ * @param {number} lat 緯度
+ * @param {number} lng 経度
+ * @return {Promise<Object>} 天候
+ */
+function fetchWeatherFromBff(lat, lng) {
+  var url = bffApiUrl('/api/weather')
+    + '?lat=' + encodeURIComponent(lat) + '&lng=' + encodeURIComponent(lng);
+  var options = { headers: { Accept: 'application/json' }, cache: 'no-store' };
+  var controller = null;
+  var timer = null;
+  if (typeof AbortController === 'function') {
+    controller = new AbortController();
+    options.signal = controller.signal;
+    timer = setTimeout(function () { controller.abort(); }, 12000);
+  }
+
+  function clear() {
+    if (timer) clearTimeout(timer);
+    timer = null;
+  }
+
+  return fetch(url, options).then(function (response) {
+    return response.json().catch(function () { return null; }).then(function (data) {
+      clear();
+      if (!response.ok) {
+        var error = new Error(extractBffErrorDetail(data) ||
+          ('気象データを取得できませんでした（HTTP ' + response.status + '）。'));
+        error.status = response.status;
+        error.code = data && data.detail && data.detail.code;
+        throw error;
+      }
+      if (!data || !data.weather) throw new Error('気象データを取得できませんでした。');
+      return normalizeWeatherFromBff(data);
+    });
+  }).catch(function (err) {
+    clear();
+    if (err && err.name === 'AbortError') {
+      throw new Error('気象データの取得がタイムアウトしました。');
+    }
+    if (err && err.name === 'TypeError') {
+      throw new Error('BFF に接続できませんでした。');
+    }
+    throw err;
+  });
+}
+
+/** Open-Meteo から現在の天候を直接取得する（BFF が使えないときの代替） */
+function fetchWeatherFromOpenMeteo(lat, lng) {
   var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lng
     + '&current=temperature_2m,relative_humidity_2m,precipitation,weather_code,'
-    + 'wind_speed_10m,wind_gusts_10m&timezone=Asia%2FTokyo';
-  return fetchJsonWithTimeout(url, { headers: { Accept: 'application/json' } }, 15000, 'Open-Meteo')
+    + 'wind_speed_10m,wind_gusts_10m,wind_direction_10m&timezone=Asia%2FTokyo';
+  return fetchJsonWithTimeout(url, { headers: { Accept: 'application/json' } }, 8000, 'Open-Meteo')
     .then(function (json) {
       var cur = json && json.current;
       if (!cur) throw new Error('天候データを取得できませんでした。');
       var weather = {
         text: weatherText(cur.weather_code),
-        temperature: round1(cur.temperature_2m),
-        humidity: round1(cur.relative_humidity_2m),
-        precipitation: round1(cur.precipitation),
-        windSpeed: round1(Number(cur.wind_speed_10m) / 3.6),
-        windGust: round1(Number(cur.wind_gusts_10m) / 3.6),
+        temperature: weatherNumber(cur.temperature_2m),
+        humidity: weatherNumber(cur.relative_humidity_2m),
+        precipitation: weatherNumber(cur.precipitation),
+        windSpeed: weatherNumber(Number(cur.wind_speed_10m) / 3.6),
+        windGust: weatherNumber(Number(cur.wind_gusts_10m) / 3.6),
+        windDirection: windDirectionLabel(cur.wind_direction_10m),
         weatherCode: Number(cur.weather_code),
-        observedAt: cur.time || ''
+        observedAt: cur.time || '',
+        source: 'open-meteo',
+        sourceLabel: 'Open-Meteo（直接取得）',
+        station: null,
+        notes: ['BFF を経由せず Open-Meteo から直接取得しました。'],
+        cached: false,
+        stale: false,
+        unavailable: false
       };
       var safety = evaluateWeatherSafety(weather);
       weather.safetyStatus = safety.status;
       weather.safetyLabel = safety.label;
       return weather;
     });
+}
+
+/**
+ * 現在の天候を取得する（BFF → Open-Meteo 直接 → 取得不可）。
+ *
+ * 天候が取れなくても標高・DID は表示できるよう、例外では返さず
+ * `unavailable: true` のオブジェクトを返す。
+ *
+ * @param {number} lat 緯度
+ * @param {number} lng 経度
+ * @return {Promise<Object>} 天候
+ */
+function fetchWeather(lat, lng) {
+  return fetchWeatherFromBff(lat, lng).catch(function (bffError) {
+    return fetchWeatherFromOpenMeteo(lat, lng).catch(function (directError) {
+      var reason = (bffError && bffError.message) || (directError && directError.message) ||
+        '天候を取得できませんでした。';
+      return unavailableWeather(reason + ' 風・降水は現地で確認してください。');
+    });
+  });
 }
 
 /** 国土地理院 標高API から海抜を取得する */
@@ -4685,7 +4858,7 @@ function fetchEnvironment(lat, lng) {
     fetchElevation(la, ln),
     fetchDid(la, ln)
   ]).then(function (results) {
-    var weather = results[0];
+    var weather = results[0] || {};
     var elevation = results[1];
     var isDID = results[2];
     var didNote = isDID === true
@@ -4693,6 +4866,8 @@ function fetchEnvironment(lat, lng) {
       : (isDID === false
         ? '人口集中地区（DID）外'
         : 'DID を判定できませんでした（DIPS で確認してください）');
+    var weatherSource = weather.sourceLabel ||
+      (weather.unavailable ? '気象: 取得できませんでした' : 'Open-Meteo');
 
     return {
       ok: true,
@@ -4706,11 +4881,13 @@ function fetchEnvironment(lat, lng) {
         source: '国土地理院 地理院タイル（DID2020）'
       },
       sources: {
-        weather: 'Open-Meteo',
+        weather: weatherSource,
         elevation: '国土地理院 標高API',
         did: '国土地理院 地理院タイル（DID2020）'
       },
-      message: '現場環境を取得しました。',
+      message: weather.unavailable
+        ? '現場環境を取得しました（天候は取得できませんでした）。'
+        : '現場環境を取得しました。',
       fetchedAt: mockNow()
     };
   });
@@ -4981,23 +5158,34 @@ function renderEnvResult(result) {
 
   var windEl = $('#env-wind');
   if (windEl) {
-    var wind = (weather.windSpeed === null || weather.windSpeed === undefined)
-      ? '—' : weather.windSpeed + ' m/s';
-    var gust = (weather.windGust === null || weather.windGust === undefined)
-      ? '—' : weather.windGust + ' m/s';
-    windEl.textContent = '風速 ' + wind + '（突風 ' + gust + '）';
+    if (weather.unavailable) {
+      windEl.textContent = '風速 —（取得できませんでした）';
+    } else {
+      var wind = (weather.windSpeed === null || weather.windSpeed === undefined)
+        ? '—' : weather.windSpeed + ' m/s';
+      var gust = (weather.windGust === null || weather.windGust === undefined)
+        ? '—' : weather.windGust + ' m/s';
+      var direction = weather.windDirection ? ' ' + weather.windDirection : '';
+      windEl.textContent = '風速 ' + wind + '（突風 ' + gust + '）' + direction;
+    }
   }
 
   var safetyEl = $('#env-safety');
   if (safetyEl) {
-    var status = weather.safetyStatus || 'CAUTION';
-    safetyEl.textContent = status === 'GOOD' ? '良好' : (status === 'DANGER' ? '危険' : '注意');
+    var status = weather.safetyStatus || 'UNKNOWN';
+    var statusText = status === 'GOOD' ? '良好'
+      : (status === 'DANGER' ? '危険' : (status === 'CAUTION' ? '注意' : '判定不可'));
+    safetyEl.textContent = statusText;
     safetyEl.className = 'mt-1 inline-block rounded-full px-2 py-0.5 text-sm font-bold ' +
-      (ENV_STATUS_BADGE[status] || ENV_STATUS_BADGE.CAUTION);
+      (ENV_STATUS_BADGE[status] || ENV_STATUS_BADGE.UNKNOWN);
   }
 
   var safetyLabel = $('#env-safety-label');
-  if (safetyLabel) safetyLabel.textContent = weather.safetyLabel || '';
+  if (safetyLabel) {
+    var labels = [weather.safetyLabel || ''];
+    if (weather.stale) labels.push('※取得元が応答しないため直近の値を表示（参考値）');
+    safetyLabel.textContent = labels.filter(Boolean).join(' ');
+  }
 
   var elevationEl = $('#env-elevation');
   if (elevationEl) {
@@ -5034,8 +5222,12 @@ function renderEnvResult(result) {
   if (sourceEl) {
     var sources = result.sources || {};
     var list = [sources.weather, sources.elevation, sources.did].filter(Boolean);
+    var suffix = '';
+    if (weather.cached && !weather.stale) suffix = '（キャッシュ）';
+    var notes = (weather.notes || []).join(' ');
     sourceEl.textContent = (list.length ? '出典: ' + list.join(' / ') : '') +
-      (result.fetchedAt ? '（取得 ' + result.fetchedAt + '）' : '');
+      (result.fetchedAt ? '（取得 ' + result.fetchedAt + suffix + '）' : '') +
+      (notes ? ' ' + notes : '');
   }
 
   // 座標が揃っていれば周辺マップも更新する（AI 診断のキャプチャ対象）。
@@ -5066,16 +5258,27 @@ function handleFetchEnvironment() {
     var regulations = (res && res.regulations) || {};
     var added = applyEnvDidFlag(regulations.isDID);
 
+    var weather = (res && res.weather) || {};
     var notes = [];
-    if (res && res.weather && res.weather.safetyLabel) notes.push(res.weather.safetyLabel);
+    if (weather.unavailable) {
+      notes.push('天候は取得できませんでした（風・降水は現地で確認してください）');
+    } else if (weather.safetyLabel) {
+      notes.push(weather.safetyLabel);
+    }
+    if (weather.station && weather.station.name) {
+      notes.push('気象は' + weather.station.name + '観測所' +
+        (weather.station.distanceKm === null || weather.station.distanceKm === undefined
+          ? '' : '（約' + weather.station.distanceKm + 'km）') + 'の値');
+    }
+    if (weather.stale) notes.push('気象は参考値（直近の取得値）');
     if (added) notes.push('DID を特定飛行区分に反映しました');
     if (regulations.isDID === null || regulations.isDID === undefined) {
       notes.push('DID は判定できませんでした（DIPS で確認してください）');
     }
 
     envSetStatus('取得しました。' + notes.join(' / '), false);
-    var warn = regulations.isDID === true ||
-      !!(res && res.weather && res.weather.safetyStatus !== 'GOOD');
+    var warn = weather.unavailable === true || regulations.isDID === true ||
+      weather.safetyStatus !== 'GOOD';
     toast('現場環境を取得しました' + (notes.length ? '。' + notes.join(' / ') : '') + '。',
       warn ? 'warn' : 'success');
   }).catch(function (err) {
@@ -5789,6 +5992,11 @@ function buildAiDiagnosisPayload(source, image) {
       precipitation: aiNumberOrNull(weather.precipitation),
       wind_speed: aiNumberOrNull(weather.windSpeed),
       wind_gust: aiNumberOrNull(weather.windGust),
+      wind_direction: weather.windDirection || '',
+      observed_at: weather.observedAt || '',
+      source: weather.sourceLabel || weather.source || '',
+      unavailable: weather.unavailable === true,
+      notes: (weather.notes || []).slice(0, 5),
       safety_status: weather.safetyStatus || '',
       safety_label: weather.safetyLabel || ''
     } : null,
