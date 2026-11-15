@@ -850,11 +850,12 @@
               <h3 class="text-xl font-black leading-snug text-slate-900 sm:text-2xl">周辺インフラのリスクチェック</h3>
             </div>
             <p class="mt-3 text-base leading-relaxed text-slate-700 sm:text-lg">
-              入力された座標（半径300m）周辺の送電線・鉄塔をOpenStreetMap（OSM API / Overpass API）から自動検知し、衝突リスクを事前評価します。
+              入力された座標（半径300m）周辺の送電線・鉄塔をOpenStreetMap（OSM API / Overpass API）から自動検知し、衝突リスクを事前評価します。あわせて国土地理院のDID（人口集中地区）タイルと同梱の空港データから空域を判定し、特定飛行区分へ自動で反映します。
             </p>
             <div class="mt-3 flex flex-wrap gap-2">
               <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">半径300m</span>
               <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">送電線・鉄塔</span>
+              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">DID / 空港周辺</span>
               <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">OSM API</span>
             </div>
           </article>
@@ -935,6 +936,78 @@
           <button type="button" data-tab="settings" class="w-full min-h-[48px] shrink-0 rounded-xl bg-brand-600 px-4 py-3 text-base font-bold text-white hover:bg-brand-700 sm:w-auto">
             <i class="fas fa-gear mr-1.5" aria-hidden="true"></i>設定を開く
           </button>
+        </div>
+      </div>
+
+      <!-- 最新の現場フロー（GPS優先・空域判定・気象） -->
+      <div class="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
+        <div class="flex items-center gap-3 border-b border-slate-200 pb-4">
+          <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-white">
+            <i class="fas fa-bolt" aria-hidden="true"></i>
+          </span>
+          <div>
+            <p class="text-sm font-bold uppercase tracking-wider text-brand-600">Field workflow</p>
+            <h2 class="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl">現場での判定と気象</h2>
+          </div>
+        </div>
+
+        <div class="mt-4 space-y-3">
+
+          <!-- 離陸場所（GPS優先） -->
+          <article class="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+            <h3 class="flex items-center gap-2 text-lg font-black leading-snug text-slate-900">
+              <i class="fas fa-location-dot text-brand-600" aria-hidden="true"></i>
+              離陸場所は「GPS」から
+            </h3>
+            <ul class="mt-2 space-y-1.5 text-base leading-relaxed text-slate-700">
+              <li>「📍 現在地から住所を取得 (GPS)」がメインの操作です。タップすると住所と緯度・経度が入ります。</li>
+              <li>住所・座標の手動入力は折りたたみで、既定は閉じています。必要なときだけ開いてください。</li>
+              <li>閉じていても、離陸場所の下に「住所 ・ 座標」の要約を表示します。入力エラーや GPS 失敗時は自動で開きます。</li>
+            </ul>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">GPS 優先</span>
+              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">手動入力は折りたたみ</span>
+            </div>
+          </article>
+
+          <!-- 空域・カテゴリー -->
+          <article class="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+            <h3 class="flex items-center gap-2 text-lg font-black leading-snug text-slate-900">
+              <i class="fas fa-shield-halved text-brand-600" aria-hidden="true"></i>
+              空域とカテゴリーは自動で判定
+            </h3>
+            <ul class="mt-2 space-y-1.5 text-base leading-relaxed text-slate-700">
+              <li>国土地理院の DID（人口集中地区）と空港データから、DID・空港等の周辺を自動で判定します。</li>
+              <li>該当すると特定飛行10項目へ自動でチェックが入り、カテゴリーの下限が <strong>ⅡA（空港周辺）</strong> または <strong>ⅡB（DID）</strong> 以上になります。</li>
+              <li>DID の場合は「人または物件から30m未満」も自動で ON にします（追加のみ。手動で外したチェックは戻りません）。</li>
+              <li>送電線・鉄塔は「安全上の要確認」として表示し、法令上の特定飛行のチェックは追加しません。</li>
+              <li>判定できないときは「異常なし」ではなく「判定不能」と表示します。DIPS でも確認してください。</li>
+            </ul>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">DID2020</span>
+              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">空港周辺 6km / 12km</span>
+              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">追加のみ・解除なし</span>
+            </div>
+          </article>
+
+          <!-- 気象 -->
+          <article class="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+            <h3 class="flex items-center gap-2 text-lg font-black leading-snug text-slate-900">
+              <i class="fas fa-cloud-sun text-brand-600" aria-hidden="true"></i>
+              天気は気象庁アメダス → Open-Meteo
+            </h3>
+            <ul class="mt-2 space-y-1.5 text-base leading-relaxed text-slate-700">
+              <li>天候・風は BFF 経由で取得します。主系は <strong>気象庁アメダス</strong>（実測値・10分更新）、取得できないときは <strong>Open-Meteo</strong> へ自動で切り替えます。</li>
+              <li>出典・観測所（距離）・観測時刻を表示します。「参考値」の注記が出たら、現地の風を優先してください。</li>
+              <li>BFF が応答しない場合もアプリは止まりません（記録・CSV / Excel はそのまま使えます）。</li>
+            </ul>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">アメダス実測</span>
+              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">自動フォールバック</span>
+              <span class="rounded-full bg-white px-2.5 py-1 text-sm font-bold text-slate-600 ring-1 ring-slate-200">参考値は明記</span>
+            </div>
+          </article>
+
         </div>
       </div>
 
