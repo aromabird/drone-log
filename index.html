@@ -102,6 +102,8 @@
     .item-ng { background: #e11d48 !important; color: #fff !important; border-color: #e11d48 !important; }
     details > summary { list-style: none; cursor: pointer; }
     details > summary::-webkit-details-marker { display: none; }
+    /* 開閉状態を矢印で示す（Tailwind の group-open: に依存せずCSSで担保） */
+    details[open] > summary .fa-chevron-down { transform: rotate(180deg); }
     .skeleton { background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%);
       background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
     @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
@@ -208,19 +210,32 @@
 
           <div class="mt-4 grid grid-cols-1 gap-x-4 gap-y-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:gap-x-6">
             <div class="field">
-              <label for="flight-takeoff-place" class="block text-sm font-semibold text-slate-600"><i class="fas fa-map-marker-alt fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>離陸場所 <span class="text-rose-500">*</span></label>
+              <p class="block text-sm font-semibold text-slate-600"><i class="fas fa-map-marker-alt fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>離陸場所 <span class="text-rose-500">*</span></p>
+              <!-- 屋外の片手操作を想定し、実際の利用のほぼすべてを占める GPS 取得を主アクションにする -->
               <button type="button" id="btn-gps" data-busy-label="取得中..."
                       title="端末の現在地を取得し、住所と緯度・経度を入力します"
-                      class="mb-2 inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-brand-200 bg-brand-50 px-3 text-sm font-semibold text-brand-700 hover:bg-brand-100 active:bg-brand-200 disabled:opacity-60 sm:w-auto">
+                      class="inline-flex min-h-[3rem] w-full items-center justify-center rounded-xl bg-brand-600 px-4 font-bold text-white shadow-sm hover:bg-brand-700 active:bg-brand-800 disabled:opacity-60">
                 📍 現在地から住所を取得 (GPS)
               </button>
-              <div class="flex flex-wrap gap-2 sm:items-stretch">
-                <input id="flight-takeoff-place" type="text" placeholder="例: 千葉県香取市小見川" class="min-w-[10rem] flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
-                <button type="button" id="btn-geocode" title="入力した住所から緯度・経度を検索します"
-                        class="inline-flex w-full min-h-[44px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-brand-200 bg-brand-50 px-3 text-sm font-semibold text-brand-700 hover:bg-brand-100 active:bg-brand-200 disabled:opacity-60 lg:w-auto">
-                  <i class="fas fa-magnifying-glass-location" aria-hidden="true"></i>座標検索
-                </button>
-              </div>
+              <p id="geo-status" role="status" aria-live="polite" class="text-xs leading-snug text-slate-500"></p>
+              <p id="takeoff-summary" class="hidden rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold leading-snug text-slate-700 ring-1 ring-slate-200"></p>
+              <!-- 手動入力は「必要なときだけ」展開する（既定は折りたたみ） -->
+              <details id="takeoff-manual" class="rounded-xl border border-dashed border-slate-300 bg-slate-50">
+                <summary class="flex items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-slate-600">
+                  <span class="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+                    <i class="fas fa-pen-to-square fa-fw text-brand-600" aria-hidden="true"></i>
+                    手動で入力・修正する
+                  </span>
+                  <i class="fas fa-chevron-down flex-none text-xs text-slate-400 transition-transform" aria-hidden="true"></i>
+                </summary>
+                <div class="px-3 pb-3">
+                  <input id="flight-takeoff-place" type="text" aria-label="離陸場所の住所" placeholder="例: 千葉県香取市小見川" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                  <button type="button" id="btn-geocode" title="入力した住所から緯度・経度を検索します"
+                          class="mt-2 inline-flex w-full items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-brand-200 bg-brand-50 px-3 text-sm font-semibold text-brand-700 hover:bg-brand-100 active:bg-brand-200 disabled:opacity-60">
+                    <i class="fas fa-magnifying-glass-location" aria-hidden="true"></i>座標検索
+                  </button>
+                </div>
+              </details>
               <p class="err" data-error="flight-takeoff-place"></p>
             </div>
 
@@ -231,34 +246,40 @@
           </div>
 
           <div class="mt-4 border-t border-slate-100 pt-4">
-            <div>
-              <div class="mb-1.5">
-                <p class="text-xs font-semibold text-slate-600">離着陸座標</p>
-                <p class="text-xs text-slate-400">GPSボタン・座標検索・貼り付けで自動入力されます</p>
-              </div>
-              <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:gap-x-6">
-                <div class="field">
-                  <label for="flight-lat" class="block text-sm font-semibold text-slate-600"><i class="fas fa-location-crosshairs fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>緯度</label>
-                  <input id="flight-lat" type="number" step="0.000001" inputmode="decimal" placeholder="35.681236"
-                         class="num w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
-                  <p class="err" data-error="flight-lat"></p>
+            <!-- 座標の手動入力も既定は折りたたみ（通常は GPS・座標検索・貼り付けで自動入力される） -->
+            <details id="coords-manual" class="rounded-xl border border-dashed border-slate-300 bg-slate-50">
+              <summary class="flex items-center justify-between gap-2 px-3 py-2 text-sm font-semibold text-slate-600">
+                <span class="inline-flex min-w-0 items-center gap-1.5 whitespace-nowrap">
+                  <i class="fas fa-location-crosshairs fa-fw text-brand-600" aria-hidden="true"></i>
+                  緯度・経度を手動で入力
+                </span>
+                <i class="fas fa-chevron-down flex-none text-xs text-slate-400 transition-transform" aria-hidden="true"></i>
+              </summary>
+              <div class="px-3 pb-3">
+                <p class="mb-2 text-xs text-slate-400">GPSボタン・座標検索・貼り付けで自動入力されます</p>
+                <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:gap-x-6">
+                  <div class="field">
+                    <label for="flight-lat" class="block text-sm font-semibold text-slate-600"><i class="fas fa-location-crosshairs fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>緯度</label>
+                    <input id="flight-lat" type="number" step="0.000001" inputmode="decimal" placeholder="35.681236"
+                           class="num w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                    <p class="err" data-error="flight-lat"></p>
+                  </div>
+                  <div class="field">
+                    <label for="flight-lng" class="block text-sm font-semibold text-slate-600"><i class="fas fa-location-crosshairs fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>経度</label>
+                    <input id="flight-lng" type="number" step="0.000001" inputmode="decimal" placeholder="139.767125"
+                           class="num w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+                    <p class="err" data-error="flight-lng"></p>
+                  </div>
                 </div>
-                <div class="field">
-                  <label for="flight-lng" class="block text-sm font-semibold text-slate-600"><i class="fas fa-location-crosshairs fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>経度</label>
-                  <input id="flight-lng" type="number" step="0.000001" inputmode="decimal" placeholder="139.767125"
-                         class="num w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
-                  <p class="err" data-error="flight-lng"></p>
+                <div class="mt-2 flex flex-wrap items-center gap-2">
+                  <button type="button" id="btn-geo"
+                          class="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-200">
+                    <i class="fas fa-location-arrow" aria-hidden="true"></i>
+                    座標から地名を取得
+                  </button>
                 </div>
               </div>
-              <div class="mt-2 flex flex-wrap items-center gap-2">
-                <button type="button" id="btn-geo"
-                        class="inline-flex h-11 min-h-[44px] items-center gap-1.5 rounded-lg bg-slate-100 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-200">
-                  <i class="fas fa-location-arrow" aria-hidden="true"></i>
-                  座標から地名を取得
-                </button>
-                <span id="geo-status" class="min-w-0 flex-1 truncate text-xs text-slate-500"></span>
-              </div>
-            </div>
+            </details>
           </div>
         </section>
 
@@ -1759,6 +1780,28 @@ function clearErrors(scope) {
 }
 
 /**
+ * 折りたたみ（<details>）内の要素なら、祖先の details を開いて見えるようにする。
+ *
+ * @param {HTMLElement} el 対象要素
+ * @return {boolean} 開いた（または既に開いていた）details があったか
+ */
+function revealInDetails(el) {
+  if (!el || !el.closest) return false;
+  var det = el.closest('details');
+  if (!det) return false;
+  if (!det.open) det.open = true;
+  return true;
+}
+
+/** 折りたたみ内でも見えるようにしてからフォーカスする */
+function focusInputRevealing(selector) {
+  var el = typeof selector === 'string' ? $(selector) : selector;
+  if (!el) return;
+  revealInDetails(el);
+  el.focus();
+}
+
+/**
  * エラーを表示する。
  * @param {Object} errors 入力ID → メッセージ
  * @param {HTMLElement} scope 対象フォーム
@@ -1770,6 +1813,8 @@ function showErrors(errors, scope) {
     var input = document.getElementById(id);
     if (input) {
       input.classList.add('field-error');
+      // 手動入力欄は折りたたんであるため、エラー時は展開して見えるようにする
+      revealInDetails(input);
       if (!first) first = input;
     }
     var box = $('.err[data-error="' + id + '"]', scope || document);
@@ -1779,6 +1824,7 @@ function showErrors(errors, scope) {
     }
   });
   if (first) {
+    revealInDetails(first);
     first.focus();
     if (first.scrollIntoView) first.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
@@ -3393,6 +3439,7 @@ function resetEntryAfterSave() {
   $('#flight-lng').value = '';
   $('#safety-detail').value = '';
   $('#inspection-memo').value = '';
+  syncTakeoffSummary();
   refreshEnvMap();
 
   var none = $('input[name="safety"][value="none"]');
@@ -3439,6 +3486,7 @@ function clearFlightForm() {
   $('#flight-lat').value = '';
   $('#flight-lng').value = '';
   $('#geo-status').textContent = '';
+  syncTakeoffSummary();
 
   // 日常点検（実施者は初期値＝前回値、日付は当日）
   $('#inspection-date').value = today;
@@ -4315,6 +4363,35 @@ function clearFieldError(id) {
   }
 }
 
+/**
+ * 折りたたみ時でも現在値が分かるよう、離陸場所の要約行を更新する。
+ * 住所・座標のどちらも空なら要約行を隠す。
+ */
+function syncTakeoffSummary() {
+  var el = $('#takeoff-summary');
+  if (!el) return;
+
+  var placeEl = $('#flight-takeoff-place');
+  var latEl = $('#flight-lat');
+  var lngEl = $('#flight-lng');
+  var place = placeEl ? placeEl.value.trim() : '';
+  var lat = latEl ? String(latEl.value).trim() : '';
+  var lng = lngEl ? String(lngEl.value).trim() : '';
+
+  var parts = [];
+  if (place) parts.push(place);
+  if (lat !== '' && lng !== '') parts.push('座標 ' + lat + ', ' + lng);
+
+  if (!parts.length) {
+    el.textContent = '';
+    el.classList.add('hidden');
+    return;
+  }
+
+  el.textContent = parts.join(' ・ ');
+  el.classList.remove('hidden');
+}
+
 /** 緯度・経度を入力欄へ反映する（6桁丸め） */
 function setGeoFields(lat, lng) {
   var la = Number(lat);
@@ -4324,6 +4401,7 @@ function setGeoFields(lat, lng) {
   $('#flight-lng').value = ln.toFixed(6);
   clearFieldError('flight-lat');
   clearFieldError('flight-lng');
+  syncTakeoffSummary();
   handleInfraCoordinateChange();
   refreshEnvMap();
   return true;
@@ -4900,7 +4978,7 @@ function handleAddressGeocode() {
   var status = $('#geo-status');
   if (!address) {
     toast('離陸場所に住所を入力してください（例: 千葉県香取市小見川）。', 'warn');
-    input.focus();
+    focusInputRevealing(input);
     return;
   }
 
@@ -4930,6 +5008,8 @@ function handleGpsLocate() {
 
   if (!navigator.geolocation) {
     toast('この環境では位置情報を利用できません。緯度・経度を手入力してください。', 'warn');
+    var manualFallback = $('#takeoff-manual');
+    if (manualFallback) manualFallback.open = true;
     return;
   }
 
@@ -4950,6 +5030,7 @@ function handleGpsLocate() {
       }
       $('#flight-takeoff-place').value = address;
       clearFieldError('flight-takeoff-place');
+      syncTakeoffSummary();
       if (status) status.textContent = address;
       toast('現在地の住所と座標を入力しました。', 'success');
     }).catch(function (err) {
@@ -4962,6 +5043,9 @@ function handleGpsLocate() {
     if (status) status.textContent = '';
     setButtonBusy(btn, false);
     toast(geoErrorMessage(err), 'warn');
+    // 位置情報を取れない環境では手入力しかないため、折りたたみを開いて導線を残す
+    var manual = $('#takeoff-manual');
+    if (manual) manual.open = true;
   }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
 }
 
@@ -5005,6 +5089,7 @@ function convertTakeoffCoordinates(rawValue) {
     if (!address) throw new Error('住所が見つかりませんでした。');
     input.value = address;
     clearFieldError('flight-takeoff-place');
+    syncTakeoffSummary();
     if (status) status.textContent = address;
     toast('座標を住所に変換しました（' + address + '）。', 'success');
   }).catch(function (err) {
@@ -5023,6 +5108,7 @@ function handleGeoLookup() {
   var status = $('#geo-status');
   if (lat === '' || lng === '') {
     toast('緯度・経度を入力してください。', 'warn');
+    focusInputRevealing('#flight-lat');
     return;
   }
 
@@ -5083,14 +5169,18 @@ function envSetStatus(text, isError) {
 }
 
 /**
- * 環境データの DID 判定を特定飛行区分へ反映する（追加のみ）。
+ * DID（人口集中地区）判定を特定飛行区分へ反映する（追加のみ・解除はしない）。
+ *
+ * 人口集中地区の上空では第三者の立入管理措置を講じられない運用のため、
+ * DID 該当時は「人または物件から30m未満」も併せて追加する。
+ * ユーザーが手動で外したチェックをシステム側で戻す処理は行わない。
  *
  * @param {boolean|null} isDID DID 判定
- * @return {boolean} 追加したか
+ * @return {Array<string>} 追加した項目のラベル
  */
 function applyEnvDidFlag(isDID) {
-  if (isDID !== true) return false;
-  return addSpecificFlagByKey_('did');
+  if (isDID !== true) return [];
+  return addSpecificFlagsByKeys_(['did', 'within30m']);
 }
 
 /**
@@ -5100,17 +5190,32 @@ function applyEnvDidFlag(isDID) {
  * @return {boolean} 追加したか
  */
 function addSpecificFlagByKey_(key) {
+  return addSpecificFlagsByKeys_([key]).length > 0;
+}
+
+/**
+ * 特定飛行のチェック項目をまとめて追加する（追加のみ・解除はしない）。
+ *
+ * @param {Array<string>} keys フラグのキー
+ * @return {Array<string>} 追加した項目のラベル
+ */
+function addSpecificFlagsByKeys_(keys) {
   var defs = CATALOG.specificFlagDefs || FALLBACK_FLAG_DEFS;
-  var def = defs.filter(function (d) { return d.key === key; })[0];
-  if (!def) return false;
-
   var flags = (state.entry.flags || []).filter(function (f) { return f !== '非特定飛行'; });
-  if (flags.indexOf(def.label) !== -1) return false;
+  var added = [];
 
-  flags.push(def.label);
-  state.entry.flags = flags;
-  renderSpecificFlags();
-  return true;
+  (keys || []).forEach(function (key) {
+    var def = defs.filter(function (d) { return d.key === key; })[0];
+    if (!def || flags.indexOf(def.label) !== -1) return;
+    flags.push(def.label);
+    added.push(def.label);
+  });
+
+  if (added.length) {
+    state.entry.flags = flags;
+    renderSpecificFlags();
+  }
+  return added;
 }
 
 /**
@@ -5241,8 +5346,8 @@ function handleFetchEnvironment() {
   var lat = $('#flight-lat').value;
   var lng = $('#flight-lng').value;
   if (lat === '' || lng === '') {
-    toast('先に緯度・経度を入力するか「📍 現在地（GPS）」で取得してください。', 'warn');
-    $('#flight-lat').focus();
+    toast('先に緯度・経度を入力するか「📍 現在地から住所を取得 (GPS)」で取得してください。', 'warn');
+    focusInputRevealing('#flight-lat');
     return;
   }
 
@@ -5271,7 +5376,7 @@ function handleFetchEnvironment() {
           ? '' : '（約' + weather.station.distanceKm + 'km）') + 'の値');
     }
     if (weather.stale) notes.push('気象は参考値（直近の取得値）');
-    if (added) notes.push('DID を特定飛行区分に反映しました');
+    if (added.length) notes.push('特定飛行区分に反映: ' + added.join('・'));
     if (regulations.isDID === null || regulations.isDID === undefined) {
       notes.push('DID は判定できませんでした（DIPS で確認してください）');
     }
@@ -5559,7 +5664,7 @@ function handleCheckInfrastructure() {
   var lng = $('#flight-lng').value;
   if (lat === '' || lng === '') {
     toast('先に緯度・経度を入力するか「📍 現在地から住所を取得 (GPS)」で取得してください。', 'warn');
-    $('#flight-lat').focus();
+    focusInputRevealing('#flight-lat');
     return;
   }
 
@@ -5567,7 +5672,7 @@ function handleCheckInfrastructure() {
   var ln = Number(lng);
   if (!isFinite(la) || !isFinite(ln) || la < -90 || la > 90 || ln < -180 || ln > 180) {
     toast('緯度・経度の範囲が不正です（緯度 -90〜90 / 経度 -180〜180）。', 'warn');
-    $('#flight-lat').focus();
+    focusInputRevealing('#flight-lat');
     return;
   }
 
@@ -5610,6 +5715,11 @@ function handleCheckInfrastructure() {
     // 法定の特定飛行（DID・空港周辺）だけをチェックへ反映する。
     // 送電線・鉄塔は安全上の要確認であり、法令上の特定飛行ではない。
     var addedFlags = applyInfraLegalFlags(res);
+    // DID（人口集中地区）に該当する場合は「人または物件から30m未満」も追加する
+    // （追加のみ。ユーザーが手動で外したチェックは戻さない）。
+    applyEnvDidFlag(res.is_did).forEach(function (label) {
+      if (addedFlags.indexOf(label) === -1) addedFlags.push(label);
+    });
     var legalHit = Array.isArray(res.legal_flags) && res.legal_flags.length > 0;
 
     var notes = [];
@@ -6168,8 +6278,8 @@ function handleAiMap() {
 
   var coords = readEnvMapCoords();
   if (!coords) {
-    toast('先に緯度・経度を入力するか「📍 現在地（GPS）」で取得してください。', 'warn');
-    $('#flight-lat').focus();
+    toast('先に緯度・経度を入力するか「📍 現在地から住所を取得 (GPS)」で取得してください。', 'warn');
+    focusInputRevealing('#flight-lat');
     return;
   }
 
@@ -6211,8 +6321,8 @@ function handleAiSatellite() {
   var lat = $('#flight-lat').value;
   var lng = $('#flight-lng').value;
   if (lat === '' || lng === '') {
-    toast('先に緯度・経度を入力するか「📍 現在地（GPS）」で取得してください。', 'warn');
-    $('#flight-lat').focus();
+    toast('先に緯度・経度を入力するか「📍 現在地から住所を取得 (GPS)」で取得してください。', 'warn');
+    focusInputRevealing('#flight-lat');
     return;
   }
 
@@ -6354,6 +6464,7 @@ function applyDjiLogToForm(log) {
   $('#flight-landing-time').value = t2;
   $('#flight-takeoff-place').value = log.takeoffPlace || '';
   setGeoFields(log.lat, log.lng);
+  syncTakeoffSummary();
 
   // プログラムからの時刻設定では change が発火しないため、明示的に再計算する
   state.entry.durationTouched = false;
@@ -6571,6 +6682,12 @@ function bindEvents() {
   $('#btn-geocode').addEventListener('click', handleAddressGeocode);
   $('#btn-gps').addEventListener('click', handleGpsLocate);
 
+  // 手動入力は折りたたんであるため、現在値が分かるよう要約行を入力のたびに更新する。
+  ['#flight-takeoff-place', '#flight-lat', '#flight-lng'].forEach(function (sel) {
+    var el = $(sel);
+    if (el) el.addEventListener('input', syncTakeoffSummary);
+  });
+
   // 離陸場所に「35.681236, 139.767125」が貼り付けられたら住所へ自動変換する。
   var takeoffPlaceInput = $('#flight-takeoff-place');
   if (takeoffPlaceInput) {
@@ -6734,6 +6851,7 @@ function init() {
 
   bindEvents();
   updateInfraCoordinates();
+  syncTakeoffSummary();
   switchTab(initialTab());
 
   // カタログ取得前でもフォームを操作できるよう、先に選択肢を描画する
