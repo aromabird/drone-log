@@ -30,7 +30,9 @@ const {
   computeDurationMinutes,
   summarizeInspection,
   serializeDraft,
-  parseDraft
+  parseDraft,
+  summarizeSunTimes,
+  shouldAutoCheckNight
 } = context;
 
 const ITEMS = ['機体全般', 'プロペラ', 'フレーム'];
@@ -118,4 +120,36 @@ test('serializeDraft / parseDraft: 往復と壊れた下書きの扱い', () => 
   assert.equal(parseDraft('{'), null);
   assert.equal(parseDraft('[]'), null);
   assert.equal(parseDraft('{"form":{}}'), null);
+});
+
+test('summarizeSunTimes: 日の出・日の入りと夜間/薄明の要約', () => {
+  assert.equal(summarizeSunTimes(null), null);
+  assert.equal(summarizeSunTimes({}), null);
+  assert.equal(summarizeSunTimes({ sunrise: null, sunset: null }), null);
+
+  const day = summarizeSunTimes({
+    sunrise: '06:20', sunset: '16:31',
+    is_night: false, is_twilight_margin: false
+  });
+  assert.equal(day.text, '日の出 06:20 / 日の入り 16:31');
+  assert.equal(day.isNight, false);
+  assert.equal(day.twilight, false);
+
+  const twilight = summarizeSunTimes({
+    sunrise: '06:20', sunset: '16:31',
+    is_night: false, is_twilight_margin: true
+  });
+  assert.equal(twilight.twilight, true);
+  assert.equal(twilight.isNight, false);
+});
+
+test('shouldAutoCheckNight: 夜間だけ自動ONし、薄明はONしない', () => {
+  assert.equal(shouldAutoCheckNight(null), false);
+  assert.equal(shouldAutoCheckNight(undefined), false);
+  assert.equal(shouldAutoCheckNight({}), false);
+  assert.equal(shouldAutoCheckNight({ is_night: true }), true);
+  assert.equal(shouldAutoCheckNight({ is_night: true, is_twilight_margin: true }), true);
+  // 文字列の "true" などは自動ONしない（BFF の boolean だけを信頼する）
+  assert.equal(shouldAutoCheckNight({ is_night: 'true' }), false);
+  assert.equal(shouldAutoCheckNight({ is_twilight_margin: true }), false);
 });

@@ -365,7 +365,7 @@
               <span class="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-sky-700 ring-1 ring-sky-200">Open-Meteo / 国土地理院</span>
             </p>
             <p class="mt-0.5 text-xs leading-relaxed text-sky-900/70">
-              離着陸座標から天候・風速（突風）・海抜標高・DID 規制を取得し、飛行適性を判定します。
+              離着陸座標から天候・風速（突風）・海抜標高・DID 規制・日の出/日の入りを取得し、飛行適性を判定します。
             </p>
 
             <button type="button" id="btn-env" data-busy-label="空域・気象を判定中…"
@@ -395,6 +395,12 @@
                   <span id="env-did" class="mt-0.5 inline-block rounded-full px-2 py-0.5 text-sm font-bold"></span>
                   <p id="env-did-note" class="mt-1 text-sm leading-relaxed text-slate-600"></p>
                 </div>
+              </div>
+              <div id="env-sun-card" class="hidden rounded-lg bg-white p-2.5 ring-1 ring-slate-200">
+                <p class="text-xs font-semibold text-slate-500">日の出・日の入り（JST）</p>
+                <p id="env-sun" class="num mt-0.5 text-sm font-bold text-slate-800">—</p>
+                <span id="env-sun-badge" class="mt-1 inline-block rounded-full px-2 py-0.5 text-sm font-bold"></span>
+                <p id="env-sun-note" class="mt-1 text-sm leading-relaxed text-slate-600"></p>
               </div>
               <p id="env-source" class="text-sm leading-relaxed text-slate-400"></p>
             </div>
@@ -517,6 +523,7 @@
                 <p id="infra-legal" class="mt-1 text-sm font-semibold"></p>
                 <p id="infra-category" class="mt-1.5 inline-block rounded-full px-2 py-0.5 text-xs font-bold"></p>
                 <p id="infra-detail" class="num mt-1 text-sm font-semibold"></p>
+                <p id="infra-sun" class="num mt-1 text-sm text-slate-600"></p>
               </div>
             </div>
             <p class="mt-1.5 text-xs leading-relaxed text-slate-500">
@@ -1947,7 +1954,38 @@ function parseDraft(raw) {
   if (!data.entry || typeof data.entry !== 'object') return null;
   return data;
 }
+/**
+ * BFF の sun_times から表示用の要約を作る（日の出・日の入りが無ければ null）。
+ *
+ * @param {Object} sun BFF の sun_times
+ * @return {Object|null} { text, isNight, twilight }
+ */
+function summarizeSunTimes(sun) {
+  var s = sun || {};
+  var rise = s.sunrise || '';
+  var set = s.sunset || '';
+  if (!rise && !set) return null;
+  return {
+    text: '日の出 ' + (rise || '—') + ' / 日の入り ' + (set || '—'),
+    isNight: s.is_night === true,
+    twilight: s.is_twilight_margin === true
+  };
+}
+
+/**
+ * 「夜間飛行」チェックを自動ONすべきか。
+ *
+ * 法令上の夜間（日没後〜日出前）だけを対象にし、薄明の前後30分は
+ * 警告のみで自動ONしない。
+ *
+ * @param {Object} sun BFF の sun_times
+ * @return {boolean}
+ */
+function shouldAutoCheckNight(sun) {
+  return !!(sun && sun.is_night === true);
+}
 /* === DLOG_PURE_END === */
+
 
 var state = {
   ready: false,
@@ -5745,7 +5783,9 @@ function normalizeWeatherFromBff(payload) {
     notes: (payload.notes || []).slice(),
     cached: payload.cached === true,
     stale: payload.stale === true,
-    unavailable: false
+    unavailable: false,
+    // BFF が astral で計算した日の出・日の入り（BFF 以外の取得では null）。
+    sunTimes: payload.sun_times || null
   };
   var safety = evaluateWeatherSafety(weather);
   weather.safetyStatus = safety.status;
@@ -5778,7 +5818,8 @@ function unavailableWeather(reason) {
     stale: false,
     unavailable: true,
     safetyStatus: 'UNKNOWN',
-    safetyLabel: '飛行適性: 判定できません（風を現地で確認してください）'
+    safetyLabel: '飛行適性: 判定できません（風を現地で確認してください）',
+    sunTimes: null
   };
 }
 
@@ -5856,7 +5897,8 @@ function fetchWeatherFromOpenMeteo(lat, lng) {
         notes: ['BFF を経由せず Open-Meteo から直接取得しました。'],
         cached: false,
         stale: false,
-        unavailable: false
+        unavailable: false,
+        sunTimes: null
       };
       var safety = evaluateWeatherSafety(weather);
       weather.safetyStatus = safety.status;
@@ -5960,7 +6002,9 @@ function fetchDid(lat, lng) {
 }
 
 /**
- * 現場環境（天候・標高・DID）を公開APIから取得する。
+ * 現場環境（天候・標高・DID・日の出/日の入り）を公開APIから取得する。
+ * 日の出・日の入りは BFF の天文計算（astral）の結果を使う。
+ *
  * @param {number} lat 緯度
  * @param {number} lng 経度
  * @return {Promise<Object>} 表示用の環境情報
@@ -5997,6 +6041,8 @@ function fetchEnvironment(lat, lng) {
       lng: ln,
       weather: weather,
       elevation: elevation,
+      // BFF の天文計算（astral）。BFF 以外から天候を取った場合は null。
+      sun_times: weather.sunTimes || null,
       regulations: {
         isDID: isDID,
         note: didNote,
@@ -6193,17 +6239,21 @@ function resetEnvResult() {
   if (box) box.classList.add('hidden');
 
   ['#env-weather', '#env-wind', '#env-elevation', '#env-limit',
-    '#env-did-note', '#env-safety-label', '#env-source', '#env-meta'].forEach(function (sel) {
+    '#env-did-note', '#env-safety-label', '#env-source', '#env-meta',
+    '#env-sun', '#env-sun-note'].forEach(function (sel) {
     var el = $(sel);
     if (el) el.textContent = '';
   });
 
-  ['#env-safety', '#env-did'].forEach(function (sel) {
+  ['#env-safety', '#env-did', '#env-sun-badge'].forEach(function (sel) {
     var el = $(sel);
     if (!el) return;
     el.textContent = '';
     el.className = 'mt-1 inline-block rounded-full px-2 py-0.5 text-sm font-bold';
   });
+
+  var sunCard = $('#env-sun-card');
+  if (sunCard) sunCard.classList.add('hidden');
 
   envSetStatus('');
 }
@@ -6229,6 +6279,20 @@ function envSetStatus(text, isError) {
 function applyEnvDidFlag(isDID) {
   if (isDID !== true) return [];
   return addSpecificFlagsByKeys_(['did', 'within30m']);
+}
+
+/**
+ * 夜間（日没後〜日出前）の判定を「夜間飛行」チェックへ反映する（追加のみ）。
+ *
+ * 薄明（日の出・日の入りの前後30分）は警告だけで、チェックは自動ONしない。
+ * ユーザーが手動で外したチェックを解除する処理は行わない。
+ *
+ * @param {Object} sun BFF の sun_times
+ * @return {Array<string>} 追加した項目のラベル
+ */
+function applySunNightFlag(sun) {
+  if (!shouldAutoCheckNight(sun)) return [];
+  return addSpecificFlagsByKeys_(['night']);
 }
 
 /**
@@ -6371,6 +6435,33 @@ function renderEnvResult(result) {
   var didNote = $('#env-did-note');
   if (didNote) didNote.textContent = regulations.note || '';
 
+  // 日の出・日の入り（BFF の astral 計算）。判定不能なら行ごと隠す。
+  var sunInfo = summarizeSunTimes(result.sun_times);
+  var sunCard = $('#env-sun-card');
+  if (sunCard) sunCard.classList.toggle('hidden', !sunInfo);
+  if (sunInfo) {
+    var sunEl = $('#env-sun');
+    if (sunEl) sunEl.textContent = sunInfo.text;
+
+    var sunBadge = $('#env-sun-badge');
+    if (sunBadge) {
+      sunBadge.textContent = sunInfo.isNight ? '夜間' : (sunInfo.twilight ? '薄明注意' : '日中');
+      sunBadge.className = 'mt-1 inline-block rounded-full px-2 py-0.5 text-sm font-bold ' +
+        (sunInfo.isNight ? 'bg-rose-100 text-rose-800'
+          : (sunInfo.twilight ? 'bg-amber-100 text-amber-800'
+            : 'bg-emerald-100 text-emerald-700'));
+    }
+
+    var sunNote = $('#env-sun-note');
+    if (sunNote) {
+      sunNote.textContent = sunInfo.isNight
+        ? '日没後〜日出前のため「夜間飛行」に該当します（灯火・資格を確認してください）。'
+        : (sunInfo.twilight
+          ? '日の出/日の入りの前後30分です（薄明）。夜間飛行の要否を確認してください。'
+          : '夜間飛行には該当しません。');
+    }
+  }
+
   var sources = result.sources || {};
   var sourceList = [sources.weather, sources.elevation, sources.did].filter(Boolean);
   var sourceEl = $('#env-source');
@@ -6418,6 +6509,11 @@ function handleFetchEnvironment() {
     renderEnvResult(res);
     var regulations = (res && res.regulations) || {};
     var added = applyEnvDidFlag(regulations.isDID);
+    // 夜間（日没後〜日出前）は「夜間飛行」を追加のみ反映する。
+    var sunTimes = (res && res.sun_times) || null;
+    applySunNightFlag(sunTimes).forEach(function (label) {
+      if (added.indexOf(label) === -1) added.push(label);
+    });
 
     var weather = (res && res.weather) || {};
     var notes = [];
@@ -6432,6 +6528,12 @@ function handleFetchEnvironment() {
           ? '' : '（約' + weather.station.distanceKm + 'km）') + 'の値');
     }
     if (weather.stale) notes.push('気象は参考値（直近の取得値）');
+    var sunInfo = summarizeSunTimes(sunTimes);
+    if (sunInfo && sunInfo.isNight) {
+      notes.push('夜間飛行（日没後〜日出前）に該当します');
+    } else if (sunInfo && sunInfo.twilight) {
+      notes.push('日の出/日の入りの前後30分です（薄明）');
+    }
     if (added.length) notes.push('特定飛行区分に反映: ' + added.join('・'));
     if (regulations.isDID === null || regulations.isDID === undefined) {
       notes.push('DID は判定できませんでした（DIPS で確認してください）');
@@ -6439,7 +6541,8 @@ function handleFetchEnvironment() {
 
     envSetStatus('取得しました。' + notes.join(' / '), false);
     var warn = weather.unavailable === true || regulations.isDID === true ||
-      weather.safetyStatus !== 'GOOD';
+      weather.safetyStatus !== 'GOOD' ||
+      !!(sunInfo && (sunInfo.isNight || sunInfo.twilight));
     toast('現場環境を取得しました' + (notes.length ? '。' + notes.join(' / ') : '') + '。',
       warn ? 'warn' : 'success');
   }).catch(function (err) {
@@ -6497,7 +6600,7 @@ function clearInfraResultDisplay() {
   var box = $('#infra-result');
   if (box) box.classList.add('hidden');
 
-  ['#infra-title', '#infra-message', '#infra-legal', '#infra-detail'].forEach(function (sel) {
+  ['#infra-title', '#infra-message', '#infra-legal', '#infra-detail', '#infra-sun'].forEach(function (sel) {
     var el = $(sel);
     if (el) el.textContent = '';
   });
@@ -6650,6 +6753,19 @@ function renderInfraResult(result) {
     detail.textContent = detailText;
   }
 
+  // 日の出・日の入り（BFF の astral 計算）。空域の判定とは独立に表示する。
+  var sunEl = $('#infra-sun');
+  if (sunEl) {
+    var infraSun = summarizeSunTimes(result.sun_times);
+    if (!infraSun) {
+      sunEl.textContent = '';
+    } else {
+      var sunState = infraSun.isNight ? '夜間'
+        : (infraSun.twilight ? '薄明注意' : '日中');
+      sunEl.textContent = infraSun.text + '（' + sunState + '）';
+    }
+  }
+
   setActionMeta('#infra-meta', 'OpenStreetMap / Overpass API');
 }
 
@@ -6775,6 +6891,11 @@ function handleCheckInfrastructure() {
     // 法定の特定飛行（DID・空港周辺）だけをチェックへ反映する。
     // 送電線・鉄塔は安全上の要確認であり、法令上の特定飛行ではない。
     var addedFlags = applyInfraLegalFlags(res);
+    // 夜間（日没後〜日出前）は「夜間飛行」を追加のみ反映する。
+    applySunNightFlag(res.sun_times).forEach(function (label) {
+      if (addedFlags.indexOf(label) === -1) addedFlags.push(label);
+    });
+    var infraSun = summarizeSunTimes(res.sun_times);
     // DID（人口集中地区）に該当する場合は「人または物件から30m未満」も追加する
     // （追加のみ。ユーザーが手動で外したチェックは戻さない）。
     applyEnvDidFlag(res.is_did).forEach(function (label) {
@@ -6788,6 +6909,11 @@ function handleCheckInfrastructure() {
     }
     if (legalHit) notes.push('空域の判定を特定飛行区分に反映しました。');
     if (res.power_unknown) notes.push('送電線・鉄塔は判定できませんでした。');
+    if (infraSun && infraSun.isNight) {
+      notes.push('夜間飛行（日没後〜日出前）に該当します。');
+    } else if (infraSun && infraSun.twilight) {
+      notes.push('日の出/日の入りの前後30分です（薄明）。');
+    }
     if (addedFlags.length) notes.push('追加: ' + addedFlags.join('・'));
     if (!notes.length) {
       notes.push(res.legal_unknown
@@ -6796,7 +6922,8 @@ function handleCheckInfrastructure() {
     }
     infraSetStatus(notes.join(' '), false);
     toast(res.message || notes[0],
-      (res.power_risk_detected || legalHit || res.power_unknown) ? 'warn' : 'success');
+      (res.power_risk_detected || legalHit || res.power_unknown ||
+        !!(infraSun && (infraSun.isNight || infraSun.twilight))) ? 'warn' : 'success');
   }).catch(function (err) {
     if (seq !== state.entry.infraSeq) return;
     var elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);

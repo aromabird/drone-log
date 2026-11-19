@@ -99,6 +99,14 @@ function pageStubs(seed) {
     headers: { 'Content-Type': 'application/json' }
   }));
 
+  // 日の出・日の入り（既定は薄明。テストで window.__testSun により差し替える）
+  const sunTimes = () => window.__testSun || {
+    sunrise: '06:20',
+    sunset: '16:31',
+    is_night: false,
+    is_twilight_margin: true
+  };
+
   const originalFetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
     const url = typeof input === 'string' ? input : (input && input.url) || '';
@@ -121,7 +129,8 @@ function pageStubs(seed) {
         notes: [],
         cached: false,
         stale: false,
-        observed_at: '2026-11-15T12:40:00+09:00'
+        observed_at: '2026-11-15T12:40:00+09:00',
+        sun_times: sunTimes()
       });
     }
     if (url.indexOf('/api/reverse-geocode') !== -1) {
@@ -168,7 +177,8 @@ function pageStubs(seed) {
         power_risk_detected: false,
         towers_count: 0,
         lines_count: 0,
-        message: '周辺インフラの異常なし'
+        message: '周辺インフラの異常なし',
+        sun_times: sunTimes()
       });
     }
     return originalFetch(input, init);
@@ -278,6 +288,52 @@ async function main() {
     const windText = await page.$eval('#env-wind', (el) => el.textContent);
     assert(windText.indexOf('2.1 m/s') !== -1, '風速が想定値ではありません: ' + windText);
     console.log('3) リスク判定（disabled/スピナー/メタ）OK:', envMeta);
+
+    const envSun = await page.$eval('#env-sun', (el) => el.textContent);
+    assert(envSun === '日の出 06:20 / 日の入り 16:31', '日の出/日の入り表示が不正: ' + envSun);
+    const envSunBadge = await page.$eval('#env-sun-badge', (el) => el.textContent);
+    assert(envSunBadge === '薄明注意', '薄明のバッジが不正: ' + envSunBadge);
+    let nightChecked = await page.$eval('#specific-flags input[data-key="night"]', (el) => el.checked);
+    assert(nightChecked === false, '薄明だけで夜間飛行が自動ONになっています');
+
+    // 周辺インフラの結果カードにも日の出・日の入りを表示する
+    // （固定フッターの重なりを避けるため DOM の click() を使う）
+    await page.evaluate(() => document.querySelector('#btn-infra-check').click());
+    await page.waitForFunction(() => {
+      const el = document.querySelector('#infra-sun');
+      return !!(el && el.textContent.length > 0);
+    });
+    const infraSun = await page.$eval('#infra-sun', (el) => el.textContent);
+    assert(infraSun === '日の出 06:20 / 日の入り 16:31（薄明注意）',
+      '周辺インフラの日の出表示が不正: ' + infraSun);
+
+    // 夜間のレスポンスでは「夜間飛行」を片方向（ONのみ）で自動反映する
+    await page.evaluate(() => {
+      window.__testSun = {
+        sunrise: '06:20', sunset: '16:31',
+        is_night: true, is_twilight_margin: false
+      };
+    });
+    await page.waitForFunction(() => {
+      const btn = document.querySelector('#btn-env');
+      return !!(btn && !btn.disabled);
+    });
+    await page.evaluate(() => document.querySelector('#btn-env').click());
+    await page.waitForFunction(() =>
+      document.querySelector('#env-sun-badge').textContent === '夜間');
+    nightChecked = await page.$eval('#specific-flags input[data-key="night"]', (el) => el.checked);
+    assert(nightChecked === true, '夜間の「夜間飛行」自動ONが効いていません');
+
+    // 後続ステップへ影響させないよう手動で戻し、スタブも既定へ戻す
+    await page.evaluate(() => {
+      const input = document.querySelector('#specific-flags input[data-key="night"]');
+      if (input && input.checked) input.click();
+      window.__testSun = null;
+      // 通知が積み上がると後続のボタン操作を遮るため消す
+      const toastRoot = document.querySelector('#toast');
+      if (toastRoot) toastRoot.innerHTML = '';
+    });
+    console.log('3b) 日の出/日の入り・薄明警告・夜間の片方向自動ON OK');
 
     await page.click('#inspection-items [data-item="機体全般"] [data-item-btn="NG"]');
     const memoVisible = await page.$eval('#inspection-memo-wrap', (el) => !el.classList.contains('hidden'));
