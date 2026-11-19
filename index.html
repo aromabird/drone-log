@@ -107,6 +107,37 @@
     .skeleton { background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 37%, #e2e8f0 63%);
       background-size: 400% 100%; animation: shimmer 1.4s ease infinite; }
     @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+    /* 屋外の「能動アクション」（外部API・センサー呼び出し）を通常の入力欄と区別する
+       高コントラストUI。48px 以上を確保し、片手操作しやすくする。 */
+    .action-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+      min-height: 48px; border-radius: .75rem; border: 2px solid transparent;
+      font-weight: 700; transition: filter .15s ease, background-color .15s ease;
+    }
+    .action-btn:hover:not(:disabled) { filter: brightness(1.08); }
+    .action-btn:disabled { opacity: .65; cursor: not-allowed; }
+    .action-btn--gps { background: #0f172a; color: #fff; }
+    .action-btn--risk { background: #b45309; color: #fff; }
+    .action-btn--infra { background: #7c2d12; color: #fff; }
+    .action-btn--ai { background: #4338ca; color: #fff; }
+    .action-btn--save { background: #0f766e; color: #fff; }
+    .action-btn--resume { background: #1d4ed8; color: #fff; }
+    .action-btn--stamp { background: #fff; color: #0f172a; border-color: #0f172a; }
+    .action-meta { margin-top: .3rem; font-size: .75rem; line-height: 1.4; color: #475569; }
+    .action-meta:empty { display: none; }
+    /* フェーズ（details）の見出し。折りたたんでも要約が読めるようにする。 */
+    .phase-summary {
+      display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem;
+      padding: .75rem 1rem; border-radius: 1rem; background: #fff;
+      font-weight: 700; color: #0f172a; box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+    }
+    .phase-summary .phase-chip {
+      border-radius: 9999px; background: #0f172a; color: #fff;
+      padding: .1rem .6rem; font-size: .75rem; letter-spacing: .04em;
+    }
+    .phase-summary .phase-state { font-size: .8rem; font-weight: 600; color: #475569; }
+    .phase[open] > .phase-summary { background: #f8fafc; }
+    .action-banner { border-radius: 1rem; padding: .75rem 1rem; }
     @media print { .no-print { display: none !important; } }
   </style>
 </head>
@@ -176,11 +207,43 @@
 
       <form id="entry-form" novalidate>
 
+        <!-- 再開バナー（status: pre_flight_ready のログがある場合のみ表示） -->
+        <div id="resume-banner" class="action-banner mb-3 hidden bg-blue-50 ring-1 ring-blue-200" role="status" aria-live="polite">
+          <p class="text-sm font-bold text-blue-900">
+            <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+            <span id="resume-banner-text">飛行中／待機中のログがあります</span>
+          </p>
+          <p class="mt-0.5 text-sm text-blue-800">着陸後はフェーズ3から再開し、飛行後点検と実績を保存してください。</p>
+          <button type="button" id="btn-resume-banner" class="action-btn action-btn--resume mt-2 w-full">
+            <i class="fas fa-rotate-right" aria-hidden="true"></i>再開する
+          </button>
+        </div>
+
+        <!-- 下書き復元バナー（localStorage に自動退避がある場合のみ表示） -->
+        <div id="draft-banner" class="action-banner mb-3 hidden bg-amber-50 ring-1 ring-amber-200" role="status" aria-live="polite">
+          <p class="text-sm font-bold text-amber-900">
+            <i class="fas fa-file-pen" aria-hidden="true"></i>入力中の下書きがあります
+          </p>
+          <p id="draft-banner-text" class="mt-0.5 text-sm text-amber-800"></p>
+          <div class="mt-2 grid grid-cols-2 gap-2">
+            <button type="button" id="btn-draft-restore" class="action-btn action-btn--save">復元</button>
+            <button type="button" id="btn-draft-discard" class="action-btn action-btn--stamp">破棄</button>
+          </div>
+        </div>
+
+        <!-- ===== フェーズ1: 計画・現場環境 ===== -->
+        <details id="phase1" class="phase" data-phase="1" open>
+          <summary class="phase-summary">
+            <span class="phase-chip">フェーズ1</span>
+            <span>計画・現場環境</span>
+            <span id="phase1-summary" class="phase-state">離陸場所・GPS・リスク判定・AI診断</span>
+          </summary>
+
         <!-- STEP 1: 計画と場所 -->
-        <section class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step1-title">
+        <section class="mt-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step1-title">
           <header class="mb-4 border-b border-slate-200 pb-3">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full bg-brand-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">STEP 1</span>
+              <span class="rounded-full bg-brand-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">PHASE 1</span>
               <h2 id="step1-title" class="text-lg font-bold text-slate-900">計画と場所</h2>
               <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式1</span>
             </div>
@@ -218,6 +281,7 @@
                 📍 現在地から住所を取得 (GPS)
               </button>
               <p id="geo-status" role="status" aria-live="polite" class="text-xs leading-snug text-slate-500"></p>
+              <p id="gps-meta" class="action-meta" role="status" aria-live="polite"></p>
               <p id="takeoff-summary" class="hidden rounded-xl bg-slate-50 px-3 py-2 text-sm font-semibold leading-snug text-slate-700 ring-1 ring-slate-200"></p>
               <!-- 手動入力は「必要なときだけ」展開する（既定は折りたたみ） -->
               <details id="takeoff-manual" class="rounded-xl border border-dashed border-slate-300 bg-slate-50">
@@ -287,7 +351,7 @@
         <section class="mt-8 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step2-title">
           <header class="mb-4 border-b border-slate-200 pb-3">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full bg-sky-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">STEP 2</span>
+              <span class="rounded-full bg-sky-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">PHASE 1</span>
               <h2 id="step2-title" class="text-lg font-bold text-slate-900">現場環境の確認</h2>
               <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">Open-Meteo 等</span>
             </div>
@@ -304,10 +368,11 @@
               離着陸座標から天候・風速（突風）・海抜標高・DID 規制を取得し、飛行適性を判定します。
             </p>
 
-            <button type="button" id="btn-env" data-busy-label="取得中…"
-                    class="mt-3 inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-sky-700 ring-1 ring-sky-200 hover:bg-sky-50 disabled:opacity-60">
-              <i class="fas fa-cloud-sun" aria-hidden="true"></i>現場環境を取得
+            <button type="button" id="btn-env" data-busy-label="空域・気象を判定中…"
+                    class="action-btn action-btn--risk mt-3 w-full">
+              <i class="fas fa-cloud-sun" aria-hidden="true"></i>現場環境からリスク判定
             </button>
+            <p id="env-meta" class="action-meta" role="status" aria-live="polite"></p>
 
             <p id="env-status" class="mt-2 text-sm leading-relaxed text-slate-500"></p>
 
@@ -392,6 +457,7 @@
                         class="inline-flex min-h-[48px] items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-brand-700 ring-1 ring-brand-200 hover:bg-brand-50 disabled:opacity-60">
                   <i class="fas fa-camera" aria-hidden="true"></i>現場写真でAI診断
                 </button>
+                <p id="ai-meta" class="action-meta sm:col-span-2" role="status" aria-live="polite"></p>
               </div>
               <button type="button" id="btn-ai-conditions" data-busy-label="診断中…"
                       class="mt-2 inline-flex min-h-[36px] items-center gap-1 text-sm font-semibold text-brand-700 underline underline-offset-2 disabled:opacity-60">
@@ -414,7 +480,7 @@
         <section class="mt-8 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step3-title">
           <header class="mb-4 border-b border-slate-200 pb-3">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">STEP 3</span>
+              <span class="rounded-full bg-amber-500 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">PHASE 1</span>
               <h2 id="step3-title" class="text-lg font-bold text-slate-900">飛行区分とリスク判定</h2>
               <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式1</span>
             </div>
@@ -437,10 +503,11 @@
 
               <p id="infra-coords" class="num mt-2 text-sm font-semibold text-slate-600">対象座標: 未入力（STEP 1で緯度・経度を入力）</p>
 
-              <button type="button" id="btn-infra-check" data-busy-label="確認中…"
-                      class="mt-2.5 inline-flex min-h-[48px] w-full items-center justify-center gap-1.5 rounded-lg bg-white px-3 text-sm font-bold text-amber-800 ring-1 ring-amber-200 hover:bg-amber-50 disabled:opacity-60">
+              <button type="button" id="btn-infra-check" data-busy-label="周辺インフラを確認中…"
+                      class="action-btn action-btn--infra mt-2.5 w-full">
                 <i class="fas fa-tower-broadcast" aria-hidden="true"></i>現場環境をチェック
               </button>
+              <p id="infra-meta" class="action-meta" role="status" aria-live="polite"></p>
 
               <p id="infra-status" class="mt-2 text-sm leading-relaxed text-slate-500"></p>
 
@@ -494,21 +561,28 @@
           </div>
         </section>
 
-        <!-- STEP 4: 日常点検 -->
-        <section class="mt-8 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step4-title">
+        </details>
+
+        <!-- ===== フェーズ2: 飛行前点検 ===== -->
+        <details id="phase2" class="phase mt-3" data-phase="2" open>
+          <summary class="phase-summary">
+            <span class="phase-chip">フェーズ2</span>
+            <span>飛行前点検</span>
+            <span id="phase2-summary" class="phase-state">飛行前の日常点検（13項目）</span>
+          </summary>
+
+        <!-- STEP 4: 飛行前の日常点検 -->
+        <section class="mt-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step4-title">
           <header class="mb-4 border-b border-slate-200 pb-3">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full bg-teal-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">STEP 4</span>
-              <h2 id="step4-title" class="text-lg font-bold text-slate-900">日常点検</h2>
+              <span class="rounded-full bg-teal-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">PHASE 2</span>
+              <h2 id="step4-title" class="text-lg font-bold text-slate-900">飛行前の日常点検</h2>
               <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式2・13項目</span>
             </div>
-            <p class="mt-1 text-sm leading-relaxed text-slate-500">飛行前に機体・送信機・周辺状況を13項目で点検します。</p>
+            <p class="mt-1 text-sm leading-relaxed text-slate-500">離陸前に機体・送信機・周辺状況を13項目で点検します。</p>
           </header>
 
-          <div class="mb-3 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1" id="inspection-type">
-            <button type="button" data-type="飛行前" class="min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-semibold text-slate-500 transition sm:text-base">飛行前</button>
-            <button type="button" data-type="飛行後" class="min-h-[44px] rounded-lg px-2 py-2.5 text-sm font-semibold text-slate-500 transition sm:text-base">飛行後</button>
-          </div>
+          <!-- 点検種別はフェーズで固定（フェーズ2＝飛行前 / フェーズ3＝飛行後）。 -->
 
           <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:gap-x-6">
             <div class="field">
@@ -529,17 +603,18 @@
             <button type="button" id="btn-all-ok"
                     class="inline-flex min-h-[40px] shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-teal-50 px-3 py-2 text-sm font-bold text-teal-700 hover:bg-teal-100">
               <i class="fas fa-check-double" aria-hidden="true"></i>
-              一括OK
+              すべて異常なし
             </button>
           </div>
 
-          <div id="inspection-items" class="mt-2 divide-y divide-slate-100"></div>
+          <div id="inspection-items" class="mt-2 divide-y divide-slate-100" data-inspection-scope="pre"></div>
           <p class="err" data-error="inspection-items"></p>
 
-          <div class="mt-3 field">
-            <label for="inspection-memo" class="block text-sm font-semibold text-slate-600"><i class="fas fa-pen fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>点検詳細メモ</label>
-            <textarea id="inspection-memo" rows="2" placeholder="気づいた点・異常の詳細など"
+          <div id="inspection-memo-wrap" class="mt-3 field hidden">
+            <label for="inspection-memo" class="block text-sm font-semibold text-slate-600"><i class="fas fa-pen fa-fw mr-1.5 text-rose-600" aria-hidden="true"></i>異常の詳細・備考</label>
+            <textarea id="inspection-memo" rows="2" placeholder="異常がある項目の内容・対応など"
                       class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+            <p class="mt-1 text-xs text-rose-600">「異常あり」の項目があります。内容を記録してください。</p>
           </div>
 
           <div class="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
@@ -549,11 +624,38 @@
           <p class="mt-1 text-xs text-slate-400">NG が1件でもある場合は「異常あり」になります。</p>
         </section>
 
+        <!-- フェーズ2直下: 飛行前点検の途中保存（フライト待機） -->
+        <div class="mt-3 rounded-2xl bg-white p-3 shadow-lg ring-1 ring-teal-200 no-print">
+          <p class="text-sm font-bold text-slate-900">
+            <i class="fas fa-hourglass-half text-teal-700" aria-hidden="true"></i>
+            飛行前点検を保存（フライト待機）
+          </p>
+          <p class="mt-0.5 text-xs leading-relaxed text-slate-500">
+            この時点で <span class="font-mono">status: pre_flight_ready</span> として保存します。
+            フェーズ1・2は自動で折りたたまれ、着陸後すぐフェーズ3へ進めます。
+          </p>
+          <button type="button" id="btn-save-preflight" data-busy-label="保存中…"
+                  class="action-btn action-btn--save mt-2 w-full">
+            <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+            飛行前点検を保存（フライト待機）
+          </button>
+          <p id="preflight-status" class="action-meta" role="status" aria-live="polite"></p>
+        </div>
+        </details>
+
+        <!-- ===== フェーズ3: 実績・飛行後点検 ===== -->
+        <details id="phase3" class="phase mt-3" data-phase="3" open>
+          <summary class="phase-summary">
+            <span class="phase-chip">フェーズ3</span>
+            <span>実績・飛行後点検</span>
+            <span id="phase3-summary" class="phase-state">離着陸時刻・飛行時間・飛行後点検・特記事項</span>
+          </summary>
+
         <!-- STEP 5: フライト実績（実行） -->
-        <section class="mt-8 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step5-title">
+        <section class="mt-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200" aria-labelledby="step5-title">
           <header class="mb-4 border-b border-slate-200 pb-3">
             <div class="flex flex-wrap items-center gap-2">
-              <span class="rounded-full bg-indigo-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">STEP 5</span>
+              <span class="rounded-full bg-indigo-600 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">PHASE 3</span>
               <h2 id="step5-title" class="text-lg font-bold text-slate-900">フライト実績（実行）</h2>
               <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式1</span>
             </div>
@@ -566,8 +668,8 @@
               <div class="flex flex-wrap items-center gap-2">
                 <input id="flight-takeoff-time" type="time" class="quick-time-input min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
                 <button type="button" id="btn-now-takeoff" title="現在時刻（JST）を離陸時刻に入力します"
-                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-teal-200 bg-teal-50 px-3 text-sm font-semibold text-teal-700 hover:bg-teal-100 active:bg-teal-200">
-                  <i class="fas fa-plane-departure" aria-hidden="true"></i>今すぐ離陸
+                        class="action-btn action-btn--stamp shrink-0 px-3 text-sm">
+                  <i class="fas fa-plane-departure" aria-hidden="true"></i>今（打刻）
                 </button>
               </div>
               <p class="err" data-error="flight-takeoff-time"></p>
@@ -578,8 +680,8 @@
               <div class="flex flex-wrap items-center gap-2">
                 <input id="flight-landing-time" type="time" class="quick-time-input min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
                 <button type="button" id="btn-now-landing" title="現在時刻（JST）を着陸時刻に入力します"
-                        class="inline-flex h-12 min-h-[48px] shrink-0 items-center justify-center gap-1 whitespace-nowrap rounded-xl border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-700 hover:bg-amber-100 active:bg-amber-200">
-                  <i class="fas fa-plane-arrival" aria-hidden="true"></i>今すぐ着陸
+                        class="action-btn action-btn--stamp shrink-0 px-3 text-sm">
+                  <i class="fas fa-plane-arrival" aria-hidden="true"></i>今（打刻）
                 </button>
               </div>
               <p class="err" data-error="flight-landing-time"></p>
@@ -641,12 +743,64 @@
           </div>
         </section>
 
+        <!-- フェーズ3: 飛行後の日常点検 -->
+        <section class="mt-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-teal-200" aria-labelledby="post-inspection-title">
+          <header class="mb-4 border-b border-slate-200 pb-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-teal-700 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">PHASE 3</span>
+              <h2 id="post-inspection-title" class="text-lg font-bold text-slate-900">飛行後の日常点検</h2>
+              <span class="ml-auto rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">様式2・13項目</span>
+            </div>
+            <p class="mt-1 text-sm leading-relaxed text-slate-500">着陸後に機体の異常・損傷・消耗を13項目で点検します。</p>
+          </header>
+
+          <div class="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:gap-x-6">
+            <div class="field">
+              <label for="inspection-post-date" class="block text-sm font-semibold text-slate-600"><i class="fas fa-calendar-check fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>点検実施日</label>
+              <input id="inspection-post-date" type="date" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+            </div>
+            <div class="field">
+              <label for="inspection-post-inspector" class="block text-sm font-semibold text-slate-600"><i class="fas fa-user-check fa-fw mr-1.5 text-brand-600" aria-hidden="true"></i>実施者 <span class="text-rose-500">*</span></label>
+              <input id="inspection-post-inspector" type="text" placeholder="例: 普施 太郎" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200">
+              <p class="err" data-error="inspection-post-inspector"></p>
+            </div>
+          </div>
+
+          <div class="mt-3 flex items-center justify-between">
+            <p class="text-sm text-slate-500">
+              <span id="inspection-post-progress" class="num font-semibold text-slate-700">0 / 13</span> 項目 入力済み
+            </p>
+            <button type="button" id="btn-all-ok-post"
+                    class="inline-flex min-h-[40px] shrink-0 items-center gap-1 whitespace-nowrap rounded-lg bg-teal-50 px-3 py-2 text-sm font-bold text-teal-700 hover:bg-teal-100">
+              <i class="fas fa-check-double" aria-hidden="true"></i>
+              すべて異常なし
+            </button>
+          </div>
+
+          <div id="inspection-post-items" class="mt-2 divide-y divide-slate-100" data-inspection-scope="post"></div>
+          <p class="err" data-error="inspection-post-items"></p>
+
+          <div id="inspection-post-memo-wrap" class="mt-3 field hidden">
+            <label for="inspection-post-memo" class="block text-sm font-semibold text-slate-600"><i class="fas fa-pen fa-fw mr-1.5 text-rose-600" aria-hidden="true"></i>異常の詳細・備考</label>
+            <textarea id="inspection-post-memo" rows="2" placeholder="損傷・消耗・異音など"
+                      class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"></textarea>
+            <p class="mt-1 text-xs text-rose-600">「異常あり」の項目があります。内容を記録してください。</p>
+          </div>
+
+          <div class="mt-3 flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
+            <span class="text-xs font-semibold text-slate-600">点検結果</span>
+            <span id="inspection-post-result" class="rounded-full bg-slate-200 px-3 py-1 text-sm font-bold text-slate-600">未入力</span>
+          </div>
+          <p class="mt-1 text-xs text-slate-400">NG が1件でもある場合は「異常あり」になります。</p>
+        </section>
+        </details>
+
         <!-- 保存 -->
         <div class="mt-8 rounded-2xl bg-white p-3 shadow-lg ring-1 ring-slate-200 no-print">
           <div class="mb-2 flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
             <span class="rounded-full bg-slate-900 px-2.5 py-0.5 text-xs font-bold tracking-wide text-white">SAVE</span>
             <p class="text-sm font-bold text-slate-900">保存</p>
-            <p class="ml-auto text-xs text-slate-400">STEP 1〜5を確認して保存</p>
+            <p class="ml-auto text-xs text-slate-400">フェーズ1〜3を確認して保存</p>
           </div>
           <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
             <div class="min-w-0">
@@ -658,10 +812,10 @@
                       class="inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-slate-300 bg-white min-h-[48px] px-3 py-3 text-base font-semibold text-slate-600 transition hover:bg-slate-100 active:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300">
                 <i class="fas fa-trash-alt" aria-hidden="true"></i>入力をクリア
               </button>
-              <button id="save-btn" type="submit"
-                      class="inline-flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-brand-600 min-h-[48px] px-4 py-3 text-base font-bold text-white shadow-sm transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60 sm:flex-none sm:px-5">
+              <button id="save-btn" type="submit" data-busy-label="保存中…"
+                      class="action-btn action-btn--save flex-1 sm:flex-none sm:px-5">
                 <i class="fas fa-save" aria-hidden="true"></i>
-                保存する
+                保存する（完了）
               </button>
             </div>
           </div>
@@ -1420,7 +1574,8 @@ var LS = {
   PILOT: 'drone-log:last-pilot',
   DRONE: 'drone-log:last-drone',
   INSPECTOR: 'drone-log:inspector',
-  BFF_BASE: 'drone-log:bff-base-url:v1'
+  BFF_BASE: 'drone-log:bff-base-url:v1',
+  DRAFT: 'drone-log:draft:v1'
 };
 
 var LIMIT_MINUTES = 1200;
@@ -1678,6 +1833,122 @@ var ENV_STATUS_BADGE = {
   UNKNOWN: 'bg-slate-100 text-slate-600'
 };
 
+/* === DLOG_PURE_START === */
+/* 画面に依存しない純粋ロジック。tests/core.test.mjs がこの範囲だけを抽出して検証する。
+   ここへ DOM 参照・localStorage 参照を持ち込まないこと。 */
+var FLIGHT_STATUS = { PRE_FLIGHT_READY: 'pre_flight_ready', COMPLETED: 'completed' };
+var INSPECTION_TYPES = { PRE: '飛行前', POST: '飛行後' };
+
+/** status 未設定（旧データ）は completed として扱う */
+function normalizeFlightStatus(value) {
+  return value === FLIGHT_STATUS.PRE_FLIGHT_READY
+    ? FLIGHT_STATUS.PRE_FLIGHT_READY
+    : FLIGHT_STATUS.COMPLETED;
+}
+
+/** フライト待機（pre_flight_ready）か */
+function isPreFlightReady(record) {
+  return normalizeFlightStatus(record && record.status) === FLIGHT_STATUS.PRE_FLIGHT_READY;
+}
+
+/** ISO / 'YYYY-MM-DD HH:MM:SS' / HH:MM から HH:MM を取り出す（純粋関数） */
+function timeFromIso_(value) {
+  var text = String(value || '');
+  var found = /[T ](\d{2}):(\d{2})/.exec(text);
+  if (found) return found[1] + ':' + found[2];
+  var hm = /^(\d{2}):(\d{2})/.exec(text.trim());
+  return hm ? hm[1] + ':' + hm[2] : '';
+}
+
+/** 小数第1位へ丸める（null / 空 / 非数値は null） */
+function round1_(value) {
+  if (value === null || value === undefined || value === '') return null;
+  var n = Number(value);
+  if (!isFinite(n)) return null;
+  return Math.round(n * 10) / 10;
+}
+
+/**
+ * フェーズ2の `<summary>` に出す要約を作る。
+ * 例: ✅ 飛行前点検済 10:15 / 風速2.1m/s
+ */
+function buildPreflightSummary(input) {
+  var opts = input || {};
+  var time = timeFromIso_(opts.savedAt || opts.time || '');
+  var wind = round1_(opts.windSpeed);
+  var head = opts.result === '異常あり' ? '⚠️ 飛行前点検（異常あり）' : '✅ 飛行前点検済';
+  var windLabel = wind === null ? '風速 —' : '風速' + wind + 'm/s';
+  return head + (time ? ' ' + time : '') + ' / ' + windLabel;
+}
+
+/** HH:MM を分へ（不正なら null） */
+function timeToMinutesPure_(value) {
+  var m = /^(\d{2}):(\d{2})$/.exec(String(value || '').trim());
+  if (!m) return null;
+  var h = Number(m[1]);
+  var mi = Number(m[2]);
+  if (h > 23 || mi > 59) return null;
+  return h * 60 + mi;
+}
+
+/** 離着陸時刻から飛行時間（分）を計算する。日跨ぎは +24時間。 */
+function computeDurationMinutes(start, end) {
+  var a = timeToMinutesPure_(start);
+  var b = timeToMinutesPure_(end);
+  if (a === null || b === null) return { minutes: 0, overnight: false, valid: false };
+  var diff = b - a;
+  var overnight = diff < 0;
+  if (overnight) diff += 1440;
+  return { minutes: diff, overnight: overnight, valid: true };
+}
+
+/** 13項目の点検結果を集計する */
+function summarizeInspection(items, names) {
+  var list = names || [];
+  var filled = 0;
+  var ng = 0;
+  list.forEach(function (name) {
+    var value = items && items[name];
+    if (value) filled += 1;
+    if (value === 'NG') ng += 1;
+  });
+  var result = '未入力';
+  if (ng) result = '異常あり';
+  else if (filled && filled === list.length) result = '合格';
+  else if (filled) result = '入力中';
+  return { filled: filled, ng: ng, total: list.length, result: result };
+}
+
+/** 下書きをJSON文字列へ（保存する項目だけを残す） */
+function serializeDraft(draft) {
+  var data = draft || {};
+  return JSON.stringify({
+    version: 1,
+    savedAt: data.savedAt || '',
+    resumeFlightId: data.resumeFlightId || '',
+    form: data.form || {},
+    entry: data.entry || {},
+    envResult: data.envResult || null
+  });
+}
+
+/** 壊れた下書きは null を返す（復元時に例外を出さない） */
+function parseDraft(raw) {
+  var text = String(raw || '');
+  if (!text) return null;
+  var data;
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    return null;
+  }
+  if (!data || typeof data !== 'object') return null;
+  if (!data.form || typeof data.form !== 'object') return null;
+  if (!data.entry || typeof data.entry !== 'object') return null;
+  return data;
+}
+/* === DLOG_PURE_END === */
+
 var state = {
   ready: false,
   data: {
@@ -1694,7 +1965,8 @@ var state = {
   log: { items: [], total: 0, hasMore: false, loading: false },
   filters: { from: '', to: '', droneId: '', q: '' },
   entry: {
-    type: '飛行前', items: {}, durationTouched: false, saving: false,
+    type: '飛行前', preItems: {}, postItems: {}, durationTouched: false, saving: false,
+    savingPreflight: false,
     purpose: '空撮', flags: [], hasClearZone: true, category: null,
     aiLoading: false,
     // 周辺マップ（地理院タイル）の描画状態。mapKey が一致する間は再取得しない。
@@ -1704,7 +1976,18 @@ var state = {
     // 座標変更時に増やす世代番号（古いインフラ判定の応答を破棄する）。
     infraSeq: 0,
     // 「入力をクリア」で増やす世代番号。古い非同期応答を破棄するために使う。
-    reqSeq: 0
+    reqSeq: 0,
+    // 飛行前点検を保存したログ（フェーズ3から再開する対象）
+    resumeFlightId: '',
+    preflightSavedAt: '',
+    // 下書き自動保存のデバウンス用タイマー
+    draftTimer: null,
+    // ボタン直下に出す「取得時刻 / ソース」表示用
+    lastEnvAt: '',
+    lastInfraAt: '',
+    lastGeoAt: '',
+    lastAiAt: '',
+    lastSaveAt: ''
   },
   editing: { droneId: '', pilotId: '' },
   settings: { pilotId: '' }
@@ -2189,6 +2472,12 @@ function mockFlightItems(db, filter) {
       hasSafetyEvent: String(row.safetyEvent || '').indexOf('あり') === 0,
       purpose: row.purpose || '',
       createdAt: row.createdAt || '',
+      status: normalizeFlightStatus(row.status),
+      isPreFlightReady: isPreFlightReady(row),
+      preflightSavedAt: row.preflightSavedAt || '',
+      preflightSummary: row.preflightSummary || null,
+      completedAt: row.completedAt || '',
+      updatedAt: row.updatedAt || '',
       inspections: inspections,
       hasAbnormalInspection: inspections.some(function (i) { return i.result === '異常あり'; })
     };
@@ -2209,8 +2498,10 @@ function mockFlightItems(db, filter) {
   });
 
   items.sort(function (a, b) {
-    var ka = a.date + ' ' + a.takeoffTime + ' ' + a.flightId;
-    var kb = b.date + ' ' + b.takeoffTime + ' ' + b.flightId;
+    // 飛行待機（pre_flight_ready）は日誌の先頭に出して再開しやすくする
+    if (a.isPreFlightReady !== b.isPreFlightReady) return a.isPreFlightReady ? -1 : 1;
+    var ka = a.date + ' ' + (a.takeoffTime || '') + ' ' + a.flightId;
+    var kb = b.date + ' ' + (b.takeoffTime || '') + ' ' + b.flightId;
     if (ka === kb) return 0;
     return ka < kb ? 1 : -1;
   });
@@ -2264,13 +2555,15 @@ function mockGetInspections(db, filter) {
 function mockBootstrap(db) {
   var drones = mockDecorate(db);
   var all = mockFlightItems(db, {});
+  var pendingFlights = all.filter(function (f) { return f.isPreFlightReady; });
+  var completed = all.filter(function (f) { return !f.isPreFlightReady; });
   var month = todayISO().slice(0, 7);
-  var monthFlights = all.filter(function (f) { return f.yearMonth === month; });
-  var totalMinutes = all.reduce(function (s, f) { return s + f.durationMin; }, 0);
+  var monthFlights = completed.filter(function (f) { return f.yearMonth === month; });
+  var totalMinutes = completed.reduce(function (s, f) { return s + f.durationMin; }, 0);
   var monthMinutes = monthFlights.reduce(function (s, f) { return s + f.durationMin; }, 0);
   var inspections = mockGetInspections(db, { limit: 300 }).items;
   var flightCounts = {};
-  db.flights.forEach(function (f) { flightCounts[f.pilotId] = (flightCounts[f.pilotId] || 0) + 1; });
+  completed.forEach(function (f) { flightCounts[f.pilotId] = (flightCounts[f.pilotId] || 0) + 1; });
 
   return {
     ok: true,
@@ -2291,15 +2584,17 @@ function mockBootstrap(db) {
     }),
     flights: all.slice(0, 100),
     flightTotal: all.length,
+    pendingFlights: pendingFlights,
+    pendingCount: pendingFlights.length,
     inspections: inspections,
     stats: {
-      totalFlights: all.length,
+      totalFlights: completed.length,
       totalMinutes: totalMinutes,
       totalHours: Math.round(totalMinutes / 6) / 10,
       monthFlights: monthFlights.length,
       monthMinutes: monthMinutes,
       monthHours: Math.round(monthMinutes / 6) / 10,
-      safetyEventCount: all.filter(function (f) { return f.hasSafetyEvent; }).length,
+      safetyEventCount: completed.filter(function (f) { return f.hasSafetyEvent; }).length,
       alertDrones: drones.filter(function (d) { return d.needsInspection; }).length
     },
     catalog: FALLBACK_CATALOG
@@ -2408,21 +2703,88 @@ function mockNextId(db, kind, prefix) {
   return id;
 }
 
+/** 点検ペイロードを正規化する（未入力・実施者なしは例外） */
+function normalizeInspectionPayload(ins, fallbackDate) {
+  var source = ins || {};
+  var type = source.type === INSPECTION_TYPES.POST ? INSPECTION_TYPES.POST : INSPECTION_TYPES.PRE;
+  var items = source.items || {};
+  var missing = ITEM_NAMES.filter(function (n) { return !items[n]; });
+  if (missing.length) {
+    throw new Error(type + 'の未入力項目があります: ' + missing.join('、'));
+  }
+  if (!source.inspector) throw new Error(type + 'の実施者を入力してください。');
+  return {
+    type: type,
+    date: source.date || fallbackDate,
+    inspector: source.inspector,
+    memo: source.memo || '',
+    items: items,
+    result: ITEM_NAMES.some(function (n) { return items[n] === 'NG'; }) ? '異常あり' : '合格'
+  };
+}
+
+/** 同一飛行・同一種別の点検を upsert する（再開時に二重登録しない） */
+function upsertFlightInspection_(db, flightId, droneId, ins, now) {
+  var found = db.inspections.filter(function (i) {
+    return i.flightId === flightId && i.type === ins.type;
+  })[0];
+  if (found) {
+    found.inspectionDate = ins.date;
+    found.inspector = ins.inspector;
+    found.result = ins.result;
+    found.memo = ins.memo;
+    found.items = ins.items;
+    found.updatedAt = now;
+    return found.inspectionId;
+  }
+  var id = mockNextId(db, 'inspection', 'INS-');
+  db.inspections.push({
+    inspectionId: id,
+    flightId: flightId,
+    droneId: droneId,
+    type: ins.type,
+    inspectionDate: ins.date,
+    inspector: ins.inspector,
+    result: ins.result,
+    memo: ins.memo,
+    items: ins.items,
+    createdAt: now
+  });
+  return id;
+}
+
 function mockSaveFlight(payload) {
   var db = mockLoad();
   var p = payload || {};
   var f = p.flight || {};
+  var status = normalizeFlightStatus(p.status);
 
   if (!f.date) throw new Error('飛行年月日を入力してください。');
   if (!f.pilotId) throw new Error('操縦者を選択してください。');
   if (!f.droneId) throw new Error('機体を選択してください。');
   if (!f.takeoffPlace) throw new Error('離陸場所を入力してください。');
-  if (!f.takeoffTime || !f.landingTime) throw new Error('離着陸時刻を入力してください。');
   if (!db.drones.some(function (d) { return d.droneId === f.droneId; })) {
     throw new Error('機体ID「' + f.droneId + '」がマスタに登録されていません。');
   }
   if (!db.pilots.some(function (pl) { return pl.pilotId === f.pilotId; })) {
     throw new Error('操縦者ID「' + f.pilotId + '」がマスタに登録されていません。');
+  }
+
+  var rawInspections = Array.isArray(p.inspections)
+    ? p.inspections
+    : (p.inspection ? [p.inspection] : []);
+  var inspections = rawInspections.map(function (ins) {
+    return normalizeInspectionPayload(ins, f.date);
+  });
+
+  var preInspection = inspections.filter(function (i) { return i.type === INSPECTION_TYPES.PRE; })[0] || null;
+  var postInspection = inspections.filter(function (i) { return i.type === INSPECTION_TYPES.POST; })[0] || null;
+
+  if (!preInspection) throw new Error('飛行前点検の記録がありません。13項目を入力してください。');
+  if (status === FLIGHT_STATUS.COMPLETED) {
+    if (!f.takeoffTime || !f.landingTime) throw new Error('離着陸時刻を入力してください。');
+    if (!(Number(f.durationMin) > 0)) throw new Error('飛行時間を入力してください。');
+    if (!postInspection) throw new Error('飛行後点検の記録がありません。13項目を入力してください。');
   }
 
   var flags = (f.specificFlags || []).filter(function (v) { return v; });
@@ -2434,85 +2796,92 @@ function mockSaveFlight(payload) {
   var hasClearZone = !(f.hasClearZone === false || f.hasClearZone === 'なし' || f.hasClearZone === 'false');
   var droneMaster = db.drones.filter(function (d) { return d.droneId === f.droneId; })[0] || {};
   var category = judgeCategoryLocal(flags, droneMaster.weightG, hasClearZone);
-
-  // 点検は保存前に検証する（中途半端な保存を避ける）
-  var inspection = null;
-  if (p.inspection) {
-    var ins = p.inspection;
-    var items = ins.items || {};
-    var missing = ITEM_NAMES.filter(function (n) { return !items[n]; });
-    if (missing.length) throw new Error('未入力の点検項目があります: ' + missing.join('、'));
-    inspection = {
-      type: ins.type || '飛行前',
-      date: ins.date || f.date,
-      inspector: ins.inspector || '',
-      memo: ins.memo || '',
-      items: items,
-      result: ITEM_NAMES.some(function (n) { return items[n] === 'NG'; }) ? '異常あり' : '合格'
-    };
-    if (!inspection.inspector) throw new Error('点検の実施者を入力してください。');
+  var now = mockNow();
+  var flightId = p.flightId || '';
+  var existing = flightId
+    ? db.flights.filter(function (x) { return x.flightId === flightId; })[0]
+    : null;
+  if (flightId && !existing) {
+    throw new Error('更新対象の飛行記録が見つかりません: ' + flightId);
   }
 
-  var flightId = mockNextId(db, 'flight', 'FLT-');
-  db.flights.push({
-    flightId: flightId,
+  var safety = f.safetyEvent || {};
+  var record = {
+    flightId: existing ? existing.flightId : '',
     date: f.date,
     pilotId: f.pilotId,
     droneId: f.droneId,
     takeoffPlace: f.takeoffPlace,
     landingPlace: f.landingPlace || f.takeoffPlace,
-    lat: f.lat === '' || f.lat === undefined ? null : Number(f.lat),
-    lng: f.lng === '' || f.lng === undefined ? null : Number(f.lng),
-    takeoffTime: f.takeoffTime,
-    landingTime: f.landingTime,
-    durationMin: Number(f.durationMin) || 0,
+    lat: f.lat === '' || f.lat === undefined || f.lat === null ? null : Number(f.lat),
+    lng: f.lng === '' || f.lng === undefined || f.lng === null ? null : Number(f.lng),
+    takeoffTime: status === FLIGHT_STATUS.COMPLETED ? f.takeoffTime : '',
+    landingTime: status === FLIGHT_STATUS.COMPLETED ? f.landingTime : '',
+    durationMin: status === FLIGHT_STATUS.COMPLETED ? (Number(f.durationMin) || 0) : 0,
     specificFlags: flags,
     hasClearZone: hasClearZone,
     category: category.label,
-    safetyEvent: f.safetyEvent && f.safetyEvent.hasEvent
-      ? 'あり：' + String(f.safetyEvent.detail || '')
+    safetyEvent: (status === FLIGHT_STATUS.COMPLETED && safety.hasEvent)
+      ? 'あり：' + String(safety.detail || '')
       : 'なし',
     purpose: f.purpose || 'その他',
-    createdAt: mockNow()
-  });
+    status: status,
+    preflightSavedAt: (existing && existing.preflightSavedAt) ? existing.preflightSavedAt : now,
+    preflightSummary: {
+      time: timeFromIso_((existing && existing.preflightSavedAt) ? existing.preflightSavedAt : now),
+      result: preInspection.result
+    },
+    completedAt: status === FLIGHT_STATUS.COMPLETED ? now : '',
+    createdAt: existing ? existing.createdAt : now,
+    updatedAt: now
+  };
 
-  var inspectionId = '';
-  if (inspection) {
-    inspectionId = mockNextId(db, 'inspection', 'INS-');
-    db.inspections.push({
-      inspectionId: inspectionId,
-      flightId: flightId,
-      droneId: f.droneId,
-      type: inspection.type,
-      inspectionDate: inspection.date,
-      inspector: inspection.inspector,
-      result: inspection.result,
-      memo: inspection.memo,
-      items: inspection.items,
-      createdAt: mockNow()
-    });
+  if (existing) {
+    Object.keys(record).forEach(function (key) { existing[key] = record[key]; });
+  } else {
+    flightId = mockNextId(db, 'flight', 'FLT-');
+    record.flightId = flightId;
+    db.flights.push(record);
   }
+
+  var preInspectionId = upsertFlightInspection_(db, flightId, f.droneId, preInspection, now);
+  var postInspectionId = postInspection
+    ? upsertFlightInspection_(db, flightId, f.droneId, postInspection, now)
+    : '';
 
   mockSave(db);
 
-  var total = db.flights
+  // 統計は完了した飛行だけを対象にする（フライト待機は飛行回数に含めない）
+  var completed = db.flights.filter(function (x) {
+    return normalizeFlightStatus(x.status) === FLIGHT_STATUS.COMPLETED;
+  });
+  var total = completed
     .filter(function (x) { return x.droneId === f.droneId; })
     .reduce(function (s, x) { return s + Number(x.durationMin || 0); }, 0);
+
+  var message = status === FLIGHT_STATUS.COMPLETED
+    ? '飛行記録を保存しました（' + flightId + '）。' + (postInspectionId ? ' 飛行後点検も保存しました。' : '')
+    : '飛行前点検を保存しました（' + flightId + '）。フライト待機として記録しています。';
 
   return {
     ok: true,
     flightId: flightId,
-    inspectionId: inspectionId,
-    inspectionResult: inspection ? inspection.result : '',
-    durationMin: Number(f.durationMin) || 0,
+    status: status,
+    inspectionId: preInspectionId,
+    inspectionIds: [preInspectionId, postInspectionId].filter(Boolean),
+    inspectionResult: preInspection.result,
+    postInspectionResult: postInspection ? postInspection.result : '',
+    durationMin: record.durationMin,
     cumulativeMinutes: total,
     specificFlags: flags.join('、'),
     hasClearZone: hasClearZone,
     category: category.label,
     categoryLevel: category.level,
+    safetyEvent: record.safetyEvent,
+    preflightSavedAt: record.preflightSavedAt,
+    completedAt: record.completedAt,
     drone: mockDecorate(db).filter(function (d) { return d.droneId === f.droneId; })[0] || null,
-    message: '飛行記録を保存しました（' + flightId + '）。' +
-      (inspectionId ? ' 点検記録も保存しました（' + inspectionId + '）。' : '')
+    message: message
   };
 }
 
@@ -2666,12 +3035,13 @@ function renderAll() {
   renderCatalogControls();
   renderEntryAlerts();
   renderDroneHint();
-  renderInspectionItems();
+  renderInspectionItems('pre');
+  renderInspectionItems('post');
   renderLogFromBootstrap();
   renderFleet();
   renderPeriodicList();
   renderInspectionTypeButtons();
-  updateInspectionSummary();
+  renderResumeBanner();
   renderSettings();
 }
 
@@ -2930,9 +3300,10 @@ function collectDroneLogStorage() {
   try {
     for (var i = 0; i < window.localStorage.length; i++) {
       var key = window.localStorage.key(i);
-      if (key && key.indexOf(DRONE_LOG_STORAGE_PREFIX) === 0) {
-        data[key] = window.localStorage.getItem(key);
-      }
+      if (!key || key.indexOf(DRONE_LOG_STORAGE_PREFIX) !== 0) continue;
+      // 端末ローカルの下書きはバックアップに含めない（他端末へ古い入力を復元しない）
+      if (key === LS.DRAFT) continue;
+      data[key] = window.localStorage.getItem(key);
     }
   } catch (err) {
     throw new Error('localStorageを読み取れませんでした。');
@@ -3241,8 +3612,48 @@ function renderInspectionTypeButtons() {
   });
 }
 
-/** 13項目の点検UIを構築する */
-function renderInspectionItems() {
+/** 点検スコープ（pre/post）ごとの表示IDをまとめる */
+function inspectionUi(scope) {
+  if (scope === 'post') {
+    return {
+      scope: 'post',
+      items: '#inspection-post-items',
+      progress: '#inspection-post-progress',
+      result: '#inspection-post-result',
+      memoWrap: '#inspection-post-memo-wrap',
+      memo: '#inspection-post-memo',
+      error: '.err[data-error="inspection-post-items"]',
+      inspector: '#inspection-post-inspector',
+      date: '#inspection-post-date'
+    };
+  }
+  return {
+    scope: 'pre',
+    items: '#inspection-items',
+    progress: '#inspection-progress',
+    result: '#inspection-result',
+    memoWrap: '#inspection-memo-wrap',
+    memo: '#inspection-memo',
+    error: '.err[data-error="inspection-items"]',
+    inspector: '#inspection-inspector',
+    date: '#inspection-date'
+  };
+}
+
+/** スコープに対応する入力オブジェクトを返す */
+function inspectionItemsFor(scope) {
+  return scope === 'post' ? state.entry.postItems : state.entry.preItems;
+}
+
+/**
+ * 13項目の点検UIを構築する。
+ * @param {string} [scope] 'pre'（飛行前）または 'post'（飛行後）
+ */
+function renderInspectionItems(scope) {
+  var ui = inspectionUi(scope || 'pre');
+  var host = $(ui.items);
+  if (!host) return;
+
   var groups = CATALOG.inspectionGroups || FALLBACK_GROUPS;
   var html = groups.map(function (group) {
     var rows = group.items.map(function (name) {
@@ -3258,15 +3669,18 @@ function renderInspectionItems() {
       rows + '</div>';
   }).join('');
 
-  $('#inspection-items').innerHTML = html;
-  Object.keys(state.entry.items).forEach(function (name) { paintItemRow(name); });
-  updateInspectionSummary();
+  host.innerHTML = html;
+  Object.keys(inspectionItemsFor(ui.scope)).forEach(function (name) { paintItemRow(name, ui.scope); });
+  updateInspectionSummary(ui.scope);
 }
 
 /** 1項目の OK / 異常 ボタンの見た目を state に合わせる */
-function paintItemRow(name) {
-  var value = state.entry.items[name] || '';
-  $$('#inspection-items [data-item]').forEach(function (row) {
+function paintItemRow(name, scope) {
+  var ui = inspectionUi(scope || 'pre');
+  var host = $(ui.items);
+  if (!host) return;
+  var value = inspectionItemsFor(ui.scope)[name] || '';
+  $$('[data-item]', host).forEach(function (row) {
     if (row.getAttribute('data-item') !== name) return;
     $$('button', row).forEach(function (btn) {
       btn.classList.remove('item-ok', 'item-ng', 'text-slate-500');
@@ -3279,27 +3693,43 @@ function paintItemRow(name) {
   });
 }
 
-function updateInspectionSummary() {
-  var filled = ITEM_NAMES.filter(function (n) { return !!state.entry.items[n]; }).length;
-  var ng = ITEM_NAMES.filter(function (n) { return state.entry.items[n] === 'NG'; }).length;
-  var badge = $('#inspection-result');
+/**
+ * 点検結果バッジ・進捗・備考欄の表示を更新する。
+ * 「異常あり」の項目がある場合だけ備考欄を展開する。
+ */
+function updateInspectionSummary(scope) {
+  var ui = inspectionUi(scope || 'pre');
+  var summary = summarizeInspection(inspectionItemsFor(ui.scope), ITEM_NAMES);
+  var badge = $(ui.result);
   if (!badge) return;
 
-  $('#inspection-progress').textContent = filled + ' / ' + ITEM_NAMES.length;
+  var progress = $(ui.progress);
+  if (progress) progress.textContent = summary.filled + ' / ' + summary.total;
 
-  if (!filled) {
+  if (!summary.filled) {
     badge.textContent = '未入力';
     badge.className = 'rounded-full bg-slate-200 px-3 py-1 text-sm font-bold text-slate-600';
-  } else if (ng) {
+  } else if (summary.ng) {
     badge.textContent = '異常あり';
     badge.className = 'rounded-full bg-rose-100 px-3 py-1 text-sm font-bold text-rose-700';
-  } else if (filled === ITEM_NAMES.length) {
+  } else if (summary.filled === summary.total) {
     badge.textContent = '合格';
     badge.className = 'rounded-full bg-teal-100 px-3 py-1 text-sm font-bold text-teal-700';
   } else {
     badge.textContent = '入力中';
     badge.className = 'rounded-full bg-amber-100 px-3 py-1 text-sm font-bold text-amber-700';
   }
+
+  var memoWrap = $(ui.memoWrap);
+  if (memoWrap) memoWrap.classList.toggle('hidden', !summary.ng);
+}
+
+/** 「すべて異常なし」: 13項目をまとめて OK にする */
+function applyAllOk(scope) {
+  var target = scope || 'pre';
+  var items = inspectionItemsFor(target);
+  ITEM_NAMES.forEach(function (name) { items[name] = 'OK'; });
+  renderInspectionItems(target);
 }
 
 /** 選択中の機体の点検状態をヒント表示する */
@@ -3418,14 +3848,48 @@ function recalcDuration(force) {
     : (diff === 0 ? '離着陸が同時刻です。ご確認ください。' : '');
 }
 
-/** 画面入力を検証する（キーは入力ID） */
-function validateEntry() {
+/** フェーズ1（計画・現場環境）の入力検証 */
+function validatePhase1() {
   var errors = {};
 
   if (!$('#flight-date').value) errors['flight-date'] = '飛行年月日を入力してください。';
   if (!$('#flight-pilot').value) errors['flight-pilot'] = '操縦者を選択してください。';
   if (!$('#flight-drone').value) errors['flight-drone'] = '機体を選択してください。';
   if (!$('#flight-takeoff-place').value.trim()) errors['flight-takeoff-place'] = '離陸場所を入力してください。';
+
+  var lat = $('#flight-lat').value;
+  var lng = $('#flight-lng').value;
+  if (lat !== '' && (Number(lat) < -90 || Number(lat) > 90)) {
+    errors['flight-lat'] = '緯度は -90 〜 90 で入力してください。';
+  }
+  if (lng !== '' && (Number(lng) < -180 || Number(lng) > 180)) {
+    errors['flight-lng'] = '経度は -180 〜 180 で入力してください。';
+  }
+  return errors;
+}
+
+/** 点検ブロック（実施者・13項目）の入力検証 */
+function validateInspection(scope) {
+  var ui = inspectionUi(scope);
+  var errors = {};
+
+  var inspector = $(ui.inspector);
+  if (!inspector || !inspector.value.trim()) {
+    errors[ui.inspector.replace('#', '')] = '点検の実施者を入力してください。';
+  }
+
+  var missing = ITEM_NAMES.filter(function (n) { return !inspectionItemsFor(ui.scope)[n]; });
+  if (missing.length) {
+    errors[ui.items.replace('#', '')] = '未入力の点検項目が ' + missing.length + ' 件あります（' +
+      missing.slice(0, 3).join('、') + ' など）。';
+  }
+  return errors;
+}
+
+/** フェーズ3（実績・飛行後点検）の入力検証 */
+function validatePhase3() {
+  var errors = {};
+
   if (!$('#flight-takeoff-time').value) errors['flight-takeoff-time'] = '離陸時刻を入力してください。';
   if (!$('#flight-landing-time').value) errors['flight-landing-time'] = '着陸時刻を入力してください。';
 
@@ -3436,42 +3900,75 @@ function validateEntry() {
     errors['flight-duration'] = '飛行時間は24時間（1440分）以内で入力してください。';
   }
 
-  var lat = $('#flight-lat').value;
-  var lng = $('#flight-lng').value;
-  if (lat !== '' && (Number(lat) < -90 || Number(lat) > 90)) {
-    errors['flight-lat'] = '緯度は -90 〜 90 で入力してください。';
-  }
-  if (lng !== '' && (Number(lng) < -180 || Number(lng) > 180)) {
-    errors['flight-lng'] = '経度は -180 〜 180 で入力してください。';
-  }
-
-  if (!$('#inspection-inspector').value.trim()) {
-    errors['inspection-inspector'] = '点検の実施者を入力してください。';
-  }
-
-  var missing = ITEM_NAMES.filter(function (n) { return !state.entry.items[n]; });
-  if (missing.length) {
-    errors['inspection-items'] = '未入力の点検項目が ' + missing.length + ' 件あります（' + missing.slice(0, 3).join('、') + ' など）。';
-  }
-
   var safety = $('input[name="safety"]:checked');
   if (safety && safety.value === 'event' && !$('#safety-detail').value.trim()) {
     errors['safety-detail'] = '安全に影響のあった事項の内容を入力してください。';
   }
-
   return errors;
 }
 
-/** 画面入力から保存用のペイロードを組み立てる */
-function buildPayload() {
+/** 複数のエラー集合を1つにまとめる */
+function mergeErrors_() {
+  var merged = {};
+  Array.prototype.slice.call(arguments).forEach(function (part) {
+    Object.keys(part || {}).forEach(function (key) { merged[key] = part[key]; });
+  });
+  return merged;
+}
+
+/** 全項目の検証（完了保存用。旧 validateEntry の後方互換） */
+function validateEntry() {
+  return mergeErrors_(
+    validatePhase1(),
+    validatePhase3(),
+    validateInspection('pre'),
+    validateInspection('post')
+  );
+}
+
+/** 飛行前点検の途中保存（フライト待機）用の検証 */
+function validatePreflightSave() {
+  return mergeErrors_(validatePhase1(), validateInspection('pre'));
+}
+
+/** 点検1件分の保存ペイロード */
+function buildInspectionPayload(scope) {
+  var ui = inspectionUi(scope);
+  var items = inspectionItemsFor(scope);
+  var summary = summarizeInspection(items, ITEM_NAMES);
+  var inspectorEl = $(ui.inspector);
+  var memoEl = $(ui.memo);
+  var dateEl = $(ui.date);
+
+  return {
+    type: scope === 'post' ? INSPECTION_TYPES.POST : INSPECTION_TYPES.PRE,
+    date: (dateEl && dateEl.value) || $('#flight-date').value,
+    inspector: inspectorEl ? inspectorEl.value.trim() : '',
+    memo: memoEl ? memoEl.value.trim() : '',
+    items: Object.assign({}, items),
+    result: summary.result === '合格' ? '合格' : (summary.ng ? '異常あり' : '')
+  };
+}
+
+/**
+ * 画面入力から保存用のペイロードを組み立てる。
+ * @param {string} status 'pre_flight_ready' または 'completed'
+ * @param {string} [flightId] 再開時の既存ID
+ */
+function buildPayload(status, flightId) {
+  var nextStatus = normalizeFlightStatus(status);
   var purpose = $('#flight-purpose').value;
   if (purpose === '__other__') {
     purpose = $('#flight-purpose-other').value.trim() || 'その他';
   }
 
   var safety = $('input[name="safety"]:checked');
+  var inspections = [buildInspectionPayload('pre')];
+  if (nextStatus === FLIGHT_STATUS.COMPLETED) inspections.push(buildInspectionPayload('post'));
 
   return {
+    flightId: flightId || '',
+    status: nextStatus,
     flight: {
       date: $('#flight-date').value,
       pilotId: $('#flight-pilot').value,
@@ -3491,14 +3988,37 @@ function buildPayload() {
         detail: $('#safety-detail').value.trim()
       }
     },
-    inspection: {
-      type: state.entry.type,
-      date: $('#inspection-date').value || $('#flight-date').value,
-      inspector: $('#inspection-inspector').value.trim(),
-      memo: $('#inspection-memo').value.trim(),
-      items: state.entry.items
-    }
+    inspections: inspections
   };
+}
+
+/** フェーズの開閉と要約を初期状態へ戻す */
+function resetPhaseState_() {
+  var p1 = $('#phase1');
+  if (p1) p1.open = true;
+  var p2 = $('#phase2');
+  if (p2) p2.open = true;
+  var p3 = $('#phase3');
+  if (p3) p3.open = true;
+
+  var s1 = $('#phase1-summary');
+  if (s1) s1.textContent = '離陸場所・GPS・リスク判定・AI診断';
+  var s2 = $('#phase2-summary');
+  if (s2) s2.textContent = '飛行前の日常点検（13項目）';
+  var s3 = $('#phase3-summary');
+  if (s3) s3.textContent = '離着陸時刻・飛行時間・飛行後点検・特記事項';
+
+  var ps = $('#preflight-status');
+  if (ps) ps.textContent = '';
+  ['#gps-meta', '#env-meta', '#infra-meta', '#ai-meta'].forEach(function (selector) {
+    var el = $(selector);
+    if (el) el.textContent = '';
+  });
+
+  state.entry.lastEnvAt = '';
+  state.entry.lastInfraAt = '';
+  state.entry.lastGeoAt = '';
+  state.entry.lastAiAt = '';
 }
 
 /** 保存後の入力リセット（同じ現場で連続記録しやすいよう日付・場所は残す） */
@@ -3512,6 +4032,7 @@ function resetEntryAfterSave() {
   $('#flight-lng').value = '';
   $('#safety-detail').value = '';
   $('#inspection-memo').value = '';
+  $('#inspection-post-memo').value = '';
   syncTakeoffSummary();
   refreshEnvMap();
 
@@ -3519,10 +4040,14 @@ function resetEntryAfterSave() {
   if (none) none.checked = true;
   $('#safety-detail-wrap').classList.add('hidden');
 
-  state.entry.items = {};
+  state.entry.preItems = {};
+  state.entry.postItems = {};
   state.entry.flags = [];
   state.entry.hasClearZone = true;
   state.entry.durationTouched = false;
+  state.entry.resumeFlightId = '';
+  state.entry.preflightSavedAt = '';
+  state.entry.category = null;
 
   var clearZone = $('#clear-zone-toggle');
   if (clearZone) clearZone.checked = true;
@@ -3532,10 +4057,14 @@ function resetEntryAfterSave() {
   resetAiResult();
   resetEnvResult();
   resetInfraResult();
+  resetPhaseState_();
 
   $('#inspection-inspector').value = lsGet(LS.INSPECTOR) || '';
+  $('#inspection-post-inspector').value = '';
+  $('#inspection-post-date').value = todayISO();
   renderSpecificFlags();
-  renderInspectionItems();
+  renderInspectionItems('pre');
+  renderInspectionItems('post');
   clearErrors($('#entry-form'));
 }
 
@@ -3565,6 +4094,9 @@ function clearFlightForm() {
   $('#inspection-date').value = today;
   $('#inspection-inspector').value = lsGet(LS.INSPECTOR) || '';
   $('#inspection-memo').value = '';
+  $('#inspection-post-date').value = today;
+  $('#inspection-post-inspector').value = '';
+  $('#inspection-post-memo').value = '';
   $('#dji-file').value = '';
   $('#dji-status').textContent = '';
 
@@ -3577,11 +4109,14 @@ function clearFlightForm() {
   // 内部状態（目的は既定の先頭＝空撮、立入管理措置は ON）
   var purposes = CATALOG.purposes || FALLBACK_CATALOG.purposes || ['空撮'];
   state.entry.type = '飛行前';
-  state.entry.items = {};
+  state.entry.preItems = {};
+  state.entry.postItems = {};
   state.entry.flags = [];
   state.entry.hasClearZone = true;
   state.entry.durationTouched = false;
   state.entry.category = null;
+  state.entry.resumeFlightId = '';
+  state.entry.preflightSavedAt = '';
   state.entry.purpose = purposes[0] || '空撮';
   // 進行中の取得・診断の応答を破棄する（クリア後に結果が戻ってこないようにする）
   state.entry.reqSeq = (state.entry.reqSeq || 0) + 1;
@@ -3612,7 +4147,9 @@ function clearFlightForm() {
   // 再描画（特定飛行10項目は未チェック → カテゴリーⅠへ戻る）
   renderCatalogControls();
   renderInspectionTypeButtons();
-  renderInspectionItems();
+  renderInspectionItems('pre');
+  renderInspectionItems('post');
+  resetPhaseState_();
   clearErrors($('#entry-form'));
 }
 
@@ -3625,13 +4162,90 @@ function handleClearForm() {
   if (!window.confirm('入力中の内容をすべてクリアしますか？')) return;
 
   clearFlightForm();
+  clearDraft();
   toast('入力をクリアしました', 'success');
 }
 
-/** 保存ボタンのハンドラ */
+/** 保存系ボタンの実行中表示（二重送信防止・スピナー） */
+function setSaveBusy(button, busy, label) {
+  if (!button) return;
+  if (!button.dataset.idleLabel) button.dataset.idleLabel = button.innerHTML;
+  button.disabled = !!busy;
+  button.setAttribute('aria-busy', busy ? 'true' : 'false');
+  button.innerHTML = busy
+    ? '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> ' + (label || '保存中…')
+    : button.dataset.idleLabel;
+}
+
+/**
+ * ローカル保存済みの記録を BFF の /api/flight-records へ同期する。
+ * 現場でオフラインの場合に備え、失敗してもローカル保存は成功として扱う。
+ *
+ * @param {Object} payload buildPayload() の戻り値
+ * @param {Object} res callLocal('saveFlightRecord') の戻り値
+ * @return {Promise<boolean>} 同期できたら true
+ */
+function syncFlightRecordToBff(payload, res) {
+  if (!payload || !res || !res.flightId) return Promise.resolve(false);
+
+  var flight = payload.flight || {};
+  var body = {
+    flight_id: res.flightId,
+    status: normalizeFlightStatus(payload.status),
+    date: flight.date || '',
+    pilot_id: flight.pilotId || '',
+    drone_id: flight.droneId || '',
+    takeoff_place: flight.takeoffPlace || '',
+    landing_place: flight.landingPlace || '',
+    lat: flight.lat === '' || flight.lat === undefined ? null : Number(flight.lat),
+    lng: flight.lng === '' || flight.lng === undefined ? null : Number(flight.lng),
+    takeoff_time: flight.takeoffTime || '',
+    landing_time: flight.landingTime || '',
+    duration_min: Number(flight.durationMin) || 0,
+    specific_flags: (flight.specificFlags || []).slice(),
+    has_clear_zone: flight.hasClearZone !== false,
+    category: res.category || '',
+    purpose: flight.purpose || '',
+    safety_event: res.safetyEvent || '',
+    inspections: (payload.inspections || []).map(function (i) {
+      return {
+        type: i.type,
+        inspection_date: i.date || '',
+        inspector: i.inspector || '',
+        result: i.result || '合格',
+        memo: i.memo || '',
+        items: i.items || {}
+      };
+    }),
+    preflight_saved_at: res.preflightSavedAt || '',
+    completed_at: res.completedAt || ''
+  };
+
+  return fetchJsonWithTimeout(bffApiUrl('/api/flight-records'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }, 6000, 'BFF（飛行記録）').then(function (data) {
+    return !!(data && data.ok);
+  }).catch(function () {
+    return false;
+  });
+}
+
+/** 保存成功後に一覧を読み直す（保存自体は成功しているので失敗は握りつぶす） */
+function refreshAfterSave_() {
+  return loadBootstrap({ silent: true }).then(function () {
+    if (hasActiveFilters()) return searchLog(true);
+    return null;
+  }).catch(function () {
+    return null;
+  });
+}
+
+/** 完了保存（status: completed）のハンドラ */
 function handleSave(ev) {
   if (ev) ev.preventDefault();
-  if (state.entry.saving) return;
+  if (state.entry.saving || state.entry.savingPreflight) return;
 
   var form = $('#entry-form');
   clearErrors(form);
@@ -3639,50 +4253,384 @@ function handleSave(ev) {
 
   if (Object.keys(errors).length) {
     showErrors(errors, form);
-    var itemErr = $('.err[data-error="inspection-items"]');
-    if (itemErr && errors['inspection-items']) itemErr.classList.add('show');
+    ['inspection-items', 'inspection-post-items'].forEach(function (key) {
+      var box = $('.err[data-error="' + key + '"]');
+      if (box && errors[key]) box.classList.add('show');
+    });
     toast('入力内容を確認してください（' + Object.keys(errors).length + '件）', 'warn');
     return;
   }
 
   state.entry.saving = true;
   var btn = $('#save-btn');
-  if (!SAVE_BUTTON_HTML) SAVE_BUTTON_HTML = btn.innerHTML;
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> 保存中…';
+  setSaveBusy(btn, true, '保存中…');
   $('#save-status').textContent = '保存しています…';
 
-  callLocal('saveFlightRecord', buildPayload()).then(function (res) {
+  var payload = buildPayload(FLIGHT_STATUS.COMPLETED, state.entry.resumeFlightId);
+
+  callLocal('saveFlightRecord', payload).then(function (res) {
     lsSet(LS.INSPECTOR, $('#inspection-inspector').value.trim());
     lsSet(LS.PILOT, $('#flight-pilot').value);
     lsSet(LS.DRONE, $('#flight-drone').value);
+    clearDraft();
 
     var now = new Date();
-    $('#save-status').textContent = '保存済み ' +
-      pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    state.entry.lastSaveAt = pad2(now.getHours()) + ':' + pad2(now.getMinutes());
+    $('#save-status').textContent = '端末に保存済み ' + state.entry.lastSaveAt;
     $('#last-saved').textContent = res.flightId + ' ・ ' + fmtMin(res.durationMin) +
       ' ・ 累計 ' + fmtMin(res.cumulativeMinutes);
 
     toast(res.message || '保存しました。', res.inspectionResult === '異常あり' ? 'warn' : 'success');
     resetEntryAfterSave();
 
-    return loadBootstrap({ silent: true })
-      .then(function () {
-        if (hasActiveFilters()) return searchLog(true);
-        return null;
-      })
-      .catch(function () {
-        // 再読み込みの失敗は loadBootstrap 側で通知済み（保存自体は成功している）
-        return null;
-      });
+    return syncFlightRecordToBff(payload, res).then(function (synced) {
+      if (synced) {
+        $('#save-status').textContent = '端末＋BFFに保存済み ' + state.entry.lastSaveAt;
+      } else {
+        $('#save-status').textContent = '端末に保存済み（BFF未同期） ' + state.entry.lastSaveAt;
+        toast('端末には保存しました。BFFへは同期できていません。', 'warn');
+      }
+      return refreshAfterSave_();
+    }).catch(function () {
+      return null;
+    });
   }).catch(function (err) {
     $('#save-status').textContent = '保存に失敗しました';
     toast(err.message || '保存に失敗しました。', 'error');
   }).then(function () {
     state.entry.saving = false;
-    btn.disabled = false;
-    btn.innerHTML = SAVE_BUTTON_HTML;
+    setSaveBusy(btn, false);
   });
+}
+
+/** 待機中（pre_flight_ready）のログをフォームへ復元してフェーズ3から再開する */
+function resumeFlight(flightId) {
+  var pool = (state.data.pendingFlights || []).concat(state.data.flights || []);
+  var f = pool.filter(function (x) { return x.flightId === flightId; })[0];
+  if (!f) {
+    toast('再開するログが見つかりませんでした。', 'warn');
+    return;
+  }
+
+  state.entry.resumeFlightId = f.flightId;
+  state.entry.preflightSavedAt = f.preflightSavedAt || '';
+  state.entry.flags = (f.specificFlags || []).slice().filter(function (v) {
+    return v && v !== '非特定飛行';
+  });
+  state.entry.hasClearZone = f.hasClearZone !== false;
+  state.entry.purpose = f.purpose || '空撮';
+
+  var preItems = {};
+  (f.inspections || []).forEach(function (i) {
+    if (i.type === INSPECTION_TYPES.PRE) preItems = Object.assign({}, i.items || {});
+  });
+  state.entry.preItems = preItems;
+  state.entry.postItems = {};
+
+  $('#flight-date').value = f.date || todayISO();
+  if (f.pilotId) $('#flight-pilot').value = f.pilotId;
+  if (f.droneId) $('#flight-drone').value = f.droneId;
+  $('#flight-takeoff-place').value = f.takeoffPlace || '';
+  $('#flight-landing-place').value = f.landingPlace || '';
+  $('#flight-lat').value = (f.lat === null || f.lat === undefined) ? '' : f.lat;
+  $('#flight-lng').value = (f.lng === null || f.lng === undefined) ? '' : f.lng;
+  $('#flight-takeoff-time').value = f.takeoffTime || '';
+  $('#flight-landing-time').value = f.landingTime || '';
+  $('#flight-duration').value = f.durationMin ? f.durationMin : '';
+  $('#duration-hint').textContent = '';
+  $('#inspection-date').value = f.date || todayISO();
+  $('#inspection-post-date').value = todayISO();
+  $('#inspection-post-inspector').value = $('#inspection-inspector').value || lsGet(LS.INSPECTOR) || '';
+
+  var clearZone = $('#clear-zone-toggle');
+  if (clearZone) clearZone.checked = state.entry.hasClearZone;
+  var clearZoneLabel = $('#clear-zone-label');
+  if (clearZoneLabel) clearZoneLabel.textContent = state.entry.hasClearZone ? '講じる' : '講じない';
+
+  renderSpecificFlags();
+  renderCategoryCard();
+  renderInspectionItems('pre');
+  renderInspectionItems('post');
+
+  var s1 = $('#phase1-summary');
+  if (s1) s1.textContent = '✅ ' + (f.takeoffPlace || '場所') + ' / 再開中';
+  var s2 = $('#phase2-summary');
+  if (s2) s2.textContent = buildPreflightSummary({ savedAt: f.preflightSavedAt || '', windSpeed: null });
+
+  var p1 = $('#phase1');
+  if (p1) p1.open = false;
+  var p2 = $('#phase2');
+  if (p2) p2.open = false;
+  var p3 = $('#phase3');
+  if (p3) p3.open = true;
+
+  switchTab('entry');
+  if (p3) p3.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  toast('待機中のログ ' + f.flightId + ' を再開しました。着陸後にフェーズ3を保存してください。', 'success');
+  scheduleDraftSave();
+}
+
+/** 再開バナーを描画する（pre_flight_ready がある場合だけ表示） */
+function renderResumeBanner() {
+  var banner = $('#resume-banner');
+  if (!banner) return;
+
+  var pending = state.data.pendingFlights || [];
+  if (!pending.length) {
+    banner.classList.add('hidden');
+    return;
+  }
+
+  banner.classList.remove('hidden');
+  var latest = pending[0];
+  var text = $('#resume-banner-text');
+  if (text) {
+    text.textContent = '飛行中／待機中のログが ' + pending.length + ' 件あります（' +
+      (latest.flightId || '') + ' / ' + fmtDateJP(latest.date) +
+      (latest.takeoffPlace ? ' / ' + latest.takeoffPlace : '') + '）';
+  }
+  var btn = $('#btn-resume-banner');
+  if (btn) btn.setAttribute('data-resume-flight-id', latest.flightId || '');
+}
+
+/** 飛行前点検の途中保存（status: pre_flight_ready）のハンドラ */
+function handleSavePreflight(ev) {
+  if (ev) ev.preventDefault();
+  if (state.entry.saving || state.entry.savingPreflight) return;
+
+  var form = $('#entry-form');
+  clearErrors(form);
+  var errors = validatePreflightSave();
+
+  if (Object.keys(errors).length) {
+    showErrors(errors, form);
+    var box = $('.err[data-error="inspection-items"]');
+    if (box && errors['inspection-items']) box.classList.add('show');
+    toast('フェーズ1・2の入力を確認してください（' + Object.keys(errors).length + '件）', 'warn');
+    return;
+  }
+
+  state.entry.savingPreflight = true;
+  var btn = $('#btn-save-preflight');
+  setSaveBusy(btn, true, '保存中…');
+  var status = $('#preflight-status');
+  if (status) status.textContent = 'フライト待機として保存しています…';
+
+  var payload = buildPayload(FLIGHT_STATUS.PRE_FLIGHT_READY, state.entry.resumeFlightId);
+
+  callLocal('saveFlightRecord', payload).then(function (res) {
+    lsSet(LS.INSPECTOR, $('#inspection-inspector').value.trim());
+    lsSet(LS.PILOT, $('#flight-pilot').value);
+    lsSet(LS.DRONE, $('#flight-drone').value);
+
+    state.entry.resumeFlightId = res.flightId;
+    state.entry.preflightSavedAt = res.preflightSavedAt || mockNow();
+    state.entry.lastSaveAt = timeFromIso_(state.entry.preflightSavedAt) || nowTimeHM();
+
+    var wind = (state.entry.envResult && state.entry.envResult.weather)
+      ? state.entry.envResult.weather.windSpeed
+      : null;
+    var summaryText = buildPreflightSummary({
+      savedAt: state.entry.preflightSavedAt,
+      windSpeed: wind,
+      result: res.inspectionResult
+    });
+
+    var s2 = $('#phase2-summary');
+    if (s2) s2.textContent = summaryText;
+    var s1 = $('#phase1-summary');
+    if (s1) {
+      var place = $('#flight-takeoff-place').value.trim();
+      var lat = $('#flight-lat').value;
+      var lng = $('#flight-lng').value;
+      s1.textContent = '✅ ' + (place || '場所未入力') +
+        (lat && lng ? ' / ' + lat + ', ' + lng : ' / 座標未取得');
+    }
+
+    var p1 = $('#phase1');
+    if (p1) p1.open = false;
+    var p2 = $('#phase2');
+    if (p2) p2.open = false;
+    var p3 = $('#phase3');
+    if (p3) {
+      p3.open = true;
+      p3.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    if (status) status.textContent = state.entry.lastSaveAt + ' 保存 / ' + res.flightId;
+    $('#save-status').textContent = 'フライト待機で保存済み ' + state.entry.lastSaveAt;
+    $('#last-saved').textContent = res.flightId + ' ・ 飛行前点検 ' + (res.inspectionResult || '合格');
+
+    toast('飛行前点検を保存しました（' + res.flightId + '）。着陸後はフェーズ3で完了してください。', 'success');
+    clearDraft();
+
+    return syncFlightRecordToBff(payload, res).then(function (synced) {
+      if (status) {
+        status.textContent = state.entry.lastSaveAt + ' 保存 / ' + res.flightId +
+          (synced ? '（BFF同期済）' : '（端末のみ・BFF未同期）');
+      }
+      return refreshAfterSave_();
+    }).catch(function () {
+      return null;
+    });
+  }).catch(function (err) {
+    if (status) status.textContent = '';
+    $('#save-status').textContent = '保存に失敗しました';
+    toast(err.message || '保存に失敗しました。', 'error');
+  }).then(function () {
+    state.entry.savingPreflight = false;
+    setSaveBusy(btn, false);
+  });
+}
+
+/* =========================================================================
+ * ローカル自動下書き（localStorage）
+ * -------------------------------------------------------------------------
+ * 入力のたびに 600ms デバウンスで退避し、次回起動時に復元/破棄を選べる。
+ * 保存成功・入力をクリア・破棄で削除する。
+ * ========================================================================= */
+
+var DRAFT_FORM_IDS = [
+  'flight-date', 'flight-pilot', 'flight-drone', 'flight-takeoff-place',
+  'flight-landing-place', 'flight-lat', 'flight-lng', 'flight-purpose',
+  'flight-purpose-other', 'flight-takeoff-time', 'flight-landing-time',
+  'flight-duration', 'inspection-date', 'inspection-inspector', 'inspection-memo',
+  'inspection-post-date', 'inspection-post-inspector', 'inspection-post-memo',
+  'safety-detail'
+];
+
+/** 現在のフォームと内部状態から下書きを組み立てる */
+function captureDraft() {
+  var form = {};
+  DRAFT_FORM_IDS.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) form[id] = el.value;
+  });
+  var safety = $('input[name="safety"]:checked');
+  var purposeOther = $('#flight-purpose-other');
+
+  return {
+    savedAt: mockNow(),
+    resumeFlightId: state.entry.resumeFlightId || '',
+    form: form,
+    entry: {
+      flags: (state.entry.flags || []).slice(),
+      hasClearZone: state.entry.hasClearZone !== false,
+      purpose: state.entry.purpose || '',
+      preItems: Object.assign({}, state.entry.preItems),
+      postItems: Object.assign({}, state.entry.postItems),
+      safety: safety ? safety.value : 'none',
+      purposeOtherVisible: purposeOther ? !purposeOther.classList.contains('hidden') : false,
+      durationTouched: !!state.entry.durationTouched
+    },
+    envResult: state.entry.envResult || null
+  };
+}
+
+/** 下書きとみなせる入力があるか（日付だけでは保存しない） */
+function draftHasInput_(draft) {
+  var form = (draft && draft.form) || {};
+  var hasValue = Object.keys(form).some(function (key) {
+    if (key === 'flight-date' || key === 'inspection-date' || key === 'inspection-post-date') return false;
+    return String(form[key] || '').trim() !== '';
+  });
+  if (hasValue) return true;
+  var entry = (draft && draft.entry) || {};
+  return Object.keys(entry.preItems || {}).length > 0 ||
+    Object.keys(entry.postItems || {}).length > 0;
+}
+
+/** 下書きを即時保存する */
+function saveDraftNow() {
+  if (state.entry.saving || state.entry.savingPreflight) return;
+  var draft = captureDraft();
+  if (!draftHasInput_(draft)) {
+    clearDraft();
+    return;
+  }
+  lsSet(LS.DRAFT, serializeDraft(draft));
+}
+
+/** 入力変更をデバウンスして下書き保存する */
+function scheduleDraftSave() {
+  if (state.entry.draftTimer) clearTimeout(state.entry.draftTimer);
+  state.entry.draftTimer = setTimeout(function () {
+    state.entry.draftTimer = null;
+    saveDraftNow();
+  }, 600);
+}
+
+/** 下書き復元バナーを表示する */
+function showDraftBanner(draft) {
+  var banner = $('#draft-banner');
+  if (!banner || !draft) return;
+  var text = $('#draft-banner-text');
+  if (text) {
+    var time = timeFromIso_(draft.savedAt) || '';
+    text.textContent = '下書き（' + (time || '時刻不明') + '）を復元できます。破棄すると入力中の内容は失われます。';
+  }
+  banner.classList.remove('hidden');
+}
+
+/** 下書きを削除する */
+function clearDraft() {
+  try {
+    window.localStorage.removeItem(LS.DRAFT);
+  } catch (err) {
+    /* localStorage が使えない環境では何もしない */
+  }
+  var banner = $('#draft-banner');
+  if (banner) banner.classList.add('hidden');
+}
+
+/** 下書きをフォームへ復元する */
+function restoreDraft(draft) {
+  if (!draft) return;
+
+  Object.keys(draft.form || {}).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.value = draft.form[id];
+  });
+
+  var entry = draft.entry || {};
+  state.entry.flags = (entry.flags || []).slice();
+  state.entry.hasClearZone = entry.hasClearZone !== false;
+  state.entry.purpose = entry.purpose || state.entry.purpose;
+  state.entry.preItems = Object.assign({}, entry.preItems || {});
+  state.entry.postItems = Object.assign({}, entry.postItems || {});
+  state.entry.resumeFlightId = draft.resumeFlightId || '';
+  state.entry.durationTouched = !!entry.durationTouched;
+
+  var safety = $('input[name="safety"][value="' + (entry.safety || 'none') + '"]');
+  if (safety) safety.checked = true;
+  $('#safety-detail-wrap').classList.toggle('hidden', !safety || safety.value !== 'event');
+
+  var clearZone = $('#clear-zone-toggle');
+  if (clearZone) clearZone.checked = state.entry.hasClearZone;
+  var clearZoneLabel = $('#clear-zone-label');
+  if (clearZoneLabel) clearZoneLabel.textContent = state.entry.hasClearZone ? '講じる' : '講じない';
+
+  var purposeOther = $('#flight-purpose-other');
+  if (purposeOther && entry.purposeOtherVisible) purposeOther.classList.remove('hidden');
+
+  if (draft.envResult) renderEnvResult(draft.envResult);
+
+  renderSpecificFlags();
+  renderCategoryCard();
+  renderInspectionItems('pre');
+  renderInspectionItems('post');
+  clearDraft();
+  toast('下書きを復元しました。', 'success');
+}
+
+/** 起動時に下書きバナーを出す */
+function initDraftBanner() {
+  var draft = parseDraft(lsGet(LS.DRAFT));
+  if (!draft) {
+    clearDraft();
+    return;
+  }
+  showDraftBanner(draft);
 }
 
 /* =========================================================================
@@ -3739,6 +4687,9 @@ function flightCard(f) {
       esc(flag) + '</span>';
   }).join('');
 
+  if (f.isPreFlightReady) {
+    chips += '<span class="rounded-full bg-blue-100 px-2 py-0.5 text-sm font-bold text-blue-800">⏳ 飛行待機</span>';
+  }
   if (f.hasSafetyEvent) {
     chips += '<span class="rounded-full bg-amber-100 px-2 py-0.5 text-sm font-bold text-amber-700">安全影響あり</span>';
   }
@@ -3761,6 +4712,11 @@ function flightCard(f) {
       '</div>';
   }).join('');
 
+  var resumeButton = f.isPreFlightReady
+    ? '<button type="button" data-resume-flight-id="' + esc(f.flightId) + '" class="action-btn action-btn--resume mt-2 w-full">' +
+      '<i class="fas fa-rotate-right" aria-hidden="true"></i>再開して完了する</button>'
+    : '';
+
   var hasCoords = f.lat !== null && f.lat !== undefined && f.lng !== null && f.lng !== undefined;
   var mapLink = hasCoords
     ? '<a href="https://www.google.com/maps?q=' + encodeURIComponent(f.lat + ',' + f.lng) +
@@ -3778,14 +4734,18 @@ function flightCard(f) {
     (f.registrationNo ? ' / ' + esc(f.registrationNo) : '') + ' ・ ' + esc(f.pilotName) + '</p>' +
     '</div>' +
     '<div class="shrink-0 text-right">' +
-    '<p class="num text-lg font-bold text-slate-900">' + esc(f.durationLabel || fmtMin(f.durationMin)) + '</p>' +
-    '<p class="num text-sm text-slate-500">' + esc(f.takeoffTime) + ' - ' + esc(f.landingTime) + '</p>' +
+    '<p class="num text-lg font-bold text-slate-900">' +
+    (f.isPreFlightReady ? '—' : esc(f.durationLabel || fmtMin(f.durationMin))) + '</p>' +
+    '<p class="num text-sm text-slate-500">' +
+    (f.isPreFlightReady ? '未実施' : esc(f.takeoffTime) + ' - ' + esc(f.landingTime)) + '</p>' +
     '</div></div>' +
     '<div class="mt-2 flex flex-wrap items-center gap-1">' + chips + '</div>' +
+    resumeButton +
     '<details class="mt-2">' +
     '<summary class="text-sm font-semibold text-brand-600">詳細・点検記録を見る</summary>' +
     '<div class="mt-2 space-y-1 rounded-xl bg-slate-50 p-2.5 text-sm text-slate-600">' +
     '<p>飛行目的: ' + esc(f.purpose || '—') + '</p>' +
+    '<p>状態: ' + (f.isPreFlightReady ? '飛行待機（飛行前点検済）' : '完了') + '</p>' +
     '<p>座標: ' + (hasCoords ? esc(f.lat) + ', ' + esc(f.lng) + '（' + mapLink + '）' : '未記録') + '</p>' +
     '<p>安全影響: ' + esc(f.safetyEvent || 'なし') + '</p>' +
     '<p>登録日時: ' + esc(f.createdAt || '—') + '</p>' +
@@ -3893,26 +4853,25 @@ function buildExcelPayloadFromForm() {
   var measures = [
     state.entry.hasClearZone !== false ? '立入管理措置: 講じる' : '立入管理措置: 講じない'
   ];
-  var inspectionLabel = state.entry.type || '点検';
-  var filled = ITEM_NAMES.filter(function (name) {
-    return !!state.entry.items[name];
-  }).length;
-  var ng = ITEM_NAMES.filter(function (name) {
-    return state.entry.items[name] === 'NG';
-  }).length;
-  if (filled === ITEM_NAMES.length && !ng) {
-    measures.push(inspectionLabel + ': 全項目OK');
-  } else if (filled) {
-    measures.push(inspectionLabel + ': ' + filled + '/' + ITEM_NAMES.length + '項目入力' +
-      (ng ? '（NG ' + ng + '件）' : ''));
-  }
+  [['pre', '飛行前'], ['post', '飛行後']].forEach(function (pair) {
+    var summary = summarizeInspection(inspectionItemsFor(pair[0]), ITEM_NAMES);
+    if (!summary.filled) return;
+    if (summary.filled === summary.total && !summary.ng) {
+      measures.push(pair[1] + '点検: 全項目OK');
+    } else {
+      measures.push(pair[1] + '点検: ' + summary.filled + '/' + summary.total + '項目入力' +
+        (summary.ng ? '（NG ' + summary.ng + '件）' : ''));
+    }
+  });
 
   var notes = [];
   if (safety && safety.value === 'event') {
     notes.push('安全影響: ' + ($('#safety-detail').value.trim() || 'あり'));
   }
-  var inspectionMemo = $('#inspection-memo').value.trim();
-  if (inspectionMemo) notes.push('点検メモ: ' + inspectionMemo);
+  var preMemo = $('#inspection-memo').value.trim();
+  if (preMemo) notes.push('飛行前点検メモ: ' + preMemo);
+  var postMemo = $('#inspection-post-memo').value.trim();
+  if (postMemo) notes.push('飛行後点検メモ: ' + postMemo);
 
   return {
     date: date,
@@ -4486,7 +5445,19 @@ function setButtonBusy(button, busy) {
   if (!button.dataset.idleLabel) button.dataset.idleLabel = button.innerHTML;
   button.disabled = !!busy;
   button.classList.toggle('opacity-60', !!busy);
-  button.innerHTML = busy ? (button.dataset.busyLabel || '取得中…') : button.dataset.idleLabel;
+  button.setAttribute('aria-busy', busy ? 'true' : 'false');
+  button.innerHTML = busy
+    ? '<i class="fas fa-spinner fa-spin" aria-hidden="true"></i> ' +
+      (button.dataset.busyLabel || '取得中…')
+    : button.dataset.idleLabel;
+}
+
+/** ボタン直下の「HH:MM取得 / ソース」表示を更新する */
+function setActionMeta(selector, sourceLabel) {
+  var el = $(selector);
+  if (!el) return;
+  var time = nowTimeHM();
+  el.textContent = time + '取得 / ' + (sourceLabel || '—');
 }
 
 /** Geolocation API のエラーコードを日本語にする */
@@ -5093,20 +6064,24 @@ function handleGpsLocate() {
     var lat = Number(Number(position.coords.latitude).toFixed(6));
     var lng = Number(Number(position.coords.longitude).toFixed(6));
     setGeoFields(lat, lng);
+    setActionMeta('#gps-meta', 'GPS（端末）');
     if (status) status.textContent = '現在地: ' + lat + ', ' + lng + ' / 住所を取得しています…';
 
     reverseGeocode(lat, lng).then(function (res) {
       var address = res && (res.address || res.formattedAddress);
       if (!address) {
+        setActionMeta('#gps-meta', 'GPS（座標のみ）');
         toast('現在地の座標を入力しました（住所は取得できませんでした）。', 'success');
         return;
       }
       $('#flight-takeoff-place').value = address;
       clearFieldError('flight-takeoff-place');
+      setActionMeta('#gps-meta', 'GPS + 逆ジオコーダー');
       syncTakeoffSummary();
       if (status) status.textContent = address;
       toast('現在地の住所と座標を入力しました。', 'success');
     }).catch(function (err) {
+      setActionMeta('#gps-meta', 'GPS（座標のみ）');
       if (status) status.textContent = '座標のみ入力しました（住所は取得できませんでした）。';
       toast((err && err.message) || '座標は入力しましたが、住所を取得できませんでした。', 'warn');
     }).then(function () {
@@ -5218,7 +6193,7 @@ function resetEnvResult() {
   if (box) box.classList.add('hidden');
 
   ['#env-weather', '#env-wind', '#env-elevation', '#env-limit',
-    '#env-did-note', '#env-safety-label', '#env-source'].forEach(function (sel) {
+    '#env-did-note', '#env-safety-label', '#env-source', '#env-meta'].forEach(function (sel) {
     var el = $(sel);
     if (el) el.textContent = '';
   });
@@ -5396,16 +6371,24 @@ function renderEnvResult(result) {
   var didNote = $('#env-did-note');
   if (didNote) didNote.textContent = regulations.note || '';
 
+  var sources = result.sources || {};
+  var sourceList = [sources.weather, sources.elevation, sources.did].filter(Boolean);
   var sourceEl = $('#env-source');
   if (sourceEl) {
-    var sources = result.sources || {};
-    var list = [sources.weather, sources.elevation, sources.did].filter(Boolean);
     var suffix = '';
     if (weather.cached && !weather.stale) suffix = '（キャッシュ）';
     var notes = (weather.notes || []).join(' ');
-    sourceEl.textContent = (list.length ? '出典: ' + list.join(' / ') : '') +
+    sourceEl.textContent = (sourceList.length ? '出典: ' + sourceList.join(' / ') : '') +
       (result.fetchedAt ? '（取得 ' + result.fetchedAt + suffix + '）' : '') +
       (notes ? ' ' + notes : '');
+  }
+
+  // ボタン直下に「取得時刻 / ソース」を小さく表示する
+  var metaEl = $('#env-meta');
+  if (metaEl) {
+    var fetchedHM = timeFromIso_(result.fetchedAt) || nowTimeHM();
+    metaEl.textContent = fetchedHM + '取得 / ' +
+      (sourceList.length ? sourceList.join('・') : '—');
   }
 
   // 座標が揃っていれば周辺マップも更新する（AI 診断のキャプチャ対象）。
@@ -5533,6 +6516,8 @@ function resetInfraResult() {
 
   clearInfraResultDisplay();
   infraSetStatus('');
+  var meta = $('#infra-meta');
+  if (meta) meta.textContent = '';
   setButtonBusy($('#btn-infra-check'), false);
   updateInfraCoordinates();
 }
@@ -5664,6 +6649,8 @@ function renderInfraResult(result) {
     }
     detail.textContent = detailText;
   }
+
+  setActionMeta('#infra-meta', 'OpenStreetMap / Overpass API');
 }
 
 /**
@@ -6078,6 +7065,8 @@ function resetAiResult() {
   if (summary) summary.textContent = '';
   var source = $('#ai-source');
   if (source) source.textContent = '';
+  var meta = $('#ai-meta');
+  if (meta) meta.textContent = '';
   aiSetStatus('');
   setAiButtonsBusy(false);
 }
@@ -6374,6 +7363,7 @@ function handleAiMap() {
   }).then(function (out) {
     if (!out || seq !== state.entry.reqSeq) return;
     renderAiResult(out.result, out.image);
+    setActionMeta('#ai-meta', 'Gemini（BFF・地図）');
     aiSetStatus('AI診断が完了しました（周辺マップを含む）。', false);
     toast('AI診断が完了しました。', 'success');
   }).catch(function (err) {
@@ -6410,6 +7400,7 @@ function handleAiSatellite() {
   requestAiDiagnosis('conditions', null).then(function (res) {
     if (seq !== state.entry.reqSeq) return; // クリア済みの応答は破棄する
     renderAiResult(res, null);
+    setActionMeta('#ai-meta', 'Gemini（BFF・周辺情報）');
     aiSetStatus('AI診断が完了しました。', false);
     toast('AI診断が完了しました。', 'success');
   }).catch(function (err) {
@@ -6441,6 +7432,7 @@ function handleAiPhotoSelected(file) {
   }).then(function (out) {
     if (!out || seq !== state.entry.reqSeq) return;
     renderAiResult(out.result, out.image);
+    setActionMeta('#ai-meta', 'Gemini（BFF・現場写真）');
     aiSetStatus('AI診断が完了しました（現場写真を含む）。', false);
     toast('AI診断が完了しました。', 'success');
   }).catch(function (err) {
@@ -6603,19 +7595,30 @@ function handleDelegatedClick(ev) {
     return;
   }
 
+  var resumeBtn = target.closest('[data-resume-flight-id]');
+  if (resumeBtn) {
+    var resumeId = resumeBtn.getAttribute('data-resume-flight-id');
+    if (resumeId) resumeFlight(resumeId);
+    return;
+  }
+
   var itemBtn = target.closest('[data-item-btn]');
   if (itemBtn) {
     var row = itemBtn.closest('[data-item]');
     if (!row) return;
+    var host = row.closest('[data-inspection-scope]');
+    var scope = host ? host.getAttribute('data-inspection-scope') : 'pre';
+    var items = inspectionItemsFor(scope);
     var name = row.getAttribute('data-item');
     var value = itemBtn.getAttribute('data-item-btn');
-    if (state.entry.items[name] === value) {
-      delete state.entry.items[name];
+    if (items[name] === value) {
+      delete items[name];
     } else {
-      state.entry.items[name] = value;
+      items[name] = value;
     }
-    paintItemRow(name);
-    updateInspectionSummary();
+    paintItemRow(name, scope);
+    updateInspectionSummary(scope);
+    scheduleDraftSave();
     return;
   }
 
@@ -6747,9 +7750,37 @@ function bindEvents() {
   });
 
   $('#btn-all-ok').addEventListener('click', function () {
-    ITEM_NAMES.forEach(function (name) { state.entry.items[name] = 'OK'; });
-    renderInspectionItems();
+    applyAllOk('pre');
+    scheduleDraftSave();
   });
+  var allOkPost = $('#btn-all-ok-post');
+  if (allOkPost) {
+    allOkPost.addEventListener('click', function () {
+      applyAllOk('post');
+      scheduleDraftSave();
+    });
+  }
+
+  var preflightBtn = $('#btn-save-preflight');
+  if (preflightBtn) preflightBtn.addEventListener('click', handleSavePreflight);
+
+  var draftRestore = $('#btn-draft-restore');
+  if (draftRestore) {
+    draftRestore.addEventListener('click', function () {
+      restoreDraft(parseDraft(lsGet(LS.DRAFT)));
+    });
+  }
+  var draftDiscard = $('#btn-draft-discard');
+  if (draftDiscard) {
+    draftDiscard.addEventListener('click', function () {
+      clearDraft();
+      toast('下書きを破棄しました。', 'success');
+    });
+  }
+
+  // 入力のたびに下書きを退避する（デバウンスは scheduleDraftSave 側）
+  $('#entry-form').addEventListener('input', scheduleDraftSave);
+  $('#entry-form').addEventListener('change', scheduleDraftSave);
 
   $('#btn-geo').addEventListener('click', handleGeoLookup);
   $('#btn-geocode').addEventListener('click', handleAddressGeocode);
@@ -6916,9 +7947,11 @@ function init() {
   var today = todayISO();
   $('#flight-date').value = today;
   $('#inspection-date').value = today;
+  $('#inspection-post-date').value = today;
   $('#periodic-date').value = today;
   $('#entry-today').textContent = fmtDateJP(today);
   $('#inspection-inspector').value = lsGet(LS.INSPECTOR) || '';
+  $('#inspection-post-inspector').value = lsGet(LS.INSPECTOR) || '';
 
   SAVE_BUTTON_HTML = $('#save-btn').innerHTML;
 
@@ -6926,10 +7959,12 @@ function init() {
   updateInfraCoordinates();
   syncTakeoffSummary();
   switchTab(initialTab());
+  initDraftBanner();
 
   // カタログ取得前でもフォームを操作できるよう、先に選択肢を描画する
   renderCatalogControls();
-  renderInspectionItems();
+  renderInspectionItems('pre');
+  renderInspectionItems('post');
 
   loadBootstrap().catch(function () {
     // エラーは loadBootstrap 内でトースト表示済み
